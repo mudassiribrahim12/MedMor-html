@@ -1101,7 +1101,7 @@ window.downloadSlopesHiRes=function(){
 // ══════════════════════════════════════════════════════
 window.copyCitation=function(){
   const yr=new Date().getFullYear();
-  const citation=`Ibrahim, M. M. (${yr}). MedModr: A browser-based mediation and moderation analysis suite (Version 1.0) [Software]. Available from https://medmodr.vercel.app`;
+  const citation=`Ibrahim, M. M. (${yr}). MedModr: A browser-based mediation and moderation analysis suite (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
   navigator.clipboard.writeText(citation).then(()=>{
     const btn=document.getElementById('citCopyBtn');
     if(btn){const old=btn.innerHTML;btn.innerHTML='<i class="fas fa-check"></i> Copied!';btn.style.background='#047857';setTimeout(()=>{btn.innerHTML=old;btn.style.background='';},2200);}
@@ -2070,13 +2070,13 @@ window.exportWord=function(){
 <div class="app-meta">
   <strong>MedModr: Mediation &amp; Moderation Suite</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong> &nbsp;|&nbsp; Website: <a href="https://mudasiribrahim.github.io/gh/">https://mudasiribrahim.github.io/gh/</a><br>
-  App Website: <a href="https://medmodr.vercel.app">https://medmodr.vercel.app</a> &nbsp;|&nbsp; Built in Ghana 🇬🇭<br>
+  App Website: <a href="https://shinyhealthtools.github.io/medmodr/">https://shinyhealthtools.github.io/medmodr/</a> &nbsp;|&nbsp; Built in Ghana 🇬🇭<br>
   Documentation: <a href="https://shinyopensource.github.io/documentation/">https://shinyopensource.github.io/documentation/</a><br>
   Generated: ${new Date().toLocaleString()} &nbsp;|&nbsp; All computations performed client-side in the browser.
 </div>
 ${body}
 <div class="footer">
-  Ibrahim, M. M. (${yr}). <em>MedModr: A browser-based mediation and moderation analysis suite</em> (Version 1.0) [Software]. Available from https://medmodr.vercel.app
+  Ibrahim, M. M. (${yr}). <em>MedModr: A browser-based mediation and moderation analysis suite</em> (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
 </div>
 </body>
 </html>`;
