@@ -445,10 +445,9 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
     </div>
     <div class="site-footer">
       <p>
-        MedModr © <span id="yr"></span> - Present<br>
+        MedModr © <span id="yr"></span> - Present | MIT License<br>
         Free, browser-based. All computations run entirely client-side. Your data never leaves your device.<br>
-        Site built in Ghana by <a href="https://mudasiribrahim.github.io/gh/" target="_blank" rel="noopener noreferrer">Mudasir Mohammed Ibrahim</a><br>
-        <a href="https://github.com/shinyhealthtools/medmodr" target="_blank" rel="noopener noreferrer">View Source Code</a>
+        <a href="https://shinyopensource.github.io/medmodr-documentation/" target="_blank" rel="noopener noreferrer">View Full Documentation</a>
       </p>
     </div>
   </div>
@@ -1118,7 +1117,7 @@ window.copyCitation=function(){
 };
 
 // ══════════════════════════════════════════════════════
-//  DIAGRAM ENGINE — FIXED: coefficients on correct path lines, p-values everywhere
+//  DIAGRAM ENGINE 
 // ══════════════════════════════════════════════════════
 let _diagData=null,_diagMode='unstd',_diagShowP=true;
 
@@ -1153,7 +1152,7 @@ function coefLines(b, bs, p, mode, showP){
   return [line1];
 }
 
-// --- NEW: Function to get lines for the indirect effect box based on toggle ---
+//  ---Get lines for the indirect effect box based on toggle ---
 let _indirectDisplayMode = 'ci'; // 'ci' or 'pvalue'
 
 function getIndirectEffectLines(d, mode, showP) {
@@ -1166,7 +1165,7 @@ function getIndirectEffectLines(d, mode, showP) {
     const indirectZ = d.indirect_z;
     const indirectP = d.indirect_p;
     // Use bootstrap CI if available (passed from analysis results)
-    const bootCI = d.bootCI; // This will be { lo, hi } from bootstrap if available
+    const bootCI = d.bootCI; 
     
     if (_indirectDisplayMode === 'ci') {
         // Show CI format - prioritize bootstrap CI if available
@@ -1198,7 +1197,7 @@ function getIndirectEffectLines(d, mode, showP) {
     }
 }
 
-// --- NEW: Function to toggle indirect effect display mode ---
+// --- Function to toggle indirect effect display mode ---
 function toggleIndirectDisplay() {
     _indirectDisplayMode = _indirectDisplayMode === 'ci' ? 'pvalue' : 'ci';
     const btn = document.getElementById('toggleIndirectBtn');
@@ -1206,13 +1205,13 @@ function toggleIndirectDisplay() {
         btn.innerHTML = _indirectDisplayMode === 'ci' ? '<i class="fas fa-chart-line"></i> Show p-value' : '<i class="fas fa-chart-simple"></i> Show 95% CI';
         btn.classList.toggle('active', _indirectDisplayMode === 'ci');
     }
-    renderModalDiag(); // Re-render the diagram with the new setting
+    renderModalDiag(); 
 }
 
-// --- NEW: Global variable to control direct effect line style (dotted = true by default) ---
+// --- Global variable to control direct effect line style (dotted = true by default) ---
 let _useDottedDirect = true;
 
-// --- NEW: Function to toggle direct effect line style ---
+// --- Function to toggle direct effect line style ---
 function toggleDirectLineStyle() {
     _useDottedDirect = !_useDottedDirect;
     const btn = document.getElementById('toggleLineStyleBtn');
@@ -1220,7 +1219,7 @@ function toggleDirectLineStyle() {
         btn.innerHTML = _useDottedDirect ? '<i class="fas fa-solid fa-line"></i> Solid Direct Effect' : '<i class="fas fa-dashed fa-line"></i> Dotted Direct Effect';
         btn.classList.toggle('active', _useDottedDirect);
     }
-    renderModalDiag(); // Re-render the diagram with the new setting
+    renderModalDiag(); 
 }
 
 function svgNode(x,y,w,h,lbl,col='#3d5af1',bg='#eef2ff'){
@@ -1255,10 +1254,10 @@ function buildSimpleMedSVG(d, mode, showP, W, H){
   const aLines = coefLines(a, a_std, pa, mode, showP);
   const bLines = coefLines(b, b_std, pb, mode, showP);
   
-  // --- MODIFIED: Use the new indirect effect lines based on toggle ---
+  // --- Use the new indirect effect lines based on toggle ---
   const indLines = getIndirectEffectLines(d, mode, showP);
   
-  // --- MODIFIED: Use the global variable for direct effect line style ---
+  // --- Use the global variable for direct effect line style ---
   const directLineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
 
   // ALL PATHS NOW USE THE SAME COLOR (#3d5af1)
@@ -1284,7 +1283,7 @@ function buildSimpleMedSVG(d, mode, showP, W, H){
   </svg>`;
 }
 
-// ── SERIAL MEDIATION DIAGRAM ── (UPDATED: all lines toggle between dotted/solid, all straight lines, proper label boxes)
+// ── SERIAL MEDIATION DIAGRAM ── (All lines toggle between dotted/solid, all straight lines, proper label boxes)
 function buildSerialMedSVG(d, mode, showP, W, H){
   const {xn,m1n,m2n,yn,
     a1,a1_std,pa1,
@@ -1462,16 +1461,17 @@ function buildModerationSVG(d, mode, showP, W, H){
   let modLine1 = `${modPrefix} = ${modVal}${modStar ? ' ' + modStar : ''}`;
   let modLine2 = '';
   
-  // Show or hide 95% CI based on toggle (NO p-value for moderation)
+   // Show or hide 95% CI based on toggle - PRIORITIZE BOOTSTRAP CI IF AVAILABLE
   if (_indirectDisplayMode === 'ci') {
-    if (d.ci_lo_xw !== undefined && d.ci_hi_xw !== undefined && !isNaN(d.ci_lo_xw) && !isNaN(d.ci_hi_xw)) {
-      modLine2 = `95% CI [${fmtv(d.ci_lo_xw, 3)}, ${fmtv(d.ci_hi_xw, 3)}]`;
+    // Check for bootstrap CI first (passed from analysis)
+    if (d.bootCI_a3 && d.bootCI_a3.lo !== undefined && d.bootCI_a3.hi !== undefined && !isNaN(d.bootCI_a3.lo) && !isNaN(d.bootCI_a3.hi)) {
+      modLine2 = `95% CI [${fmtv(d.bootCI_a3.lo, 3)}, ${fmtv(d.bootCI_a3.hi, 3)}]`;
+    } else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && !isNaN(d.ci_lo_a3) && !isNaN(d.ci_hi_a3)) {
+      // Fall back to standard CI
+      modLine2 = `95% CI [${fmtv(d.ci_lo_a3, 3)}, ${fmtv(d.ci_hi_a3, 3)}]`;
     } else {
       modLine2 = `95% CI [N/A, N/A]`;
     }
-  } else {
-    // When toggled to "Show p-value", actually hide the CI (show nothing)
-    modLine2 = '';
   }
 
   // Adjust box height based on whether CI is shown
@@ -1510,7 +1510,7 @@ function buildModerationSVG(d, mode, showP, W, H){
   </svg>`;
 }
 
-// ── MODERATED MEDIATION DIAGRAM ──
+// ── MODERATED MEDIATION DIAGRAM ── (Arrows properly touch M box)
 function buildModMedSVG(d, mode, showP, W, H){
   const {xn,mn,yn,wn,a1,a1_std,pa1,a3,a3_std,pa3,b,b_std,pb,cp,cp_std,pcp,indexMM} = d;
   const bw=120, bh=50;
@@ -1519,44 +1519,141 @@ function buildModMedSVG(d, mode, showP, W, H){
   const yB={x:W-bw-28, y:H/2-bh/2};
   const wB={x:W/2-bw/2, y:H-bh-16};
 
-  const ax1=xB.x+bw, ay1=xB.y+bh/2-8, ax2=mB.x, ay2=mB.y+bh;
-  const bx1=mB.x+bw, by1=mB.y+bh, bx2=yB.x, by2=yB.y+bh/2-8;
-  const cpx1=xB.x+bw, cpy1=xB.y+bh/2+10, cpx2=yB.x, cpy2=yB.y+bh/2+10;
-  const modTargX = (ax1+ax2)/2;
-  const modTargY = (ay1+ay2)/2;
+  // a1 path: X → M (arrow goes to left edge of M box)
+  const ax1 = xB.x + bw;           // right edge of X
+  const ay1 = xB.y + bh/2;         // middle of X vertically
+  const ax2 = mB.x;                 // left edge of M (arrow points here)
+  const ay2 = mB.y + bh/2;          // middle of M vertically
+  
+  // b path: M → Y (arrow starts from right edge of M, goes to left edge of Y)
+  const bx1 = mB.x + bw;            // right edge of M
+  const by1 = mB.y + bh/2;          // middle of M vertically
+  const bx2 = yB.x;                 // left edge of Y (arrow points here)
+  const by2 = yB.y + bh/2;          // middle of Y vertically
+  
+  // c' direct path: X → Y
+  const cpx1 = xB.x + bw;
+  const cpy1 = xB.y + bh/2 + 10;
+  const cpx2 = yB.x;
+  const cpy2 = yB.y + bh/2 + 10;
+  
+  // Moderation target on a1 path (midpoint of X→M line)
+  const modTargX = (ax1 + ax2) / 2;
+  const modTargY = (ay1 + ay2) / 2;
 
-  const a1Lx = (ax1+ax2)/2 - 50;
-  const a1Ly = (ay1+ay2)/2;
-  const bLx  = (bx1+bx2)/2 + 50;
-  const bLy  = (by1+by2)/2;
+  // Label positions
+  const a1Lx = (ax1 + ax2)/2 - 50;
+  const a1Ly = (ay1 + ay2)/2 - 28;
+  const bLx  = (bx1 + bx2)/2 + 50;
+  const bLy  = (by1 + by2)/2;
   const cpLx = W/2;
   const cpLy = cpy1 + 28;
-  const a3Lx = (wB.x+bw/2+modTargX)/2 + 50;
-  const a3Ly = (wB.y+modTargY)/2;
 
   const a1Lines = coefLines(a1, a1_std, pa1, mode, showP);
   const bLines  = coefLines(b,  b_std,  pb,  mode, showP);
   const cpLines = [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
-  const a3Lines = coefLines(a3, a3_std, pa3, mode, showP);
 
-  const imm = indexMM!==undefined ? fmtv(indexMM,4) : 'N/A';
+  // ALL PATHS use consistent line style toggle
+  const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
 
-  return `<svg viewBox="0 0 ${W} ${H+32}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+  // Get moderation effect (a3) - coefficient always shown, CI toggled via _indirectDisplayMode
+  const modVal = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
+  const modPrefix = mode === 'std' ? 'β' : 'b';
+  const modStar = pStar(pa3);
+  
+  let modLine1 = `${modPrefix} = ${modVal}${modStar ? ' ' + modStar : ''}`;
+  let modLine2 = '';
+  
+  // Show or hide 95% CI based on toggle - PRIORITIZE BOOTSTRAP CI IF AVAILABLE
+  if (_indirectDisplayMode === 'ci') {
+    // Check for bootstrap CI first (passed from analysis)
+    if (d.bootCI_a3 && d.bootCI_a3.lo !== undefined && d.bootCI_a3.hi !== undefined && !isNaN(d.bootCI_a3.lo) && !isNaN(d.bootCI_a3.hi)) {
+      modLine2 = `95% CI [${fmtv(d.bootCI_a3.lo, 3)}, ${fmtv(d.bootCI_a3.hi, 3)}]`;
+    } else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && !isNaN(d.ci_lo_a3) && !isNaN(d.ci_hi_a3)) {
+      // Fall back to standard CI
+      modLine2 = `95% CI [${fmtv(d.ci_lo_a3, 3)}, ${fmtv(d.ci_hi_a3, 3)}]`;
+    } else {
+      modLine2 = `95% CI [N/A, N/A]`;
+    }
+  } else {
+    modLine2 = '';
+  }
+
+  // Get Index of Moderated Mediation with CI (a3 × b)
+  const indexVal = mode === 'std' ? fmtv(a3_std * b_std, 3) : fmtv(indexMM, 4);
+  const indexPrefix = mode === 'std' ? 'β' : 'b';
+  const indexStar = pStar(pa3) || pStar(pb);
+  
+  let indexLine1 = `${indexPrefix} = ${indexVal}${indexStar ? ' ' + indexStar : ''}`;
+  let indexLine2 = '';
+  
+  // Show 95% CI for index - PRIORITIZE BOOTSTRAP CI IF AVAILABLE
+  if (_indirectDisplayMode === 'ci') {
+    // Check for bootstrap CI for index first
+    if (d.bootCI_index && d.bootCI_index.lo !== undefined && d.bootCI_index.hi !== undefined && !isNaN(d.bootCI_index.lo) && !isNaN(d.bootCI_index.hi)) {
+      indexLine2 = `95% CI [${fmtv(d.bootCI_index.lo, 3)}, ${fmtv(d.bootCI_index.hi, 3)}]`;
+    } 
+    // Otherwise use delta method approximation from a3 and b CIs
+    else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && d.ci_lo_b !== undefined && d.ci_hi_b !== undefined) {
+      const a3_lo = d.ci_lo_a3;
+      const a3_hi = d.ci_hi_a3;
+      const b_lo = d.ci_lo_b;
+      const b_hi = d.ci_hi_b;
+      const products = [a3_lo * b_lo, a3_lo * b_hi, a3_hi * b_lo, a3_hi * b_hi];
+      const prodLo = Math.min(...products);
+      const prodHi = Math.max(...products);
+      indexLine2 = `95% CI [${fmtv(prodLo, 3)}, ${fmtv(prodHi, 3)}]`;
+    } else {
+      indexLine2 = `95% CI [N/A, N/A]`;
+    }
+  }
+
+  // Box heights
+  const modBoxHeight = modLine2 ? 52 : 36;
+  const indexBoxHeight = indexLine2 ? 52 : 36;
+  
+  // Position boxes side by side horizontally
+  const boxWidth = 230;
+  const boxSpacing = 20;
+  const leftBoxX = W/2 - boxWidth - boxSpacing/2;
+  const rightBoxX = W/2 + boxSpacing/2;
+  const boxesY = H + 8;
+
+  return `<svg viewBox="0 0 ${W} ${H+80}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
   ${svgDefs()}
-  ${svgNode(xB.x,xB.y,bw,bh,xn)}
-  ${svgNode(mB.x,mB.y,bw,bh,mn,'#0891b2','#e0f6fb')}
-  ${svgNode(yB.x,yB.y,bw,bh,yn)}
-  ${svgNode(wB.x,wB.y,bw,bh,wn,'#6d28d9','#f3eeff')}
-  <line x1="${ax1}" y1="${ay1}" x2="${ax2+2}" y2="${ay2+3}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
+  
+  <!-- NODES - all consistent color -->
+  ${svgNode(xB.x, xB.y, bw, bh, xn)}
+  ${svgNode(mB.x, mB.y, bw, bh, mn, '#3d5af1', '#e0f6fb')}
+  ${svgNode(yB.x, yB.y, bw, bh, yn)}
+  ${svgNode(wB.x, wB.y, bw, bh, wn, '#3d5af1', '#f3eeff')}
+  
+  <!-- a1 PATH: X → M (arrow goes directly to left edge of M box) -->
+  <line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
   ${svgLabelBox(a1Lx, a1Ly, a1Lines, '#3d5af1')}
-  <line x1="${bx1}" y1="${by1}" x2="${bx2-2}" y2="${by2+3}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
+  
+  <!-- b PATH: M → Y (arrow starts from right edge of M, goes to left edge of Y) -->
+  <line x1="${bx1}" y1="${by1}" x2="${bx2}" y2="${by2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
   ${svgLabelBox(bLx, bLy, bLines, '#3d5af1')}
-  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#8090b0" stroke-width="1.8" stroke-dasharray="8,4" marker-end="url(#arr_gray)"/>
-  ${svgLabelBox(cpLx, cpLy, cpLines, '#4a5470')}
-  <line x1="${wB.x+bw/2}" y1="${wB.y}" x2="${modTargX}" y2="${modTargY+4}" stroke="#6d28d9" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arr_violet)"/>
-  ${svgLabelBox(a3Lx, a3Ly, a3Lines, '#6d28d9')}
-  <rect x="${W/2-145}" y="${H+2}" width="290" height="24" rx="6" fill="#eef2ff" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${W/2}" y="${H+18}" text-anchor="middle" font-size="12" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Index of Moderated Mediation = ${imm}</text>
+  
+  <!-- c' DIRECT PATH: X → Y -->
+  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
+  ${svgLabelBox(cpLx, cpLy, cpLines, '#3d5af1')}
+  
+  <!-- Moderation path: W → a1 path (moderates X→M) -->
+  <line x1="${wB.x+bw/2}" y1="${wB.y}" x2="${modTargX}" y2="${modTargY}" stroke="#3d5af1" stroke-width="2" ${lineStyle} marker-end="url(#arr)"/>
+  
+  <!-- MODERATION EFFECT BOX - LEFT SIDE -->
+  <rect x="${leftBoxX}" y="${boxesY}" width="${boxWidth}" height="${modBoxHeight}" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
+  <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 16}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Moderation effect:</text>
+  <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 32}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${modLine1}</text>
+  ${modLine2 ? `<text x="${leftBoxX + boxWidth/2}" y="${boxesY + 46}" text-anchor="middle" font-size="9.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${modLine2}</text>` : ''}
+  
+  <!-- INDEX OF MODERATED MEDIATION BOX - RIGHT SIDE -->
+  <rect x="${rightBoxX}" y="${boxesY}" width="${boxWidth}" height="${indexBoxHeight}" rx="6" fill="#eef2ff" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
+  <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 16}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Index of Moderated Mediation:</text>
+  <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 32}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${indexLine1}</text>
+  ${indexLine2 ? `<text x="${rightBoxX + boxWidth/2}" y="${boxesY + 46}" text-anchor="middle" font-size="9.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${indexLine2}</text>` : ''}
   </svg>`;
 }
 
@@ -2025,16 +2122,17 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption){
   const indexPath={label:`Index of Moderated Mediation (a3×b)`,b:indexMM,b_std:a3s*bs,bold:true};
   const allCondPaths=[...condIndPaths,indexPath];
   
-  let bootHtml='';
+   let bootHtml='';
+  let bootRes = null;  // Declare outside to capture bootstrap results
   if(nBoot>0){
-    const br=bootCI_modmed(xRaw,mRaw,yRaw,wRaw,nBoot,cl,covArrays);
+    bootRes = bootCI_modmed(xRaw,mRaw,yRaw,wRaw,nBoot,cl,covArrays);
     bootHtml=`<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
       <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap (${nBoot.toLocaleString()} samples)</div>
       <div class="res-table-wrap"><table class="res-table">
         <thead><tr><th>Level of ${wn}</th><th>Effect</th><th>BootSE</th><th>BootLLCI</th><th>BootULCI</th><th>Sig?</th></tr></thead>
         <tbody>
-          ${[{l:'Low (M−1SD)',r:br.low},{l:'Mean',r:br.mid},{l:'High (M+1SD)',r:br.high}].map(({l,r})=>`<tr><td>${l}</td><td>${fmtv(r.effect)}</td><td>${fmtv(r.se)}</td><td>${fmtv(r.lo)}</td><td>${fmtv(r.hi)}</td><td>${sigLbl(r.lo,r.hi)}</td></tr>`).join('')}
-          <tr class="row-bold"><td>Index of Moderated Mediation</th><td>${fmtv(br.index.effect)}</td><td>${fmtv(br.index.se)}</td><td>${fmtv(br.index.lo)}</td><td>${fmtv(br.index.hi)}</td><td>${sigLbl(br.index.lo,br.index.hi)}</td></tr>
+          ${[{l:'Low (M−1SD)',r:bootRes.low},{l:'Mean',r:bootRes.mid},{l:'High (M+1SD)',r:bootRes.high}].map(({l,r})=>`<tr><td>${l}</td><td>${fmtv(r.effect)}</td><td>${fmtv(r.se)}</td><td>${fmtv(r.lo)}</td><td>${fmtv(r.hi)}</td><td>${sigLbl(r.lo,r.hi)}</td></tr>`).join('')}
+          <tr class="row-bold"><td>Index of Moderated Mediation</th><td>${fmtv(bootRes.index.effect)}</td><td>${fmtv(bootRes.index.se)}</td><td>${fmtv(bootRes.index.lo)}</td><td>${fmtv(bootRes.index.hi)}</td><td>${sigLbl(bootRes.index.lo,bootRes.index.hi)}</td></tr>
         </tbody>
       </table></div>
       <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the Index of Moderated Mediation CI excludes zero.</div>
@@ -2052,7 +2150,32 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption){
     perLevelIntercepts: plotIntercepts
   };
   const slopesHTML=buildSlopesHTML(plotData,xn,wn,mn);
-  const diagData={type:'modmed',xn,mn,yn,wn,a1,a1_std:a1s,pa1:rM.p[1],a3,a3_std:a3s,pa3:rM.p[3],b:bB,b_std:bs,pb:rY.p[2],cp,cp_std:cps,pcp:rY.p[1],indexMM};
+  
+    // Get bootstrap CI for index from bootRes (the a3×b product)
+  let bootCI_index = null;
+  
+  // Capture bootstrap CI for the Index of Moderated Mediation if bootstrap was run
+  if (nBoot > 0 && bootRes && bootRes.index) {
+    if (bootRes.index.lo !== undefined && bootRes.index.hi !== undefined) {
+      bootCI_index = { lo: bootRes.index.lo, hi: bootRes.index.hi };
+    }
+  }
+  
+  const diagData={
+    type:'modmed',
+    xn, mn, yn, wn,
+    a1, a1_std: a1s, pa1: rM.p[1],
+    a3, a3_std: a3s, pa3: rM.p[3],
+    b: bB, b_std: bs, pb: rY.p[2],
+    cp, cp_std: cps, pcp: rY.p[1],
+    indexMM,
+    ci_lo_a3: rM.cilo[3],
+    ci_hi_a3: rM.cihi[3],
+    ci_lo_b: rY.cilo[2],
+    ci_hi_b: rY.cihi[2],
+    bootCI_index: bootCI_index 
+  };
+  
   const iSig=rM.p[3]<.05;
   
   let methodNote = '';
