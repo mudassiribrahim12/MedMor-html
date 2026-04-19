@@ -1422,7 +1422,7 @@ function buildSerialMedSVG(d, mode, showP, W, H){
   </svg>`;
 }
 
-// ── MODERATION DIAGRAM ──
+// ── MODERATION DIAGRAM ── (Direct effect label centered under the X→Y path line, CI toggle only)
 function buildModerationSVG(d, mode, showP, W, H){
   const {xn,wn,yn,b_x,b_x_std,pb_x,b_xw,b_xw_std,pb_xw} = d;
   const bw=120, bh=50;
@@ -1430,26 +1430,83 @@ function buildModerationSVG(d, mode, showP, W, H){
   const wB={x:W/2-bw/2, y:20};
   const yB={x:W-bw-28, y:H/2-bh/2};
 
-  const mainMidX = W/2;
-  const mainMidY = xB.y+bh/2 - 28;
+  // Calculate the midpoint of the X→Y path line
+  const pathStartX = xB.x + bw;
+  const pathStartY = xB.y + bh/2;
+  const pathEndX = yB.x;
+  const pathEndY = yB.y + bh/2;
+  
+  // Direct effect label - centered under the X→Y path line
+  const directLabelX = (pathStartX + pathEndX) / 2;
+  const directLabelY = pathStartY + 28;
+  
+  // Interaction label position
   const iX = W/2;
   const iY = H/2;
 
-  const xLines  = coefLines(b_x,  b_x_std,  pb_x,  mode, showP);
-  const xwLines = coefLines(b_xw, b_xw_std, pb_xw, mode, showP);
+  const xLines = coefLines(b_x, b_x_std, pb_x, mode, showP);
+  
+  // Count how many lines we need to display (coefficient line + possibly p-value line)
+  const hasPValue = showP && xLines[1];
+  const boxHeight = hasPValue ? 54 : 36;
+  const boxWidth = 140;
+  
+  // ALL PATHS use the same line style toggle (dotted or solid)
+  const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
 
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+  // Get moderation effect - coefficient always shown, CI toggled via _indirectDisplayMode
+  const modVal = mode === 'std' ? fmtv(b_xw_std, 3) : fmtv(b_xw, 3);
+  const modPrefix = mode === 'std' ? 'β' : 'b';
+  const modStar = pStar(pb_xw);
+  
+  let modLine1 = `${modPrefix} = ${modVal}${modStar ? ' ' + modStar : ''}`;
+  let modLine2 = '';
+  
+  // Show or hide 95% CI based on toggle (NO p-value for moderation)
+  if (_indirectDisplayMode === 'ci') {
+    if (d.ci_lo_xw !== undefined && d.ci_hi_xw !== undefined && !isNaN(d.ci_lo_xw) && !isNaN(d.ci_hi_xw)) {
+      modLine2 = `95% CI [${fmtv(d.ci_lo_xw, 3)}, ${fmtv(d.ci_hi_xw, 3)}]`;
+    } else {
+      modLine2 = `95% CI [N/A, N/A]`;
+    }
+  } else {
+    // When toggled to "Show p-value", actually hide the CI (show nothing)
+    modLine2 = '';
+  }
+
+  // Adjust box height based on whether CI is shown
+  const modBoxHeight = modLine2 ? 52 : 36;
+  const modBoxY = H - (modBoxHeight + 8);
+
+  return `<svg viewBox="0 0 ${W} ${H+50}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
   ${svgDefs()}
-  ${svgNode(xB.x,xB.y,bw,bh,xn)}
-  ${svgNode(yB.x,yB.y,bw,bh,yn)}
-  ${svgNode(wB.x,wB.y,bw,bh,wn,'#6d28d9','#f3eeff')}
-  <line x1="${xB.x+bw}" y1="${xB.y+bh/2}" x2="${yB.x}" y2="${yB.y+bh/2}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
-  <line x1="${wB.x+bw/2}" y1="${wB.y+bh}" x2="${iX}" y2="${iY-14}" stroke="#6d28d9" stroke-width="2" marker-end="url(#arr_violet)"/>
-  <circle cx="${iX}" cy="${iY}" r="13" fill="white" stroke="#6d28d9" stroke-width="2"/>
-  <text x="${iX}" y="${iY+5}" text-anchor="middle" font-size="15" fill="#6d28d9" font-weight="800" font-family="Sora,sans-serif">×</text>
-  ${svgLabelBox(mainMidX, mainMidY, xLines, '#3d5af1')}
-  ${svgLabelBox(iX, iY+46, xwLines, '#6d28d9')}
-  <text x="${W/2}" y="${H-6}" text-anchor="middle" font-size="10.5" fill="#8090b0" font-family="Sora,sans-serif">${escX(xn)}×${escX(wn)} moderates X→Y</text>
+  
+  <!-- NODES -->
+  ${svgNode(xB.x, xB.y, bw, bh, xn)}
+  ${svgNode(yB.x, yB.y, bw, bh, yn)}
+  ${svgNode(wB.x, wB.y, bw, bh, wn, '#3d5af1', '#f3eeff')}
+  
+  <!-- Main effect X → Y path -->
+  <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
+  
+  <!-- Moderator W → interaction node path -->
+  <line x1="${wB.x+bw/2}" y1="${wB.y+bh}" x2="${iX}" y2="${iY-14}" stroke="#3d5af1" stroke-width="2" ${lineStyle} marker-end="url(#arr)"/>
+  
+  <!-- DIRECT EFFECT LABEL - centered under the X→Y path line -->
+  <rect x="${directLabelX - boxWidth/2}" y="${directLabelY - 8}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="white" fill-opacity=".92" stroke="#3d5af1" stroke-width="1" stroke-opacity=".35"/>
+  <text x="${directLabelX}" y="${directLabelY + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#3d5af1" font-family="Sora,sans-serif">Direct effect (c')</text>
+  <text x="${directLabelX}" y="${directLabelY + 18}" text-anchor="middle" font-size="10" font-weight="500" fill="#3d5af1" font-family="Sora,sans-serif">${xLines[0]}</text>
+  ${hasPValue ? `<text x="${directLabelX}" y="${directLabelY + 32}" text-anchor="middle" font-size="9" font-weight="400" fill="#3d5af1" font-family="Sora,sans-serif">${xLines[1]}</text>` : ''}
+  
+  <!-- Interaction circle -->
+  <circle cx="${iX}" cy="${iY}" r="13" fill="white" stroke="#3d5af1" stroke-width="2"/>
+  <text x="${iX}" y="${iY+5}" text-anchor="middle" font-size="15" fill="#3d5af1" font-weight="800" font-family="Sora,sans-serif">×</text>
+  
+  <!-- MODERATION EFFECT BOX - shows CI only when toggled, never p-value -->
+  <rect x="${W/2-160}" y="${modBoxY}" width="320" height="${modBoxHeight}" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
+  <text x="${W/2}" y="${modBoxY + 16}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Moderation effect:</text>
+  <text x="${W/2}" y="${modBoxY + 32}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${modLine1}</text>
+  ${modLine2 ? `<text x="${W/2}" y="${modBoxY + 46}" text-anchor="middle" font-size="10" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${modLine2}</text>` : ''}
   </svg>`;
 }
 
@@ -1820,7 +1877,15 @@ function runModeration(vars,covArrays,covNames,cl,centerOption){
   };
   const slopesHTML=buildSlopesHTML(plotData,xn,wn,yn);
   
-  const diagData={type:'moderation',xn,wn,yn,b_x:bx,b_x_std:bxs,pb_x:rF.p[1],b_w:bw_coef,b_w_std:bws,pb_w:rF.p[2],b_xw:bxw,b_xw_std:bxws,pb_xw:rF.p[3]};
+  const diagData={
+    type:'moderation',
+    xn, wn, yn,
+    b_x: bx, b_x_std: bxs, pb_x: rF.p[1],
+    b_w: bw_coef, b_w_std: bws, pb_w: rF.p[2],
+    b_xw: bxw, b_xw_std: bxws, pb_xw: rF.p[3],
+    ci_lo_xw: rF.cilo[3],
+    ci_hi_xw: rF.cihi[3]
+  };
   const iSig=rF.p[3]<.05;
   let methodNote = '';
   if (centerOption === 'none') {
