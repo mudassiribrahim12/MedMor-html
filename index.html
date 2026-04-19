@@ -341,13 +341,15 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
 <div class="diagram-modal" id="diagramModal">
   <div class="diagram-modal-inner">
     <button class="diagram-modal-close" onclick="closeDiagramModal()"><i class="fas fa-times"></i></button>
-    <div class="diagram-toolbar">
-      <span class="diagram-toolbar-title"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:8px"></i>Path Diagram</span>
-      <button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
-      <button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
-      <button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
-      <button class="dt-btn" onclick="downloadDiagramPNG()"><i class="fas fa-download"></i> Download PNG</button>
-    </div>
+ <div class="diagram-toolbar">
+  <span class="diagram-toolbar-title"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:8px"></i>Path Diagram</span>
+  <button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
+  <button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
+  <button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
+  <button class="dt-btn active" id="toggleIndirectBtn" onclick="toggleIndirectDisplay()"><i class="fas fa-chart-simple"></i> Show 95% CI</button>
+  <button class="dt-btn active" id="toggleLineStyleBtn" onclick="toggleDirectLineStyle()"><i class="fas fa-dashed fa-line"></i> Dotted Direct Effect</button>
+  <button class="dt-btn" onclick="downloadDiagramPNG()"><i class="fas fa-download"></i> Download PNG</button>
+</div>
     <div id="modalDiagramContainer" style="display:flex;justify-content:center;min-height:300px"></div>
   </div>
 </div>
@@ -1151,6 +1153,76 @@ function coefLines(b, bs, p, mode, showP){
   return [line1];
 }
 
+// --- NEW: Function to get lines for the indirect effect box based on toggle ---
+let _indirectDisplayMode = 'ci'; // 'ci' or 'pvalue'
+
+function getIndirectEffectLines(d, mode, showP) {
+    const indVal = mode==='std' ? fmtv(d.a_std*d.b_std, 3) : fmtv(d.indirect, 4);
+    const indPrefix = mode==='std' ? 'β' : 'b';
+    const indStar = d.indirect_p !== undefined ? pStar(d.indirect_p) : '';
+    
+    // Get the bootstrap/Sobel info from the diagram data
+    const indirectSE = d.indirect_se;
+    const indirectZ = d.indirect_z;
+    const indirectP = d.indirect_p;
+    // Use bootstrap CI if available (passed from analysis results)
+    const bootCI = d.bootCI; // This will be { lo, hi } from bootstrap if available
+    
+    if (_indirectDisplayMode === 'ci') {
+        // Show CI format - prioritize bootstrap CI if available
+        let ciLine = '';
+        if (bootCI && bootCI.lo !== undefined && bootCI.hi !== undefined && !isNaN(bootCI.lo) && !isNaN(bootCI.hi)) {
+            // Use bootstrap CI
+            ciLine = `95% CI [${fmtv(bootCI.lo, 3)}, ${fmtv(bootCI.hi, 3)}]`;
+        } else if (indirectSE !== undefined && !isNaN(indirectSE)) {
+            // Fall back to normal (Sobel) CI
+            const lo = d.indirect - 1.96 * indirectSE;
+            const hi = d.indirect + 1.96 * indirectSE;
+            ciLine = `95% CI [${fmtv(lo, 3)}, ${fmtv(hi, 3)}]`;
+        } else {
+            ciLine = `95% CI [N/A, N/A]`;
+        }
+        return [`${indPrefix} = ${indVal}${indStar?' '+indStar:''} (a×b)`, ciLine];
+    } else {
+        // Show p-value format
+        let pLine = '';
+        if (indirectP !== undefined && !isNaN(indirectP)) {
+            pLine = `p ${fmtp(indirectP)}`;
+        } else if (indirectZ !== undefined && indirectSE !== undefined && !isNaN(indirectZ)) {
+            const p = 2 * (1 - normalCDF(Math.abs(indirectZ)));
+            pLine = `p ${fmtp(p)}`;
+        } else {
+            pLine = `p N/A`;
+        }
+        return [`${indPrefix} = ${indVal}${indStar?' '+indStar:''} (a×b)`, pLine];
+    }
+}
+
+// --- NEW: Function to toggle indirect effect display mode ---
+function toggleIndirectDisplay() {
+    _indirectDisplayMode = _indirectDisplayMode === 'ci' ? 'pvalue' : 'ci';
+    const btn = document.getElementById('toggleIndirectBtn');
+    if (btn) {
+        btn.innerHTML = _indirectDisplayMode === 'ci' ? '<i class="fas fa-chart-line"></i> Show p-value' : '<i class="fas fa-chart-simple"></i> Show 95% CI';
+        btn.classList.toggle('active', _indirectDisplayMode === 'ci');
+    }
+    renderModalDiag(); // Re-render the diagram with the new setting
+}
+
+// --- NEW: Global variable to control direct effect line style (dotted = true by default) ---
+let _useDottedDirect = true;
+
+// --- NEW: Function to toggle direct effect line style ---
+function toggleDirectLineStyle() {
+    _useDottedDirect = !_useDottedDirect;
+    const btn = document.getElementById('toggleLineStyleBtn');
+    if (btn) {
+        btn.innerHTML = _useDottedDirect ? '<i class="fas fa-solid fa-line"></i> Solid Direct Effect' : '<i class="fas fa-dashed fa-line"></i> Dotted Direct Effect';
+        btn.classList.toggle('active', _useDottedDirect);
+    }
+    renderModalDiag(); // Re-render the diagram with the new setting
+}
+
 function svgNode(x,y,w,h,lbl,col='#3d5af1',bg='#eef2ff'){
   return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="11" fill="${bg}" stroke="${col}" stroke-width="2.2"/><text x="${x+w/2}" y="${y+h/2+5}" text-anchor="middle" font-size="15" font-weight="700" fill="#080d1f" font-family="Sora,sans-serif">${escX(lbl)}</text>`;
 }
@@ -1182,33 +1254,37 @@ function buildSimpleMedSVG(d, mode, showP, W, H){
 
   const aLines = coefLines(a, a_std, pa, mode, showP);
   const bLines = coefLines(b, b_std, pb, mode, showP);
-  const cpLines = [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
+  
+  // --- MODIFIED: Use the new indirect effect lines based on toggle ---
+  const indLines = getIndirectEffectLines(d, mode, showP);
+  
+  // --- MODIFIED: Use the global variable for direct effect line style ---
+  const directLineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
 
-  const indVal = mode==='std' ? fmtv(a_std*b_std, 3) : fmtv(indirect, 4);
-  const indPrefix = mode==='std' ? 'β' : 'b';
-  const indStar = indirect_p !== undefined ? pStar(indirect_p) : '';
-  let indLines = [`${indPrefix} = ${indVal}${indStar?' '+indStar:''} (a×b)`];
-  if(showP && indirect_p !== undefined){
-    indLines.push(`p ${fmtp(indirect_p)}`);
-  }
-
+  // ALL PATHS NOW USE THE SAME COLOR (#3d5af1)
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
   ${svgDefs()}
   ${svgNode(xB.x,xB.y,bw,bh,xn)}
-  ${svgNode(mB.x,mB.y,bw,bh,mn,'#0891b2','#e0f6fb')}
+  ${svgNode(mB.x,mB.y,bw,bh,mn,'#3d5af1','#e0f6fb')}
   ${svgNode(yB.x,yB.y,bw,bh,yn)}
+  <!-- a-path -->
   <line x1="${xB.x+bw}" y1="${xB.y+bh/2}" x2="${mB.x}" y2="${mB.y+bh}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
+  <!-- b-path -->
   <line x1="${mB.x+bw}" y1="${mB.y+bh}" x2="${yB.x}" y2="${yB.y+bh/2}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
-  <line x1="${xB.x+bw}" y1="${xB.y+bh/2+10}" x2="${yB.x}" y2="${yB.y+bh/2+10}" stroke="#8090b0" stroke-width="1.8" stroke-dasharray="8,4" marker-end="url(#arr_gray)"/>
+  <!-- Direct effect c'-path - style toggles between dotted and solid -->
+  <line x1="${xB.x+bw}" y1="${xB.y+bh/2+10}" x2="${yB.x}" y2="${yB.y+bh/2+10}" stroke="#3d5af1" stroke-width="1.8" ${directLineStyle} marker-end="url(#arr)"/>
   ${svgLabelBox(aMidX-20, aMidY-10, aLines, '#3d5af1')}
   ${svgLabelBox(bMidX+20, bMidY-10, bLines, '#3d5af1')}
-  ${svgLabelBox(cpMidX, cpMidY, cpLines, '#4a5470')}
-  <rect x="${W/2-130}" y="${H-36}" width="260" height="28" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#047857" stroke-width="1.5"/>
-  ${indLines.map((l,i)=>`<text x="${W/2}" y="${H-36+12+i*14}" text-anchor="middle" font-size="${i===0?12:10.5}" fill="#047857" font-weight="${i===0?'700':'500'}" font-family="Sora,sans-serif">${escX(l)}</text>`).join('')}
+  ${svgLabelBox(cpMidX, cpMidY, [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"], '#3d5af1')}
+  <!-- Increased height to accommodate the new label line -->
+  <rect x="${W/2-160}" y="${H-62}" width="320" height="54" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
+  <!-- Added "Simple indirect effect" label as first line -->
+  <text x="${W/2}" y="${H-62+14}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Simple indirect effect:</text>
+  ${indLines.map((l,i)=>`<text x="${W/2}" y="${H-62+28+i*14}" text-anchor="middle" font-size="${i===0?11:10.5}" fill="#3d5af1" font-weight="${i===0?'600':'500'}" font-family="Sora,sans-serif">${escX(l)}</text>`).join('')}
   </svg>`;
 }
 
-// ── SERIAL MEDIATION DIAGRAM ──
+// ── SERIAL MEDIATION DIAGRAM ── (UPDATED: all lines toggle between dotted/solid, all straight lines, proper label boxes)
 function buildSerialMedSVG(d, mode, showP, W, H){
   const {xn,m1n,m2n,yn,
     a1,a1_std,pa1,
@@ -1219,61 +1295,130 @@ function buildSerialMedSVG(d, mode, showP, W, H){
     cp,cp_std,pcp,
     serial_indirect} = d;
 
-  const bw=108, bh=46;
-  const xB  = {x:18,  y:H/2-bh/2+10};
-  const m1B = {x:W/4-bw/2, y:38};
-  const m2B = {x:3*W/4-bw/2, y:38};
-  const yB  = {x:W-bw-18, y:H/2-bh/2+10};
+  const bw=110, bh=46;
+  // Reposition nodes for better spacing with straight lines
+  const xB   = {x:20,  y:H/2-bh/2};
+  const m1B  = {x:W/3 - bw/2, y:28};
+  const m2B  = {x:2*W/3 - bw/2, y:28};
+  const yB   = {x:W - bw - 20, y:H/2-bh/2};
 
-  const ax1=xB.x+bw, ay1=xB.y+bh/2-5, ax2=m1B.x, ay2=m1B.y+bh;
-  const m1m2x1=m1B.x+bw, m1m2y1=m1B.y+bh/2, m1m2x2=m2B.x, m1m2y2=m2B.y+bh/2;
-  const bx1=m2B.x+bw, by1=m2B.y+bh, bx2=yB.x, by2=yB.y+bh/2-5;
-  const cpx1=xB.x+bw, cpy1=xB.y+bh-8, cpx2=yB.x, cpy2=yB.y+bh-8;
-  const a2x1=xB.x+bw/2, a2y1=xB.y+bh, a2x2=m2B.x, a2y2=m2B.y+bh;
-  const b1x1=m1B.x+bw, b1y1=m1B.y+bh, b1x2=yB.x, b1y2=yB.y+bh;
+  // STRAIGHT LINE COORDINATES - all paths now straight lines
+  // a1: X → M1 (diagonal up)
+  const a1x1 = xB.x + bw;
+  const a1y1 = xB.y + bh/2;
+  const a1x2 = m1B.x;
+  const a1y2 = m1B.y + bh;
+  
+  // d21: M1 → M2 (horizontal)
+  const d21x1 = m1B.x + bw;
+  const d21y1 = m1B.y + bh/2;
+  const d21x2 = m2B.x;
+  const d21y2 = m2B.y + bh/2;
+  
+  // b2: M2 → Y (diagonal down)
+  const b2x1 = m2B.x + bw;
+  const b2y1 = m2B.y + bh;
+  const b2x2 = yB.x;
+  const b2y2 = yB.y + bh/2;
+  
+  // c' direct: X → Y (horizontal, slightly lower)
+  const cpx1 = xB.x + bw;
+  const cpy1 = xB.y + bh/2 + 18;
+  const cpx2 = yB.x;
+  const cpy2 = yB.y + bh/2 + 18;
+  
+  // a2: X → M2 (diagonal up-right)
+  const a2x1 = xB.x + bw/2 + 15;
+  const a2y1 = xB.y + bh;
+  const a2x2 = m2B.x;
+  const a2y2 = m2B.y + bh;
+  
+  // b1: M1 → Y (diagonal down-right)
+  const b1x1 = m1B.x + bw;
+  const b1y1 = m1B.y + bh;
+  const b1x2 = yB.x;
+  const b1y2 = yB.y + bh/2 - 15;
 
-  const a1Lx = (ax1+ax2)/2 - 30;
-  const a1Ly = (ay1+ay2)/2;
-  const d21Lx = (m1m2x1+m1m2x2)/2;
-  const d21Ly = m1m2y1 - 22;
-  const b2Lx = (bx1+bx2)/2 + 30;
-  const b2Ly = (by1+by2)/2;
-  const cpLx = (cpx1+cpx2)/2;
-  const cpLy = cpy1 + 28;
-  const a2Lx = (a2x1+a2x2)/2 - 20;
-  const a2Ly = (a2y1+a2y2)/2 + 12;
-  const b1Lx = (b1x1+b1x2)/2 + 20;
-  const b1Ly = (b1y1+b1y2)/2 + 12;
+  // LABEL BOX POSITIONS (attached to each path)
+  const a1Lx = (a1x1 + a1x2)/2 - 35;
+  const a1Ly = (a1y1 + a1y2)/2 - 8;
+  const d21Lx = (d21x1 + d21x2)/2;
+  const d21Ly = d21y1 - 28;
+  const b2Lx = (b2x1 + b2x2)/2 + 25;
+  const b2Ly = (b2y1 + b2y2)/2 - 8;
+  const cpLx = (cpx1 + cpx2)/2;
+  const cpLy = cpy1 + 22;
+  const a2Lx = (a2x1 + a2x2)/2 - 15;
+  const a2Ly = (a2y1 + a2y2)/2 + 5;
+  const b1Lx = (b1x1 + b1x2)/2 + 15;
+  const b1Ly = (b1y1 + b1y2)/2 + 5;
 
+  // Get coefficient lines for each path
   const a1Lines  = coefLines(a1,  a1_std,  pa1,  mode, showP);
   const d21Lines = coefLines(d21, d21_std, pd21, mode, showP);
   const b2Lines  = coefLines(b2,  b2_std,  pb2,  mode, showP);
-  const cpLines  = [...coefLines(cp, cp_std, pcp, mode, showP), "(c')"];
+  const cpLines  = [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
   const a2Lines  = coefLines(a2,  a2_std,  pa2,  mode, showP);
   const b1Lines  = coefLines(b1,  b1_std,  pb1,  mode, showP);
 
-  const indVal = fmtv(serial_indirect, 4);
+  // Get indirect effect lines with CI/p-value toggle
+  const indVal = mode==='std' ? fmtv(a1_std*d21_std*b2_std, 3) : fmtv(serial_indirect, 4);
+  const indPrefix = mode==='std' ? 'β' : 'b';
+  
+  let indLine1 = `${indPrefix} = ${indVal}`;
+  let indLine2 = '';
+  
+  if (_indirectDisplayMode === 'ci') {
+    if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined && !isNaN(d.bootCI.lo) && !isNaN(d.bootCI.hi)) {
+      indLine2 = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
+    } else {
+      indLine2 = `95% CI [N/A, N/A]`;
+    }
+  } else {
+    indLine2 = `p N/A`;
+  }
 
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+  // ALL PATHS use the same line style toggle (dotted or solid) - not just c'
+  const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+
+  return `<svg viewBox="0 0 ${W} ${H+70}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
   ${svgDefs()}
-  ${svgNode(xB.x,xB.y,bw,bh,xn)}
-  ${svgNode(m1B.x,m1B.y,bw,bh,m1n,'#0891b2','#e0f6fb')}
-  ${svgNode(m2B.x,m2B.y,bw,bh,m2n,'#0891b2','#e0f6fb')}
-  ${svgNode(yB.x,yB.y,bw,bh,yn)}
-  <line x1="${ax1}" y1="${ay1}" x2="${ax2+2}" y2="${ay2+3}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
+  
+  <!-- NODES -->
+  ${svgNode(xB.x, xB.y, bw, bh, xn)}
+  ${svgNode(m1B.x, m1B.y, bw, bh, m1n, '#3d5af1', '#e0f6fb')}
+  ${svgNode(m2B.x, m2B.y, bw, bh, m2n, '#3d5af1', '#e0f6fb')}
+  ${svgNode(yB.x, yB.y, bw, bh, yn)}
+  
+  <!-- a1 PATH: X → M1 (straight diagonal) -->
+  <line x1="${a1x1}" y1="${a1y1}" x2="${a1x2}" y2="${a1y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
   ${svgLabelBox(a1Lx, a1Ly, a1Lines, '#3d5af1')}
-  <line x1="${m1m2x1}" y1="${m1m2y1}" x2="${m1m2x2}" y2="${m1m2y2}" stroke="#0891b2" stroke-width="2" marker-end="url(#arr_teal)"/>
-  ${svgLabelBox(d21Lx, d21Ly, d21Lines, '#0891b2')}
-  <line x1="${bx1}" y1="${by1}" x2="${bx2-2}" y2="${by2+3}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
+  
+  <!-- d21 PATH: M1 → M2 (straight horizontal) -->
+  <line x1="${d21x1}" y1="${d21y1}" x2="${d21x2}" y2="${d21y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
+  ${svgLabelBox(d21Lx, d21Ly, d21Lines, '#3d5af1')}
+  
+  <!-- b2 PATH: M2 → Y (straight diagonal) -->
+  <line x1="${b2x1}" y1="${b2y1}" x2="${b2x2}" y2="${b2y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
   ${svgLabelBox(b2Lx, b2Ly, b2Lines, '#3d5af1')}
-  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#8090b0" stroke-width="1.8" stroke-dasharray="8,4" marker-end="url(#arr_gray)"/>
-  ${svgLabelBox(cpLx, cpLy, cpLines, '#4a5470')}
-  <path d="M${a2x1},${a2y1} Q${(a2x1+a2x2)/2},${a2y1+60} ${a2x2},${a2y2}" fill="none" stroke="#6d28d9" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#arr_violet)"/>
-  ${svgLabelBox(a2Lx, a2Ly, a2Lines, '#6d28d9')}
-  <path d="M${b1x1},${b1y1} Q${(b1x1+b1x2)/2},${b1y1+60} ${b1x2},${b1y2}" fill="none" stroke="#047857" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#arr_green)"/>
-  ${svgLabelBox(b1Lx, b1Ly, b1Lines, '#047857')}
-  <rect x="${W/2-145}" y="${H-34}" width="290" height="26" rx="5" fill="#e7faf0" fill-opacity=".97" stroke="#047857" stroke-width="1"/>
-  <text x="${W/2}" y="${H-17}" text-anchor="middle" font-size="12" fill="#047857" font-weight="700" font-family="Sora,sans-serif">Serial indirect (a1·d21·b2) = ${indVal}</text>
+  
+  <!-- c' DIRECT PATH: X → Y (straight horizontal, toggles with all others) -->
+  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
+  ${svgLabelBox(cpLx, cpLy, cpLines, '#3d5af1')}
+  
+  <!-- a2 PATH: X → M2 (straight diagonal) -->
+  <line x1="${a2x1}" y1="${a2y1}" x2="${a2x2}" y2="${a2y2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
+  ${svgLabelBox(a2Lx, a2Ly, a2Lines, '#3d5af1')}
+  
+  <!-- b1 PATH: M1 → Y (straight diagonal) -->
+  <line x1="${b1x1}" y1="${b1y1}" x2="${b1x2}" y2="${b1y2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
+  ${svgLabelBox(b1Lx, b1Ly, b1Lines, '#3d5af1')}
+  
+  <!-- SERIAL INDIRECT EFFECT BOX - ENLARGED TO CONTAIN CONTENT -->
+  <rect x="${W/2-190}" y="${H-62}" width="380" height="54" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
+  <text x="${W/2}" y="${H-62+14}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Serial indirect effect (a₁·d₂₁·b₂):</text>
+  <text x="${W/2}" y="${H-62+28}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${indLine1}</text>
+  <text x="${W/2}" y="${H-62+42}" text-anchor="middle" font-size="10" fill="#3d5af1" font-weight="400" font-family="Sora,sans-serif">${indLine2}</text>
   </svg>`;
 }
 
@@ -1428,7 +1573,8 @@ function runSimpleMed(vars,covArrays,covNames,cl,nBoot){
     indirect:ind,
     indirect_se:se_sob,
     indirect_z:z_sob,
-    indirect_p:p_sob
+    indirect_p:p_sob,
+    bootCI: bootRes ? { lo: bootRes.lo, hi: bootRes.hi } : null  
   };
 
   return `${renderDesc([{name:xn,vals:xRaw},{name:mn,vals:mRaw},{name:yn,vals:yRaw}])}
@@ -1527,7 +1673,8 @@ function runSerialMed(vars,covArrays,covNames,cl,nBoot){
     a2,a2_std:a2s,pa2:rM2.p[1],
     b2,b2_std:b2s,pb2:rY.p[3],
     cp:direct,cp_std:cps,pcp:rY.p[1],
-    serial_indirect:i12
+    serial_indirect:i12,
+    bootCI: bootRes ? { lo: bootRes.xm1m2y.lo, hi: bootRes.xm1m2y.hi } : null
   };
 
   return `${renderDesc([{name:xn,vals:xRaw},{name:m1n,vals:m1Raw},{name:m2n,vals:m2Raw},{name:yn,vals:yRaw}])}
