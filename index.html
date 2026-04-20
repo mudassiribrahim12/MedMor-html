@@ -1732,7 +1732,7 @@ function toggleDirectLineStyle() {
     _useDottedDirect = !_useDottedDirect;
     const btn = document.getElementById('toggleLineStyleBtn');
     if (btn) {
-        btn.innerHTML = _useDottedDirect ? '<i class="fas fa-solid fa-line"></i> Solid Direct Effect' : '<i class="fas fa-dashed fa-line"></i> Dotted Direct Effect';
+        btn.innerHTML = '<i class="fas fa-chart-line"></i> ' + (_useDottedDirect ? 'Solid Direct Effect' : 'Dotted Direct Effect');
         btn.classList.toggle('active', _useDottedDirect);
     }
     renderModalDiag(); 
