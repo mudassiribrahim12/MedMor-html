@@ -1621,7 +1621,7 @@ window.downloadSlopesHiRes=function(){
 // ══════════════════════════════════════════════════════
 window.copyCitation=function(){
   const yr=new Date().getFullYear();
-  const citation=`Ibrahim, M. M. (${yr}). MedModr: A browser-based mediation and moderation analysis suite (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
+  const citation=`Ibrahim, M. M. (${yr}). MedModr: Mediation and moderation analysis tool (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
   navigator.clipboard.writeText(citation).then(()=>{
     const btn=document.getElementById('citCopyBtn');
     if(btn){const old=btn.innerHTML;btn.innerHTML='<i class="fas fa-check"></i> Copied!';btn.style.background='#047857';setTimeout(()=>{btn.innerHTML=old;btn.style.background='';},2200);}
@@ -2962,7 +2962,7 @@ window.exportWord=function(){
 <body>
 <h1>MedModr — Analysis Results</h1>
 <div class="app-meta">
-  <strong>MedModr: Mediation &amp; Moderation Suite</strong> (Version 1.0)<br>
+  <strong>MedModr: Mediation &amp; Moderation Tool</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong> &nbsp;|&nbsp; Website: <a href="https://mudasiribrahim.github.io/gh/">https://mudasiribrahim.github.io/gh/</a><br>
   App Website: <a href="https://shinyhealthtools.github.io/medmodr/">https://shinyhealthtools.github.io/medmodr/</a> &nbsp;|&nbsp; Built in Ghana 🇬🇭<br>
   Documentation: <a href="https://shinyopensource.github.io/medmodr-documentation/">https://shinyopensource.github.io/medmodr-documentation/</a><br>
@@ -2970,7 +2970,7 @@ window.exportWord=function(){
 </div>
 ${body}
 <div class="footer">
-  Ibrahim, M. M. (${yr}). <em>MedModr: A browser-based mediation and moderation analysis suite</em> (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
+  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
 </div>
 </body>
 </html>`;
