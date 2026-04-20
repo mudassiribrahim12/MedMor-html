@@ -2538,7 +2538,13 @@ function runModeration(vars,covArrays,covNames,cl,centerOption){
   } else {
     methodNote = '<div class="alert alert-info" style="margin-bottom:10px"><i class="fas fa-info-circle"></i>Raw X and W enter the model. The interaction term is mean-centred X × mean-centred W. Coefficients for X and W represent their effects when the other is at its mean.</div>';
   }
-  const apa=`The interaction ${xn}×${wn} predicting ${yn} was ${iSig?'statistically significant':'not significant'} (b = ${fmtv(bxw)}, SE = ${fmtv(rF.se[3])}, t = ${fmtv(rF.t[3])}, p ${fmtp(rF.p[3])}, ${confPct} CI [${fmtv(rF.cilo[3])}, ${fmtv(rF.cihi[3])}]).${iSig?` The effect of <strong>${xn}</strong> on <strong>${yn}</strong> varies with <strong>${wn}</strong>.`:' No significant moderation was found.'}`;
+  // APA-Style Summary for Moderation with clear interpretation
+  let apa = '';
+  if (iSig) {
+    apa = `The interaction ${xn}×${wn} predicting ${yn} was <strong>statistically significant</strong> (b = ${fmtv(bxw)}, SE = ${fmtv(rF.se[3])}, t = ${fmtv(rF.t[3])}, p ${fmtp(rF.p[3])}, ${confPct} CI [${fmtv(rF.cilo[3])}, ${fmtv(rF.cihi[3])}]). This indicates that the effect of <strong>${xn}</strong> on <strong>${yn}</strong> is moderated by <strong>${wn}</strong>. The simple slopes analysis should be consulted to interpret the nature of this interaction.`;
+  } else {
+    apa = `The interaction ${xn}×${wn} predicting ${yn} was <strong>not statistically significant</strong> (b = ${fmtv(bxw)}, SE = ${fmtv(rF.se[3])}, t = ${fmtv(rF.t[3])}, p ${fmtp(rF.p[3])}, ${confPct} CI [${fmtv(rF.cilo[3])}, ${fmtv(rF.cihi[3])}]). No significant moderation was found; the effect of <strong>${xn}</strong> on <strong>${yn}</strong> does not vary significantly as a function of <strong>${wn}</strong>.`;
+  }
   
   return `${renderDesc([{name:xn,vals:xRaw},{name:wn,vals:wRaw},{name:yn,vals:yRaw}])}
   <div class="panel" style="margin-bottom:18px">
@@ -2757,7 +2763,13 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption){
         ${bootHtml}
       </div>
       <div class="interp-box" style="margin-top:16px"><div class="interp-title"><i class="fas fa-lightbulb"></i> APA-Style Summary</div>
-        <div class="interp-text">The moderation of the a-path (${xn}→${mn} by ${wn}) was <strong>${iSig?'statistically significant':'not significant'}</strong> (b = ${fmtv(a3)}, SE = ${fmtv(rM.se[3])}, t = ${fmtv(rM.t[3])}, p ${fmtp(rM.p[3])}). The b-path (${mn}→${yn}) was b = ${fmtv(bB)} (SE = ${fmtv(rY.se[2])}, p ${fmtp(rY.p[2])}). Analytic Index of Moderated Mediation = ${fmtv(indexMM)}.${nBoot>0?' Bootstrap CIs shown above.':''}</div>
+        <div class="interp-text">
+          <strong>Moderation of the a-path (${xn}→${mn} by ${wn}):</strong> ${iSig ? 'Statistically significant' : 'NOT statistically significant'} (b = ${fmtv(a3)}, SE = ${fmtv(rM.se[3])}, t = ${fmtv(rM.t[3])}, p ${fmtp(rM.p[3])}, ${confPct} CI [${fmtv(rM.cilo[3])}, ${fmtv(rM.cihi[3])}]).<br><br>
+          
+          <strong>b-path (${mn}→${yn}):</strong> b = ${fmtv(bB)} (SE = ${fmtv(rY.se[2])}, t = ${fmtv(rY.t[2])}, p ${fmtp(rY.p[2])}, ${confPct} CI [${fmtv(rY.cilo[2])}, ${fmtv(rY.cihi[2])}]).<br><br>
+          
+          <strong>Index of Moderated Mediation (IMM = a₃ × b):</strong> IMM = ${fmtv(indexMM)}. ${nBoot > 0 && bootRes && bootRes.index ? `${confPct} CI [${fmtv(bootRes.index.lo, 3)}, ${fmtv(bootRes.index.hi, 3)}]. ${(bootRes.index.lo > 0 || bootRes.index.hi < 0) ? 'The CI EXCLUDES zero, indicating statistically significant moderated mediation.' : 'The CI INCLUDES zero, indicating NO significant moderated mediation.'}` : (iSig ? 'Given significant a-path moderation, moderated mediation is supported (bootstrap recommended for CI).' : 'Given non-significant a-path moderation, moderated mediation is NOT supported.')}
+        </div>
       </div>
       <div class="export-row no-export" style="margin-top:16px">
         <button class="exp-btn" onclick="copyResults()"><i class="fas fa-copy"></i> Copy</button>
