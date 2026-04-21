@@ -627,6 +627,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   <button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
   <button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
   <button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
+  <button class="dt-btn" id="toggleBwBtn" onclick="toggleBlackAndWhite()"><i class="fas fa-paint-roller"></i> Black & White</button>
   <button class="dt-btn active" id="toggleIndirectBtn" onclick="toggleIndirectDisplay()"><i class="fas fa-chart-simple"></i> Show 95% CI</button>
 <button class="dt-btn active" id="toggleLineStyleBtn" onclick="toggleDirectLineStyle()"><i class="fas fa-chart-line"></i> Dotted Direct Effect</button>
   <button class="dt-btn" onclick="downloadDiagramPNG()"><i class="fas fa-download"></i> Download PNG</button>
@@ -1752,73 +1753,207 @@ function svgDefs(){
   </defs>`;
 }
 
-// ── SIMPLE MEDIATION DIAGRAM ── (All lines properly touch the variable boxes)
-function buildSimpleMedSVG(d, mode, showP, W, H){
-  const {xn,mn,yn,a,a_std,pa,b,b_std,pb,cp,cp_std,pcp,indirect,indirect_se,indirect_z,indirect_p} = d;
-  const bw=120, bh=50;
-  
-  // Position boxes with proper spacing
-  const xB = {x: 30, y: H/2 - bh/2};           // X box (left)
-  const mB = {x: W/2 - bw/2, y: 28};           // M box (top center)
-  const yB = {x: W - bw - 30, y: H/2 - bh/2};   // Y box (right)
-  
-  // --- a-path: X → M (arrow touches the left edge of M box) ---
-  const aStartX = xB.x + bw;                    // right edge of X
-  const aStartY = xB.y + bh/2;                  // middle of X vertically
-  const aEndX = mB.x;                           // left edge of M (arrow points HERE)
-  const aEndY = mB.y + bh/2;                    // middle of M vertically
-  
-  // --- b-path: M → Y (arrow starts from right edge of M, goes to left edge of Y) ---
-  const bStartX = mB.x + bw;                    // right edge of M
-  const bStartY = mB.y + bh/2;                  // middle of M vertically
-  const bEndX = yB.x;                           // left edge of Y (arrow points HERE)
-  const bEndY = yB.y + bh/2;                    // middle of Y vertically
-  
-  // --- c' direct path: X → Y (arrow touches left edge of Y) ---
-  const cpStartX = xB.x + bw;                   // right edge of X
-  const cpStartY = xB.y + bh/2 + 18;            // slightly below middle of X
-  const cpEndX = yB.x;                          // left edge of Y (arrow points HERE)
-  const cpEndY = yB.y + bh/2 + 18;              // slightly below middle of Y
-  
-  // Label box positions (centered along each path)
-  const aMidX = (aStartX + aEndX) / 2 - 30;
-  const aMidY = (aStartY + aEndY) / 2 - 20;
-  const bMidX = (bStartX + bEndX) / 2 + 30;
-  const bMidY = (bStartY + bEndY) / 2 - 20;
-  const cpMidX = W / 2;
-  const cpMidY = cpStartY + 28;
-  
-  const aLines = coefLines(a, a_std, pa, mode, showP);
-  const bLines = coefLines(b, b_std, pb, mode, showP);
-  const indLines = getIndirectEffectLines(d, mode, showP);
-  const directLineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
-  
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
-  ${svgDefs()}
-  ${svgNode(xB.x, xB.y, bw, bh, xn)}
-  ${svgNode(mB.x, mB.y, bw, bh, mn, '#3d5af1', '#e0f6fb')}
-  ${svgNode(yB.x, yB.y, bw, bh, yn)}
-  
-  <!-- a-path: X → M (arrow touches left edge of M) -->
-  <line x1="${aStartX}" y1="${aStartY}" x2="${aEndX}" y2="${aEndY}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
-  ${svgLabelBox(aMidX, aMidY, aLines, '#3d5af1')}
-  
-  <!-- b-path: M → Y (arrow starts from right edge of M, touches left edge of Y) -->
-  <line x1="${bStartX}" y1="${bStartY}" x2="${bEndX}" y2="${bEndY}" stroke="#3d5af1" stroke-width="2.2" marker-end="url(#arr)"/>
-  ${svgLabelBox(bMidX, bMidY, bLines, '#3d5af1')}
-  
-  <!-- Direct effect c'-path: X → Y (arrow touches left edge of Y) -->
-  <line x1="${cpStartX}" y1="${cpStartY}" x2="${cpEndX}" y2="${cpEndY}" stroke="#3d5af1" stroke-width="1.8" ${directLineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(cpMidX, cpMidY, [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"], '#3d5af1')}
-  
-  <!-- Indirect effect box -->
-  <rect x="${W/2-160}" y="${H-62}" width="320" height="54" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${W/2}" y="${H-62+14}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Simple indirect effect:</text>
-  ${indLines.map((l,i)=>`<text x="${W/2}" y="${H-62+28+i*14}" text-anchor="middle" font-size="${i===0?11:10.5}" fill="#3d5af1" font-weight="${i===0?'600':'500'}" font-family="Sora,sans-serif">${escX(l)}</text>`).join('')}
-  </svg>`;
+// ── SIMPLE MEDIATION DIAGRAM (Auto text wrap + Black/White toggle) ──
+
+// Helper: Auto-wrap long text
+function autoWrapText(text, maxCharsPerLine) {
+    if (!text) return [''];
+    if (text.length <= maxCharsPerLine) return [text];
+    
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    for (let word of words) {
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+        if (testLine.length <= maxCharsPerLine) {
+            currentLine = testLine;
+        } else {
+            if (currentLine) lines.push(currentLine);
+            currentLine = word;
+        }
+    }
+    if (currentLine) lines.push(currentLine);
+    return lines;
 }
 
-// ── SERIAL MEDIATION DIAGRAM ── (All lines properly touch card edges, no lines extend inside)
+// Helper: Get colors based on mode
+function getDiagramColors() {
+    if (_useBlackAndWhite) {
+        return {
+            nodeStroke: '#000000',
+            nodeFill: '#ffffff',
+            nodeText: '#000000',
+            lineStroke: '#000000',
+            markerFill: '#000000',
+            labelStroke: '#000000',
+            labelFill: '#ffffff',
+            labelText: '#000000',
+            boxStroke: '#000000',
+            boxFill: '#ffffff',
+            boxText: '#000000'
+        };
+    }
+    return {
+        nodeStroke: '#3d5af1',
+        nodeFill: '#eef2ff',
+        nodeText: '#080d1f',
+        lineStroke: '#3d5af1',
+        markerFill: '#3d5af1',
+        labelStroke: '#3d5af1',
+        labelFill: '#ffffff',
+        labelText: '#3d5af1',
+        boxStroke: '#3d5af1',
+        boxFill: '#e7faf0',
+        boxText: '#3d5af1'
+    };
+}
+
+// Helper: Draw node with auto-wrapped text
+function drawNode(x, y, w, h, label, isMediator = false) {
+    const colors = getDiagramColors();
+    const maxChars = Math.floor(w / 8);
+    const lines = autoWrapText(label, maxChars);
+    const lineHeight = 16;
+    const startY = y + (h - (lines.length * lineHeight)) / 2 + lineHeight - 4;
+    
+    let textElements = '';
+    lines.forEach((line, i) => {
+        textElements += `<text x="${x + w/2}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="13" font-weight="700" fill="${colors.nodeText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
+    });
+    
+    const fillColor = isMediator && !_useBlackAndWhite ? '#e0f6fb' : colors.nodeFill;
+    
+    return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="11" fill="${fillColor}" stroke="${colors.nodeStroke}" stroke-width="2.2"/>${textElements}`;
+}
+
+// Helper: Draw label box with auto-wrapped text
+function drawLabelBox(cx, cy, lines, maxWidth = 130) {
+    const colors = getDiagramColors();
+    const fs = 10.5, lh = 15, padX = 8, padY = 4;
+    const maxChars = Math.floor(maxWidth / 6.5);
+    
+    const wrappedLines = [];
+    lines.forEach(line => {
+        wrappedLines.push(...autoWrapText(line, maxChars));
+    });
+    
+    const totalH = wrappedLines.length * lh + padY * 2;
+    const x = cx - maxWidth/2;
+    const y = cy - totalH/2;
+    
+    const texts = wrappedLines.map((l, i) => 
+        `<text x="${cx}" y="${y + padY + fs + i*lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
+    ).join('');
+    
+    return `<rect x="${x}" y="${y}" width="${maxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
+}
+
+// Helper: Escape XML
+function escapeXml(str) {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Helper: Format coefficient lines
+function formatCoefLines(b, b_std, p, mode, showP) {
+    const val = mode === 'std' ? fmtv(b_std, 3) : fmtv(b, 3);
+    const star = showP ? pStar(p) : '';
+    const prefix = mode === 'std' ? 'β' : 'b';
+    const line1 = `${prefix} = ${val}${star ? ' ' + star : ''}`;
+    if (showP && p !== undefined) {
+        return [line1, `p ${fmtp(p)}`];
+    }
+    return [line1];
+}
+
+// Helper: Get indirect effect lines
+function getIndirectLines(d, mode, showP) {
+    const indVal = mode === 'std' ? fmtv(d.a_std * d.b_std, 3) : fmtv(d.indirect, 4);
+    const prefix = mode === 'std' ? 'β' : 'b';
+    const star = showP && d.indirect_p !== undefined ? pStar(d.indirect_p) : '';
+    const line1 = `${prefix} = ${indVal}${star ? ' ' + star : ''} (a×b)`;
+    
+    let line2 = '';
+    if (_indirectDisplayMode === 'ci') {
+        if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined) {
+            line2 = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
+        } else if (d.indirect_se !== undefined && !isNaN(d.indirect_se)) {
+            const lo = d.indirect - 1.96 * d.indirect_se;
+            const hi = d.indirect + 1.96 * d.indirect_se;
+            line2 = `95% CI [${fmtv(lo, 3)}, ${fmtv(hi, 3)}]`;
+        } else {
+            line2 = `95% CI [N/A, N/A]`;
+        }
+    } else {
+        line2 = showP && d.indirect_p !== undefined ? `p ${fmtp(d.indirect_p)}` : `p N/A`;
+    }
+    return [line1, line2];
+}
+
+// MAIN SIMPLE MEDIATION DIAGRAM FUNCTION - FIXED (removed diagramSettings reference)
+function buildSimpleMedSVG(d, mode, showP, W, H) {
+    const { xn, mn, yn, a, a_std, pa, b, b_std, pb, cp, cp_std, pcp } = d;
+    const colors = getDiagramColors();
+    const bw = 130;  // Fixed width
+    const bh = 55;   // Fixed height
+    
+    // Node positions
+    const xB = { x: 25, y: H/2 - bh/2 };
+    const mB = { x: W/2 - bw/2, y: 25 };
+    const yB = { x: W - bw - 25, y: H/2 - bh/2 };
+    
+    // Path coordinates
+    const aStart = { x: xB.x + bw, y: xB.y + bh/2 };
+    const aEnd = { x: mB.x, y: mB.y + bh/2 };
+    
+    const bStart = { x: mB.x + bw, y: mB.y + bh/2 };
+    const bEnd = { x: yB.x, y: yB.y + bh/2 };
+    
+    const cpStart = { x: xB.x + bw, y: xB.y + bh/2 + 18 };
+    const cpEnd = { x: yB.x, y: yB.y + bh/2 + 18 };
+    
+    // Label positions
+    const aMid = { x: (aStart.x + aEnd.x) / 2 - 35, y: (aStart.y + aEnd.y) / 2 - 22 };
+    const bMid = { x: (bStart.x + bEnd.x) / 2 + 35, y: (bStart.y + bEnd.y) / 2 - 22 };
+    const cpMid = { x: W / 2, y: cpStart.y + 30 };
+    
+    // Format lines
+    const aLines = formatCoefLines(a, a_std, pa, mode, showP);
+    const bLines = formatCoefLines(b, b_std, pb, mode, showP);
+    const cpLines = [...formatCoefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
+    const indLines = getIndirectLines(d, mode, showP);
+    
+    const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+    const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
+    
+    // Build marker defs
+    const markerDefs = _useBlackAndWhite ? 
+        '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+        '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
+    
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+    <defs>${markerDefs}</defs>
+    
+    ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+    ${drawNode(mB.x, mB.y, bw, bh, mn, true)}
+    ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+    
+    <line x1="${aStart.x}" y1="${aStart.y}" x2="${aEnd.x}" y2="${aEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
+    ${drawLabelBox(aMid.x, aMid.y, aLines, 120)}
+    
+    <line x1="${bStart.x}" y1="${bStart.y}" x2="${bEnd.x}" y2="${bEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
+    ${drawLabelBox(bMid.x, bMid.y, bLines, 120)}
+    
+    <line x1="${cpStart.x}" y1="${cpStart.y}" x2="${cpEnd.x}" y2="${cpEnd.y}" stroke="${colors.lineStroke}" stroke-width="1.8" ${directStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(cpMid.x, cpMid.y, cpLines, 140)}
+    
+    <rect x="${W/2-170}" y="${H-68}" width="340" height="60" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${W/2}" y="${H-68+14}" text-anchor="middle" font-size="11" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Simple indirect effect:</text>
+    ${indLines.map((l, i) => `<text x="${W/2}" y="${H-68+30+i*16}" text-anchor="middle" font-size="${i === 0 ? 11 : 10}" font-weight="${i === 0 ? '600' : '500'}" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`).join('')}
+    </svg>`;
+}
+
+// ── SERIAL MEDIATION DIAGRAM (Auto text wrap + Black/White toggle) ──
 function buildSerialMedSVG(d, mode, showP, W, H){
   const {xn,m1n,m2n,yn,
     a1,a1_std,pa1,
@@ -1829,74 +1964,74 @@ function buildSerialMedSVG(d, mode, showP, W, H){
     cp,cp_std,pcp,
     serial_indirect} = d;
 
-  const bw = 110, bh = 46;
+  const colors = getDiagramColors();
+  const bw = 120, bh = 50;
   
-  // Position nodes for clean straight-line paths
-  const xB   = {x: 20,                y: H/2 - bh/2};        // X (left, middle)
-  const m1B  = {x: W/3 - bw/2,        y: 28};                // M1 (top center-left)
-  const m2B  = {x: 2*W/3 - bw/2,      y: 28};                // M2 (top center-right)
-  const yB   = {x: W - bw - 20,        y: H/2 - bh/2};        // Y (right, middle)
+  // Position nodes
+  const xB   = {x: 20,                y: H/2 - bh/2};
+  const m1B  = {x: W/3 - bw/2,        y: 28};
+  const m2B  = {x: 2*W/3 - bw/2,      y: 28};
+  const yB   = {x: W - bw - 20,        y: H/2 - bh/2};
   
-  // ─── a1 PATH: X → M1 (arrow touches left edge of M1 at middle height) ───
-  const a1x1 = xB.x + bw;               // right edge of X
-  const a1y1 = xB.y + bh/2;             // middle of X vertically
-  const a1x2 = m1B.x;                   // left edge of M1 (arrow points HERE)
-  const a1y2 = m1B.y + bh/2;            // middle of M1 vertically
+  // a1 PATH: X → M1
+  const a1x1 = xB.x + bw;
+  const a1y1 = xB.y + bh/2;
+  const a1x2 = m1B.x;
+  const a1y2 = m1B.y + bh/2;
   
-  // ─── d21 PATH: M1 → M2 (arrow touches left edge of M2 at middle height) ───
-  const d21x1 = m1B.x + bw;             // right edge of M1
-  const d21y1 = m1B.y + bh/2;           // middle of M1 vertically
-  const d21x2 = m2B.x;                  // left edge of M2 (arrow points HERE)
-  const d21y2 = m2B.y + bh/2;           // middle of M2 vertically
+  // d21 PATH: M1 → M2
+  const d21x1 = m1B.x + bw;
+  const d21y1 = m1B.y + bh/2;
+  const d21x2 = m2B.x;
+  const d21y2 = m2B.y + bh/2;
   
-  // ─── b2 PATH: M2 → Y (arrow touches left edge of Y at middle height) ───
-  const b2x1 = m2B.x + bw;              // right edge of M2
-  const b2y1 = m2B.y + bh/2;            // middle of M2 vertically
-  const b2x2 = yB.x;                    // left edge of Y (arrow points HERE)
-  const b2y2 = yB.y + bh/2;             // middle of Y vertically
+  // b2 PATH: M2 → Y
+  const b2x1 = m2B.x + bw;
+  const b2y1 = m2B.y + bh/2;
+  const b2x2 = yB.x;
+  const b2y2 = yB.y + bh/2;
   
-  // ─── c' DIRECT PATH: X → Y (arrow touches left edge of Y, slightly lower) ───
-  const cpx1 = xB.x + bw;               // right edge of X
-  const cpy1 = xB.y + bh/2 + 18;        // slightly below middle of X
-  const cpx2 = yB.x;                    // left edge of Y (arrow points HERE)
-  const cpy2 = yB.y + bh/2 + 18;        // slightly below middle of Y
+  // c' DIRECT PATH: X → Y
+  const cpx1 = xB.x + bw;
+  const cpy1 = xB.y + bh/2 + 18;
+  const cpx2 = yB.x;
+  const cpy2 = yB.y + bh/2 + 18;
   
-  // ─── a2 PATH: X → M2 (starts at RIGHT edge of X, ends at LEFT edge of M2) ───
-  // FIXED: No longer starts inside X card
-  const a2x1 = xB.x + bw;               // RIGHT edge of X (starts at edge, not inside)
-  const a2y1 = xB.y + bh - 8;           // bottom of X (near bottom-right corner)
-  const a2x2 = m2B.x;                   // LEFT edge of M2 (arrow points HERE)
-  const a2y2 = m2B.y + bh - 8;          // bottom of M2
+  // a2 PATH: X → M2
+  const a2x1 = xB.x + bw;
+  const a2y1 = xB.y + bh - 8;
+  const a2x2 = m2B.x;
+  const a2y2 = m2B.y + bh - 8;
   
-  // ─── b1 PATH: M1 → Y (starts at RIGHT edge of M1, ends at LEFT edge of Y) ───
-  const b1x1 = m1B.x + bw;              // RIGHT edge of M1
-  const b1y1 = m1B.y + bh - 8;          // bottom of M1
-  const b1x2 = yB.x;                    // LEFT edge of Y (arrow points HERE)
-  const b1y2 = yB.y + bh/2 - 15;        // slightly above middle of Y
+  // b1 PATH: M1 → Y
+  const b1x1 = m1B.x + bw;
+  const b1y1 = m1B.y + bh - 8;
+  const b1x2 = yB.x;
+  const b1y2 = yB.y + bh/2 - 15;
   
-  // ─── LABEL BOX POSITIONS ───
+  // Label positions
   const a1Lx  = (a1x1 + a1x2) / 2 - 40;
-  const a1Ly  = (a1y1 + a1y2) / 2 - 20;
+  const a1Ly  = (a1y1 + a1y2) / 2 - 22;
   const d21Lx = (d21x1 + d21x2) / 2;
-  const d21Ly = d21y1 - 30;
-  const b2Lx  = (b2x1 + b2x2) / 2 + 30;
-  const b2Ly  = (b2y1 + b2y2) / 2 - 20;
+  const d21Ly = d21y1 - 32;
+  const b2Lx  = (b2x1 + b2x2) / 2 + 35;
+  const b2Ly  = (b2y1 + b2y2) / 2 - 22;
   const cpLx  = (cpx1 + cpx2) / 2;
-  const cpLy  = cpy1 + 25;
-  const a2Lx  = (a2x1 + a2x2) / 2 - 20;
-  const a2Ly  = (a2y1 + a2y2) / 2 + 8;
-  const b1Lx  = (b1x1 + b1x2) / 2 + 20;
-  const b1Ly  = (b1y1 + b1y2) / 2 + 8;
+  const cpLy  = cpy1 + 28;
+  const a2Lx  = (a2x1 + a2x2) / 2 - 25;
+  const a2Ly  = (a2y1 + a2y2) / 2 + 10;
+  const b1Lx  = (b1x1 + b1x2) / 2 + 25;
+  const b1Ly  = (b1y1 + b1y2) / 2 + 10;
   
-  // ─── COEFFICIENT LINES ───
-  const a1Lines  = coefLines(a1,  a1_std,  pa1,  mode, showP);
-  const d21Lines = coefLines(d21, d21_std, pd21, mode, showP);
-  const b2Lines  = coefLines(b2,  b2_std,  pb2,  mode, showP);
-  const cpLines  = [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
-  const a2Lines  = coefLines(a2,  a2_std,  pa2,  mode, showP);
-  const b1Lines  = coefLines(b1,  b1_std,  pb1,  mode, showP);
+  // Format lines with auto-wrap
+  const a1Lines  = formatCoefLines(a1, a1_std, pa1, mode, showP);
+  const d21Lines = formatCoefLines(d21, d21_std, pd21, mode, showP);
+  const b2Lines  = formatCoefLines(b2, b2_std, pb2, mode, showP);
+  const cpLines  = [...formatCoefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
+  const a2Lines  = formatCoefLines(a2, a2_std, pa2, mode, showP);
+  const b1Lines  = formatCoefLines(b1, b1_std, pb1, mode, showP);
   
-  // ─── INDIRECT EFFECT LINES ───
+  // Indirect effect lines
   const indVal = mode === 'std' ? fmtv(a1_std * d21_std * b2_std, 3) : fmtv(serial_indirect, 4);
   const indPrefix = mode === 'std' ? 'β' : 'b';
   let indLine1 = `${indPrefix} = ${indVal}`;
@@ -1913,90 +2048,96 @@ function buildSerialMedSVG(d, mode, showP, W, H){
   }
   
   const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
   
-  return `<svg viewBox="0 0 ${W} ${H + 70}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
-  ${svgDefs()}
+  const markerDefs = _useBlackAndWhite ? 
+    '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+    '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
   
-  <!-- NODES -->
-  ${svgNode(xB.x, xB.y, bw, bh, xn)}
-  ${svgNode(m1B.x, m1B.y, bw, bh, m1n, '#3d5af1', '#e0f6fb')}
-  ${svgNode(m2B.x, m2B.y, bw, bh, m2n, '#3d5af1', '#e0f6fb')}
-  ${svgNode(yB.x, yB.y, bw, bh, yn)}
-  
-  <!-- a1 PATH: X → M1 (touches left edge of M1) -->
-  <line x1="${a1x1}" y1="${a1y1}" x2="${a1x2}" y2="${a1y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(a1Lx, a1Ly, a1Lines, '#3d5af1')}
-  
-  <!-- d21 PATH: M1 → M2 (touches left edge of M2) -->
-  <line x1="${d21x1}" y1="${d21y1}" x2="${d21x2}" y2="${d21y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(d21Lx, d21Ly, d21Lines, '#3d5af1')}
-  
-  <!-- b2 PATH: M2 → Y (touches left edge of Y) -->
-  <line x1="${b2x1}" y1="${b2y1}" x2="${b2x2}" y2="${b2y2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(b2Lx, b2Ly, b2Lines, '#3d5af1')}
-  
-  <!-- c' DIRECT PATH: X → Y (touches left edge of Y) -->
-  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(cpLx, cpLy, cpLines, '#3d5af1')}
-  
-  <!-- a2 PATH: X → M2 (starts at RIGHT edge of X, ends at LEFT edge of M2) -->
-  <line x1="${a2x1}" y1="${a2y1}" x2="${a2x2}" y2="${a2y2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(a2Lx, a2Ly, a2Lines, '#3d5af1')}
-  
-  <!-- b1 PATH: M1 → Y (starts at RIGHT edge of M1, ends at LEFT edge of Y) -->
-  <line x1="${b1x1}" y1="${b1y1}" x2="${b1x2}" y2="${b1y2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(b1Lx, b1Ly, b1Lines, '#3d5af1')}
-  
-  <!-- SERIAL INDIRECT EFFECT BOX -->
-  <rect x="${W/2 - 190}" y="${H - 62}" width="380" height="54" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${W/2}" y="${H - 62 + 14}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Serial indirect effect (a₁·d₂₁·b₂):</text>
-  <text x="${W/2}" y="${H - 62 + 28}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${indLine1}</text>
-  <text x="${W/2}" y="${H - 62 + 42}" text-anchor="middle" font-size="10" fill="#3d5af1" font-weight="400" font-family="Sora,sans-serif">${indLine2}</text>
-  </svg>`;
+  return `<svg viewBox="0 0 ${W} ${H + 80}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+    <defs>${markerDefs}</defs>
+    
+    ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+    ${drawNode(m1B.x, m1B.y, bw, bh, m1n, true)}
+    ${drawNode(m2B.x, m2B.y, bw, bh, m2n, true)}
+    ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+    
+    <!-- a1 PATH -->
+    <line x1="${a1x1}" y1="${a1y1}" x2="${a1x2}" y2="${a1y2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(a1Lx, a1Ly, a1Lines, 120)}
+    
+    <!-- d21 PATH -->
+    <line x1="${d21x1}" y1="${d21y1}" x2="${d21x2}" y2="${d21y2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(d21Lx, d21Ly, d21Lines, 120)}
+    
+    <!-- b2 PATH -->
+    <line x1="${b2x1}" y1="${b2y1}" x2="${b2x2}" y2="${b2y2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(b2Lx, b2Ly, b2Lines, 120)}
+    
+    <!-- c' DIRECT PATH -->
+    <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(cpLx, cpLy, cpLines, 140)}
+    
+    <!-- a2 PATH -->
+    <line x1="${a2x1}" y1="${a2y1}" x2="${a2x2}" y2="${a2y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(a2Lx, a2Ly, a2Lines, 120)}
+    
+    <!-- b1 PATH -->
+    <line x1="${b1x1}" y1="${b1y1}" x2="${b1x2}" y2="${b1y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(b1Lx, b1Ly, b1Lines, 120)}
+    
+    <!-- SERIAL INDIRECT EFFECT BOX -->
+    <rect x="${W/2 - 190}" y="${H - 68}" width="380" height="60" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${W/2}" y="${H - 68 + 14}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Serial indirect effect (a₁·d₂₁·b₂):</text>
+    <text x="${W/2}" y="${H - 68 + 30}" text-anchor="middle" font-size="10.5" font-weight="500" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(indLine1)}</text>
+    <text x="${W/2}" y="${H - 68 + 46}" text-anchor="middle" font-size="10" font-weight="400" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(indLine2)}</text>
+    </svg>`;
 }
 
-// ── MODERATION DIAGRAM ── (Moderator arrow points directly to X→Y line, no circle)
+// ── MODERATION DIAGRAM (Auto text wrap + Black/White toggle) ──
 function buildModerationSVG(d, mode, showP, W, H){
   const {xn,wn,yn,b_x,b_x_std,pb_x,b_xw,b_xw_std,pb_xw} = d;
+  const colors = getDiagramColors();
   const bw = 120, bh = 50;
   
   // Position boxes
-  const xB = {x: 28, y: H/2 - bh/2};              // X box (left)
-  const wB = {x: W/2 - bw/2, y: 20};              // W box (top center)
-  const yB = {x: W - bw - 28, y: H/2 - bh/2};     // Y box (right)
+  const xB = {x: 28, y: H/2 - bh/2};
+  const wB = {x: W/2 - bw/2, y: 20};
+  const yB = {x: W - bw - 28, y: H/2 - bh/2};
   
-  // X → Y path line coordinates
-  const pathStartX = xB.x + bw;                    // right edge of X
-  const pathStartY = xB.y + bh/2;                  // middle of X vertically
-  const pathEndX = yB.x;                           // left edge of Y
-  const pathEndY = yB.y + bh/2;                    // middle of Y vertically
+  // X → Y path coordinates
+  const pathStartX = xB.x + bw;
+  const pathStartY = xB.y + bh/2;
+  const pathEndX = yB.x;
+  const pathEndY = yB.y + bh/2;
   
-  // Find the point where the moderator arrow should hit the X→Y line
-  // This is the midpoint of the X→Y line
+  // Hit point for moderator arrow
   const hitPointX = (pathStartX + pathEndX) / 2;
   const hitPointY = (pathStartY + pathEndY) / 2;
   
-  // Moderator arrow: starts from bottom center of W box, goes to hit point on X→Y line
-  const wArrowStartX = wB.x + bw/2;                // bottom center of W box
-  const wArrowStartY = wB.y + bh;                  // bottom edge of W box
-  const wArrowEndX = hitPointX;                    // hit point on X→Y line
-  const wArrowEndY = hitPointY;                    // hit point on X→Y line
+  // Moderator arrow coordinates
+  const wArrowStartX = wB.x + bw/2;
+  const wArrowStartY = wB.y + bh;
+  const wArrowEndX = hitPointX;
+  const wArrowEndY = hitPointY;
   
-  // Direct effect label position (centered under the X→Y line)
+  // Direct effect label position
   const directLabelX = hitPointX;
-  const directLabelY = pathStartY + 28;
+  const directLabelY = pathStartY + 32;
   
-  const xLines = coefLines(b_x, b_x_std, pb_x, mode, showP);
-  const hasPValue = showP && xLines[1];
-  const boxHeight = hasPValue ? 54 : 36;
+  // Format coefficient lines with auto-wrap
+  const xLines = formatCoefLines(b_x, b_x_std, pb_x, mode, showP);
+  const hasPValue = showP && xLines.length > 1;
+  const boxHeight = hasPValue ? 54 : 38;
   const boxWidth = 140;
   
   const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
   
   // Moderation effect display
   const modVal = mode === 'std' ? fmtv(b_xw_std, 3) : fmtv(b_xw, 3);
   const modPrefix = mode === 'std' ? 'β' : 'b';
-  const modStar = pStar(pb_xw);
+  const modStar = showP ? pStar(pb_xw) : '';
   
   let modLine1 = `${modPrefix} = ${modVal}${modStar ? ' ' + modStar : ''}`;
   let modLine2 = '';
@@ -2009,57 +2150,64 @@ function buildModerationSVG(d, mode, showP, W, H){
     }
   }
   
-  const modBoxHeight = modLine2 ? 52 : 36;
-  const modBoxY = H - (modBoxHeight + 8);
+  const modBoxHeight = modLine2 ? 54 : 38;
+  const modBoxY = H - (modBoxHeight + 10);
   
-  return `<svg viewBox="0 0 ${W} ${H + 50}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
-  ${svgDefs()}
+  // Marker definitions
+  const markerDefs = _useBlackAndWhite ? 
+    '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+    '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
   
-  <!-- NODES -->
-  ${svgNode(xB.x, xB.y, bw, bh, xn)}
-  ${svgNode(yB.x, yB.y, bw, bh, yn)}
-  ${svgNode(wB.x, wB.y, bw, bh, wn, '#3d5af1', '#f3eeff')}
-  
-  <!-- Main effect X → Y path -->
-  <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  
-  <!-- Moderator W → arrow points DIRECTLY to the X→Y line (no circle) -->
-  <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}" stroke="#3d5af1" stroke-width="2" ${lineStyle} marker-end="url(#arr)"/>
-  
-  <!-- DIRECT EFFECT LABEL - centered under the X→Y path line -->
-  <rect x="${directLabelX - boxWidth/2}" y="${directLabelY - 8}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="white" fill-opacity=".92" stroke="#3d5af1" stroke-width="1" stroke-opacity=".35"/>
-  <text x="${directLabelX}" y="${directLabelY + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#3d5af1" font-family="Sora,sans-serif">Direct effect (c')</text>
-  <text x="${directLabelX}" y="${directLabelY + 18}" text-anchor="middle" font-size="10" font-weight="500" fill="#3d5af1" font-family="Sora,sans-serif">${xLines[0]}</text>
-  ${hasPValue ? `<text x="${directLabelX}" y="${directLabelY + 32}" text-anchor="middle" font-size="9" font-weight="400" fill="#3d5af1" font-family="Sora,sans-serif">${xLines[1]}</text>` : ''}
-  
-  <!-- MODERATION EFFECT BOX -->
-  <rect x="${W/2 - 160}" y="${modBoxY}" width="320" height="${modBoxHeight}" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${W/2}" y="${modBoxY + 16}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Moderation effect:</text>
-  <text x="${W/2}" y="${modBoxY + 32}" text-anchor="middle" font-size="11" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${modLine1}</text>
-  ${modLine2 ? `<text x="${W/2}" y="${modBoxY + 46}" text-anchor="middle" font-size="10" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${modLine2}</text>` : ''}
-  </svg>`;
+  return `<svg viewBox="0 0 ${W} ${H + 60}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+    <defs>${markerDefs}</defs>
+    
+    ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+    ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+    ${drawNode(wB.x, wB.y, bw, bh, wn, false)}
+    
+    <!-- Main effect X → Y path -->
+    <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    
+    <!-- Moderator W → arrow points to X→Y line -->
+    <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    
+    <!-- DIRECT EFFECT LABEL -->
+    <rect x="${directLabelX - boxWidth/2}" y="${directLabelY - 8}" width="${boxWidth}" height="${boxHeight}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>
+    <text x="${directLabelX}" y="${directLabelY + 5}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.labelText}" font-family="Sora,sans-serif">Direct effect (c')</text>
+    <text x="${directLabelX}" y="${directLabelY + 20}" text-anchor="middle" font-size="10" font-weight="500" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(xLines[0])}</text>
+    ${hasPValue ? `<text x="${directLabelX}" y="${directLabelY + 35}" text-anchor="middle" font-size="9" font-weight="400" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(xLines[1])}</text>` : ''}
+    
+    <!-- MODERATION EFFECT BOX -->
+    <rect x="${W/2 - 170}" y="${modBoxY}" width="340" height="${modBoxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${W/2}" y="${modBoxY + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Moderation effect (X×W):</text>
+    <text x="${W/2}" y="${modBoxY + 34}" text-anchor="middle" font-size="11" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine1)}</text>
+    ${modLine2 ? `<text x="${W/2}" y="${modBoxY + 48}" text-anchor="middle" font-size="9.5" font-weight="500" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine2)}</text>` : ''}
+    </svg>`;
 }
 
-// ── MODERATED MEDIATION DIAGRAM ── (Arrows properly touch M box)
+// ── MODERATED MEDIATION DIAGRAM (Auto text wrap + Black/White toggle) ──
 function buildModMedSVG(d, mode, showP, W, H){
   const {xn,mn,yn,wn,a1,a1_std,pa1,a3,a3_std,pa3,b,b_std,pb,cp,cp_std,pcp,indexMM} = d;
-  const bw=120, bh=50;
-  const xB={x:28,  y:H/2-bh/2};
-  const mB={x:W/2-bw/2, y:26};
-  const yB={x:W-bw-28, y:H/2-bh/2};
-  const wB={x:W/2-bw/2, y:H-bh-16};
-
-  // a1 path: X → M (arrow goes to left edge of M box)
-  const ax1 = xB.x + bw;           // right edge of X
-  const ay1 = xB.y + bh/2;         // middle of X vertically
-  const ax2 = mB.x;                 // left edge of M (arrow points here)
-  const ay2 = mB.y + bh/2;          // middle of M vertically
+  const colors = getDiagramColors();
+  const bw = 120, bh = 50;
   
-  // b path: M → Y (arrow starts from right edge of M, goes to left edge of Y)
-  const bx1 = mB.x + bw;            // right edge of M
-  const by1 = mB.y + bh/2;          // middle of M vertically
-  const bx2 = yB.x;                 // left edge of Y (arrow points here)
-  const by2 = yB.y + bh/2;          // middle of Y vertically
+  // Node positions
+  const xB = {x: 28, y: H/2 - bh/2};
+  const mB = {x: W/2 - bw/2, y: 26};
+  const yB = {x: W - bw - 28, y: H/2 - bh/2};
+  const wB = {x: W/2 - bw/2, y: H - bh - 20};
+
+  // a1 path: X → M
+  const ax1 = xB.x + bw;
+  const ay1 = xB.y + bh/2;
+  const ax2 = mB.x;
+  const ay2 = mB.y + bh/2;
+  
+  // b path: M → Y
+  const bx1 = mB.x + bw;
+  const by1 = mB.y + bh/2;
+  const bx2 = yB.x;
+  const by2 = yB.y + bh/2;
   
   // c' direct path: X → Y
   const cpx1 = xB.x + bw;
@@ -2067,64 +2215,56 @@ function buildModMedSVG(d, mode, showP, W, H){
   const cpx2 = yB.x;
   const cpy2 = yB.y + bh/2 + 10;
   
-  // Moderation target on a1 path (midpoint of X→M line)
+  // Moderation target on a1 path
   const modTargX = (ax1 + ax2) / 2;
   const modTargY = (ay1 + ay2) / 2;
 
   // Label positions
-  const a1Lx = (ax1 + ax2)/2 - 50;
-  const a1Ly = (ay1 + ay2)/2 - 28;
-  const bLx  = (bx1 + bx2)/2 + 50;
-  const bLy  = (by1 + by2)/2;
-  const cpLx = W/2;
-  const cpLy = cpy1 + 28;
+  const a1Lx = (ax1 + ax2) / 2 - 50;
+  const a1Ly = (ay1 + ay2) / 2 - 28;
+  const bLx  = (bx1 + bx2) / 2 + 50;
+  const bLy  = (by1 + by2) / 2;
+  const cpLx = W / 2;
+  const cpLy = cpy1 + 30;
 
-  const a1Lines = coefLines(a1, a1_std, pa1, mode, showP);
-  const bLines  = coefLines(b,  b_std,  pb,  mode, showP);
-  const cpLines = [...coefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
+  // Format lines with auto-wrap
+  const a1Lines = formatCoefLines(a1, a1_std, pa1, mode, showP);
+  const bLines  = formatCoefLines(b, b_std, pb, mode, showP);
+  const cpLines = [...formatCoefLines(cp, cp_std, pcp, mode, showP), "(direct c')"];
 
-  // ALL PATHS use consistent line style toggle
   const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
 
-  // Get moderation effect (a3) - coefficient always shown, CI toggled via _indirectDisplayMode
+  // Moderation effect (a3)
   const modVal = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
   const modPrefix = mode === 'std' ? 'β' : 'b';
-  const modStar = pStar(pa3);
+  const modStar = showP ? pStar(pa3) : '';
   
   let modLine1 = `${modPrefix} = ${modVal}${modStar ? ' ' + modStar : ''}`;
   let modLine2 = '';
   
-  // Show or hide 95% CI based on toggle - PRIORITIZE BOOTSTRAP CI IF AVAILABLE
   if (_indirectDisplayMode === 'ci') {
-    // Check for bootstrap CI first (passed from analysis)
     if (d.bootCI_a3 && d.bootCI_a3.lo !== undefined && d.bootCI_a3.hi !== undefined && !isNaN(d.bootCI_a3.lo) && !isNaN(d.bootCI_a3.hi)) {
       modLine2 = `95% CI [${fmtv(d.bootCI_a3.lo, 3)}, ${fmtv(d.bootCI_a3.hi, 3)}]`;
     } else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && !isNaN(d.ci_lo_a3) && !isNaN(d.ci_hi_a3)) {
-      // Fall back to standard CI
       modLine2 = `95% CI [${fmtv(d.ci_lo_a3, 3)}, ${fmtv(d.ci_hi_a3, 3)}]`;
     } else {
       modLine2 = `95% CI [N/A, N/A]`;
     }
-  } else {
-    modLine2 = '';
   }
 
-  // Get Index of Moderated Mediation with CI (a3 × b)
+  // Index of Moderated Mediation
   const indexVal = mode === 'std' ? fmtv(a3_std * b_std, 3) : fmtv(indexMM, 4);
   const indexPrefix = mode === 'std' ? 'β' : 'b';
-  const indexStar = pStar(pa3) || pStar(pb);
+  const indexStar = showP ? (pStar(pa3) || pStar(pb)) : '';
   
   let indexLine1 = `${indexPrefix} = ${indexVal}${indexStar ? ' ' + indexStar : ''}`;
   let indexLine2 = '';
   
-  // Show 95% CI for index - PRIORITIZE BOOTSTRAP CI IF AVAILABLE
   if (_indirectDisplayMode === 'ci') {
-    // Check for bootstrap CI for index first
     if (d.bootCI_index && d.bootCI_index.lo !== undefined && d.bootCI_index.hi !== undefined && !isNaN(d.bootCI_index.lo) && !isNaN(d.bootCI_index.hi)) {
       indexLine2 = `95% CI [${fmtv(d.bootCI_index.lo, 3)}, ${fmtv(d.bootCI_index.hi, 3)}]`;
-    } 
-    // Otherwise use delta method approximation from a3 and b CIs
-    else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && d.ci_lo_b !== undefined && d.ci_hi_b !== undefined) {
+    } else if (d.ci_lo_a3 !== undefined && d.ci_hi_a3 !== undefined && d.ci_lo_b !== undefined && d.ci_hi_b !== undefined) {
       const a3_lo = d.ci_lo_a3;
       const a3_hi = d.ci_hi_a3;
       const b_lo = d.ci_lo_b;
@@ -2138,53 +2278,54 @@ function buildModMedSVG(d, mode, showP, W, H){
     }
   }
 
-  // Box heights
-  const modBoxHeight = modLine2 ? 52 : 36;
-  const indexBoxHeight = indexLine2 ? 52 : 36;
-  
-  // Position boxes side by side horizontally
-  const boxWidth = 230;
-  const boxSpacing = 20;
+  const modBoxHeight = modLine2 ? 54 : 40;
+  const indexBoxHeight = indexLine2 ? 54 : 40;
+  const boxWidth = 240;
+  const boxSpacing = 16;
   const leftBoxX = W/2 - boxWidth - boxSpacing/2;
   const rightBoxX = W/2 + boxSpacing/2;
-  const boxesY = H + 8;
+  const boxesY = H + 10;
 
-  return `<svg viewBox="0 0 ${W} ${H+80}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
-  ${svgDefs()}
-  
-  <!-- NODES - all consistent color -->
-  ${svgNode(xB.x, xB.y, bw, bh, xn)}
-  ${svgNode(mB.x, mB.y, bw, bh, mn, '#3d5af1', '#e0f6fb')}
-  ${svgNode(yB.x, yB.y, bw, bh, yn)}
-  ${svgNode(wB.x, wB.y, bw, bh, wn, '#3d5af1', '#f3eeff')}
-  
-  <!-- a1 PATH: X → M (arrow goes directly to left edge of M box) -->
-  <line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(a1Lx, a1Ly, a1Lines, '#3d5af1')}
-  
-  <!-- b PATH: M → Y (arrow starts from right edge of M, goes to left edge of Y) -->
-  <line x1="${bx1}" y1="${by1}" x2="${bx2}" y2="${by2}" stroke="#3d5af1" stroke-width="2.2" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(bLx, bLy, bLines, '#3d5af1')}
-  
-  <!-- c' DIRECT PATH: X → Y -->
-  <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="#3d5af1" stroke-width="1.8" ${lineStyle} marker-end="url(#arr)"/>
-  ${svgLabelBox(cpLx, cpLy, cpLines, '#3d5af1')}
-  
-  <!-- Moderation path: W → a1 path (moderates X→M) -->
-  <line x1="${wB.x+bw/2}" y1="${wB.y}" x2="${modTargX}" y2="${modTargY}" stroke="#3d5af1" stroke-width="2" ${lineStyle} marker-end="url(#arr)"/>
-  
-  <!-- MODERATION EFFECT BOX - LEFT SIDE -->
-  <rect x="${leftBoxX}" y="${boxesY}" width="${boxWidth}" height="${modBoxHeight}" rx="6" fill="#e7faf0" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 16}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Moderation effect:</text>
-  <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 32}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${modLine1}</text>
-  ${modLine2 ? `<text x="${leftBoxX + boxWidth/2}" y="${boxesY + 46}" text-anchor="middle" font-size="9.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${modLine2}</text>` : ''}
-  
-  <!-- INDEX OF MODERATED MEDIATION BOX - RIGHT SIDE -->
-  <rect x="${rightBoxX}" y="${boxesY}" width="${boxWidth}" height="${indexBoxHeight}" rx="6" fill="#eef2ff" fill-opacity=".97" stroke="#3d5af1" stroke-width="1.5"/>
-  <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 16}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="700" font-family="Sora,sans-serif">Index of Moderated Mediation:</text>
-  <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 32}" text-anchor="middle" font-size="10.5" fill="#3d5af1" font-weight="600" font-family="Sora,sans-serif">${indexLine1}</text>
-  ${indexLine2 ? `<text x="${rightBoxX + boxWidth/2}" y="${boxesY + 46}" text-anchor="middle" font-size="9.5" fill="#3d5af1" font-weight="500" font-family="Sora,sans-serif">${indexLine2}</text>` : ''}
-  </svg>`;
+  // Marker definitions
+  const markerDefs = _useBlackAndWhite ? 
+    '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+    '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
+
+  return `<svg viewBox="0 0 ${W} ${H + 90}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+    <defs>${markerDefs}</defs>
+    
+    ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+    ${drawNode(mB.x, mB.y, bw, bh, mn, true)}
+    ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+    ${drawNode(wB.x, wB.y, bw, bh, wn, false)}
+    
+    <!-- a1 PATH: X → M -->
+    <line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(a1Lx, a1Ly, a1Lines, 120)}
+    
+    <!-- b PATH: M → Y -->
+    <line x1="${bx1}" y1="${by1}" x2="${bx2}" y2="${by2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(bLx, bLy, bLines, 120)}
+    
+    <!-- c' DIRECT PATH: X → Y -->
+    <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawLabelBox(cpLx, cpLy, cpLines, 140)}
+    
+    <!-- Moderation path: W → a1 path -->
+    <line x1="${wB.x + bw/2}" y1="${wB.y}" x2="${modTargX}" y2="${modTargY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    
+    <!-- MODERATION EFFECT BOX - LEFT -->
+    <rect x="${leftBoxX}" y="${boxesY}" width="${boxWidth}" height="${modBoxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 18}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Moderation effect (a₃):</text>
+    <text x="${leftBoxX + boxWidth/2}" y="${boxesY + 34}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine1)}</text>
+    ${modLine2 ? `<text x="${leftBoxX + boxWidth/2}" y="${boxesY + 49}" text-anchor="middle" font-size="9.5" font-weight="500" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine2)}</text>` : ''}
+    
+    <!-- INDEX OF MODERATED MEDIATION BOX - RIGHT -->
+    <rect x="${rightBoxX}" y="${boxesY}" width="${boxWidth}" height="${indexBoxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 18}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Index of Moderated Mediation (a₃×b):</text>
+    <text x="${rightBoxX + boxWidth/2}" y="${boxesY + 34}" text-anchor="middle" font-size="10.5" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(indexLine1)}</text>
+    ${indexLine2 ? `<text x="${rightBoxX + boxWidth/2}" y="${boxesY + 49}" text-anchor="middle" font-size="9.5" font-weight="500" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(indexLine2)}</text>` : ''}
+    </svg>`;
 }
 
 function buildDiagSVG(d, mode, showP, big){
@@ -2808,6 +2949,18 @@ let curType='simple';
 function renderVarsPanel(){
   const cfg=TYPE_CFG[curType],note=TYPE_NOTES[curType]||'';
   document.getElementById('varsPanel').innerHTML=`<div class="vars-grid">${cfg.vars.map(v=>`<div class="var-card"><span class="var-label">${v.label}</span><input class="var-name-input" data-key="${v.key}_name" placeholder="Variable name (e.g. ${v.ph})" autocomplete="off"><textarea class="var-data-input" data-key="${v.key}" rows="5" placeholder="One value per line:&#10;2.3&#10;4.1&#10;3.8&#10;..."></textarea><div class="var-data-hint"><i class="fas fa-info-circle"></i> One numeric value per line. No header.</div></div>`).join('')}</div>${note}`;
+}
+
+// Toggle between color and black/white mode
+let _useBlackAndWhite = false;
+
+function toggleBlackAndWhite() {
+    _useBlackAndWhite = !_useBlackAndWhite;
+    const btn = document.getElementById('toggleBwBtn');
+    if (btn) {
+        btn.innerHTML = _useBlackAndWhite ? '<i class="fas fa-palette"></i> Color Mode' : '<i class="fas fa-paint-roller"></i> Black & White';
+    }
+    renderModalDiag();
 }
 
 // Function to show/hide mean centering dropdown based on analysis type
