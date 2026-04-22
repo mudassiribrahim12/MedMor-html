@@ -624,18 +624,17 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
     <button class="diagram-modal-close" onclick="closeDiagramModal()"><i class="fas fa-times"></i></button>
  <div class="diagram-toolbar">
   <span class="diagram-toolbar-title"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:8px"></i>Path Diagram</span>
-<!-- REPLACE WITH THESE LINES: -->
 <button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
 <button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
 
-<!-- NEW: Line Length Adjustment Buttons -->
+<!-- Line Length Adjustment Buttons -->
 <button class="dt-btn" id="diagLineLengthBtn" onclick="adjustLineLength(-0.1)"><i class="fas fa-arrows-alt-h"></i> Shorter Lines</button>
 <button class="dt-btn" onclick="adjustLineLength(0.1)"><i class="fas fa-arrows-alt-h"></i> Longer Lines</button>
 
-<!-- NEW: Toggle Card Box Button -->
+<!-- Toggle Card Box Button -->
 <button class="dt-btn active" id="toggleCardBoxBtn" onclick="toggleCardBox()"><i class="fas fa-square"></i> Card Box ON</button>
 
-<!-- NEW: Toggle Coefficients Button -->
+<!-- Toggle Coefficients Button -->
 <button class="dt-btn active" id="toggleCoefsBtn" onclick="toggleCoefs()"><i class="fas fa-chart-line"></i> Show Coefs ON</button>
 
 <button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
@@ -1060,7 +1059,6 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
             <div class="doc-prose" style="margin-bottom: 0; color: var(--text-2);"><strong>Manual dummy coding required.</strong> MedModr does not automatically convert categorical variables (e.g., gender, treatment group, education level) into dummy codes. All categorical predictors  including moderators, and covariates must be converted by the user into numeric 0/1 dummy variables <em>before</em> pasting data into the tool. For a categorical variable with k levels, create k−1 dummy variables. The reference group should be coded as 0 on all dummies. Continuous variables can be used as-is and will be automatically mean-centered when appropriate.</div>
           </div>
         </div>
-
       </div>
     </div>
 
@@ -1433,130 +1431,426 @@ const SLOPE_COLORS = ['#e05252','#3d5af1','#0ca678'];
 const SLOPE_DASHES = [[6,3],[],[3,3]];
 const SLOPE_LABELS_BASE = ['Low (−1SD)','Mean','High (+1SD)'];
 
-function drawSlopes(canvas, data, showAnnot){
-  if(!data)return;
-  const {xn,wn,yn,b_intercept,b_x,b_xw,mX,mW,sW,sdX,wLevelVals,slopes,slopeSEs,slopePvals} = data;
-  const W=canvas.width, H=canvas.height;
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,W,H);
-  const bg=ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0,'#f8faff');bg.addColorStop(1,'#eef1fb');
-  ctx.fillStyle=bg;roundRect(ctx,0,0,W,H,18);ctx.fill();
-  ctx.fillStyle='rgba(61,90,241,.05)';
-  for(let gx=52;gx<W-20;gx+=30)for(let gy=40;gy<H-28;gy+=30){ctx.beginPath();ctx.arc(gx,gy,1.4,0,Math.PI*2);ctx.fill();}
-  const pad={top:60,right:56,bottom:72,left:78};
-  const pw=W-pad.left-pad.right, ph=H-pad.top-pad.bottom;
-  const xLo=-2.2*sdX, xHi=2.2*sdX;
-  const nPts=90;
-  let allY=[];
-  wLevelVals.forEach((wc)=>{
-    for(let i=0;i<=nPts;i++){
-      const xc=xLo+(xHi-xLo)*i/nPts;
-      allY.push(b_intercept+b_x*xc+b_xw*xc*wc);
+// drawSlopes FUNCTION
+function drawSlopes(canvas, data, showAnnot) {
+    if (!data) return;
+    const { xn, wn, yn, b_intercept, b_x, b_xw, mX, mW, sW, sdX, wLevelVals, slopes, slopeSEs, slopePvals } = data;
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    
+    // --- Publication Ready Style Logic ---
+    const isPubStyle = window._publicationStyleActive || false;
+    const bgColor = isPubStyle ? '#FFFFFF' : '#F8FAFF';
+    const gridColor = isPubStyle ? '#E0E0E0' : 'rgba(180, 196, 220, 0.4)';
+    const textColor = isPubStyle ? '#000000' : '#1E2745';
+    const axisColor = isPubStyle ? '#000000' : '#B8C4DC';
+    const zeroLineColor = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, 0.20)';
+    const errorFillAlpha = isPubStyle ? '15' : '20';
+    
+    // --- Display Modes ---
+    const annotationDisplayMode = window._annotationDisplayMode || 'legend';
+    // Use window._showLabels (global state) instead of showAnnot parameter
+    const showPValues = window._showPValues !== false;
+    
+    // Increased left padding for Y-axis label
+    const pad = { top: 60, right: 56, bottom: 72, left: 95 };
+    const pw = W - pad.left - pad.right;
+    const ph = H - pad.top - pad.bottom;
+    
+    // Background
+    ctx.fillStyle = bgColor;
+    roundRect(ctx, 0, 0, W, H, 12);
+    ctx.fill();
+    
+    // Grid background dots (only for non-pub style)
+    if (!isPubStyle) {
+        ctx.fillStyle = 'rgba(61, 90, 241, .05)';
+        for (let gx = 52; gx < W - 20; gx += 30) {
+            for (let gy = 40; gy < H - 28; gy += 30) {
+                ctx.beginPath();
+                ctx.arc(gx, gy, 1.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
     }
-  });
-  const yMin=Math.min(...allY),yMax=Math.max(...allY);
-  const yPad=(yMax-yMin)*.14||1;
-  const yLo=yMin-yPad, yHi=yMax+yPad;
-  function cx(xc){return pad.left+(xc-xLo)/(xHi-xLo)*pw}
-  function cy(y){return pad.top+ph-(y-yLo)/(yHi-yLo)*ph}
-  const nGY=5;
-  for(let i=0;i<=nGY;i++){
-    const yv=yLo+(yHi-yLo)*i/nGY, cyv=cy(yv);
-    ctx.beginPath();ctx.moveTo(pad.left,cyv);ctx.lineTo(pad.left+pw,cyv);
-    ctx.strokeStyle='rgba(180,196,220,.4)';ctx.lineWidth=1;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#6878a8';ctx.font=`500 ${Math.round(W/58)}px Sora,sans-serif`;ctx.textAlign='right';
-    ctx.fillText(yv.toFixed(2),pad.left-9,cyv+4);
-  }
-  const nGX=4;
-  for(let i=0;i<=nGX;i++){
-    const xc=xLo+(xHi-xLo)*i/nGX, cxv=cx(xc);
-    ctx.beginPath();ctx.moveTo(cxv,pad.top);ctx.lineTo(cxv,pad.top+ph);
-    ctx.strokeStyle='rgba(180,196,220,.25)';ctx.lineWidth=1;ctx.setLineDash([5,5]);ctx.stroke();ctx.setLineDash([]);
-    ctx.fillStyle='#6878a8';ctx.font=`500 ${Math.round(W/58)}px Sora,sans-serif`;ctx.textAlign='center';
-    ctx.fillText((xc+mX).toFixed(2),cxv,pad.top+ph+20);
-  }
-  const y0=cy(0);
-  if(y0>pad.top&&y0<pad.top+ph){
-    ctx.beginPath();ctx.moveTo(pad.left,y0);ctx.lineTo(pad.left+pw,y0);
-    ctx.strokeStyle='rgba(61,90,241,.20)';ctx.lineWidth=1.5;ctx.setLineDash([3,5]);ctx.stroke();ctx.setLineDash([]);
-  }
-  ctx.beginPath();ctx.moveTo(pad.left,pad.top);ctx.lineTo(pad.left,pad.top+ph);ctx.lineTo(pad.left+pw,pad.top+ph);
-  ctx.strokeStyle='#b8c4dc';ctx.lineWidth=2;ctx.stroke();
-  wLevelVals.forEach((wc,wi)=>{
-    const pts=[];
-    for(let i=0;i<=nPts;i++){
-      const xc=xLo+(xHi-xLo)*i/nPts;
-      pts.push({x:cx(xc),y:cy(b_intercept+b_x*xc+b_xw*xc*wc)});
-    }
-    const seSl=slopeSEs[wi];
-    const sePixH=ph*(seSl/(yHi-yLo))*40;
-    ctx.beginPath();
-    pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y-sePixH):ctx.lineTo(p.x,p.y-sePixH));
-    [...pts].reverse().forEach(p=>ctx.lineTo(p.x,p.y+sePixH));
-    ctx.closePath();ctx.fillStyle=SLOPE_COLORS[wi]+'20';ctx.fill();
-    ctx.beginPath();
-    pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
-    ctx.strokeStyle=SLOPE_COLORS[wi];ctx.lineWidth=2.8;ctx.lineJoin='round';
-    ctx.setLineDash(SLOPE_DASHES[wi]);ctx.stroke();ctx.setLineDash([]);
-    const ep=pts[pts.length-1];
-    ctx.beginPath();ctx.arc(ep.x,ep.y,5.5,0,Math.PI*2);
-    ctx.fillStyle=SLOPE_COLORS[wi];ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
-  });
-  const lfs=Math.round(W/60);
-  const lh=lfs*1.55;
-  const legPadX=14, legPadY=12;
-  const legEntries=SLOPE_LABELS_BASE.map((lbl,i)=>{
-    const slope=slopes[i], pval=slopePvals[i];
-    const star=pStar(pval);
-    if(showAnnot){
-      const pStr=pval<.001?'< .001':pval.toFixed(3);
-      return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star},  p ${pStr}`];
-    } else {
-      return [`${wn} = ${lbl}`];
-    }
-  });
-  ctx.font=`600 ${lfs}px Sora,sans-serif`;
-  let maxLegW=0;
-  legEntries.forEach(lines=>lines.forEach(line=>{
-    const m=ctx.measureText(line).width;
-    if(m>maxLegW)maxLegW=m;
-  }));
-  const legLineStroke=28;
-  const legW=legLineStroke+10+maxLegW+legPadX*2;
-  const rowsPerEntry=legEntries[0].length;
-  const legItemH=rowsPerEntry*lh+10;
-  const legH=legEntries.length*legItemH+legPadY*2;
-  const legX=pad.left+pw-4-legW;
-  const legY=pad.top+8;
-  ctx.save();ctx.shadowColor='rgba(61,90,241,.12)';ctx.shadowBlur=14;
-  ctx.fillStyle='rgba(255,255,255,.95)';ctx.strokeStyle='rgba(180,196,220,.7)';ctx.lineWidth=1;
-  roundRect(ctx,legX,legY,legW,legH,10);ctx.fill();ctx.stroke();ctx.restore();
-  legEntries.forEach((lines,i)=>{
-    const col=SLOPE_COLORS[i];
-    const entryY=legY+legPadY+legItemH*i;
-    const midY=entryY+legItemH/2;
-    ctx.beginPath();ctx.moveTo(legX+legPadX,midY);ctx.lineTo(legX+legPadX+legLineStroke,midY);
-    ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.setLineDash(SLOPE_DASHES[i]);ctx.stroke();ctx.setLineDash([]);
-    ctx.beginPath();ctx.arc(legX+legPadX+legLineStroke/2,midY,3.5,0,Math.PI*2);
-    ctx.fillStyle=col;ctx.fill();
-    lines.forEach((line,j)=>{
-      const isFirstLine=j===0;
-      ctx.fillStyle=isFirstLine?'#1e2745':'#6878a8';
-      ctx.font=`${isFirstLine?'700':'500'} ${lfs}px Sora,sans-serif`;
-      ctx.textAlign='left';
-      const textY=entryY+legPadY/2+(j+1)*lh;
-      ctx.fillText(line,legX+legPadX+legLineStroke+10,textY);
+
+    const xLo = -2.2 * sdX, xHi = 2.2 * sdX;
+    const nPts = 90;
+    
+    let allY = [];
+    wLevelVals.forEach((wc) => {
+        for (let i = 0; i <= nPts; i++) {
+            const xc = xLo + (xHi - xLo) * i / nPts;
+            allY.push(b_intercept + b_x * xc + b_xw * xc * wc);
+        }
     });
-  });
-  const afs=Math.round(W/46);
-  ctx.fillStyle='#1e2745';ctx.font=`700 ${afs}px Sora,sans-serif`;ctx.textAlign='center';
-  ctx.fillText(xn,pad.left+pw/2,H-10);
-  ctx.save();ctx.translate(16,pad.top+ph/2);ctx.rotate(-Math.PI/2);ctx.fillText(yn,0,0);ctx.restore();
-  ctx.fillStyle='#080d1f';ctx.font=`800 ${Math.round(W/40)}px Sora,sans-serif`;ctx.textAlign='center';
-  ctx.fillText(`Simple Slopes: ${xn} → ${yn} by ${wn}`,W/2,30);
-  ctx.fillStyle='rgba(61,90,241,.32)';ctx.font=`500 ${Math.round(W/70)}px Sora,sans-serif`;ctx.textAlign='right';
-  ctx.fillText('MedModr v1.0',W-8,H-6);
+    const yMin = Math.min(...allY), yMax = Math.max(...allY);
+    const yPad = (yMax - yMin) * .14 || 1;
+    const yLo = yMin - yPad, yHi = yMax + yPad;
+    
+    function cx(xc) { return pad.left + (xc - xLo) / (xHi - xLo) * pw; }
+    function cy(y) { return pad.top + ph - (y - yLo) / (yHi - yLo) * ph; }
+    
+    // Horizontal Grid Lines
+    const nGY = 5;
+    for (let i = 0; i <= nGY; i++) {
+        const yv = yLo + (yHi - yLo) * i / nGY;
+        const cyv = cy(yv);
+        ctx.beginPath();
+        ctx.moveTo(pad.left, cyv);
+        ctx.lineTo(pad.left + pw, cyv);
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.fillText(yv.toFixed(2), pad.left - 9, cyv + 4);
+    }
+    
+    // Vertical Grid Lines
+    const nGX = 4;
+    for (let i = 0; i <= nGX; i++) {
+        const xc = xLo + (xHi - xLo) * i / nGX;
+        const cxv = cx(xc);
+        ctx.beginPath();
+        ctx.moveTo(cxv, pad.top);
+        ctx.lineTo(cxv, pad.top + ph);
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText((xc + mX).toFixed(2), cxv, pad.top + ph + 20);
+    }
+    
+    // Zero Line
+    const y0 = cy(0);
+    if (y0 > pad.top && y0 < pad.top + ph) {
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y0);
+        ctx.lineTo(pad.left + pw, y0);
+        ctx.strokeStyle = zeroLineColor;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // Axes
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + ph);
+    ctx.lineTo(pad.left + pw, pad.top + ph);
+    ctx.strokeStyle = axisColor;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // Draw tick marks
+    for (let i = 0; i <= nGX; i++) {
+        const xc = xLo + (xHi - xLo) * i / nGX;
+        const cxv = cx(xc);
+        ctx.beginPath();
+        ctx.moveTo(cxv, pad.top + ph);
+        ctx.lineTo(cxv, pad.top + ph + 5);
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    for (let i = 0; i <= nGY; i++) {
+        const yv = yLo + (yHi - yLo) * i / nGY;
+        const cyv = cy(yv);
+        ctx.beginPath();
+        ctx.moveTo(pad.left - 5, cyv);
+        ctx.lineTo(pad.left, cyv);
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    
+    // --- Draw Lines and Confidence Bands ---
+    const lineEndpoints = [];
+    
+    wLevelVals.forEach((wc, wi) => {
+        const pts = [];
+        for (let i = 0; i <= nPts; i++) {
+            const xc = xLo + (xHi - xLo) * i / nPts;
+            pts.push({ x: cx(xc), y: cy(b_intercept + b_x * xc + b_xw * xc * wc) });
+        }
+        const seSl = slopeSEs[wi];
+        const sePixH = ph * (seSl / (yHi - yLo)) * 40;
+        
+        // Confidence Band
+        ctx.beginPath();
+        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y - sePixH) : ctx.lineTo(p.x, p.y - sePixH));
+        [...pts].reverse().forEach(p => ctx.lineTo(p.x, p.y + sePixH));
+        ctx.closePath();
+        ctx.fillStyle = SLOPE_COLORS[wi] + errorFillAlpha;
+        ctx.fill();
+        
+        // Main Line
+        ctx.beginPath();
+        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.strokeStyle = SLOPE_COLORS[wi];
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.setLineDash(SLOPE_DASHES[wi]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // End Marker
+        const ep = pts[pts.length - 1];
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 5, 0, Math.PI * 2);
+        ctx.fillStyle = SLOPE_COLORS[wi];
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        lineEndpoints.push({ x: ep.x, y: ep.y, color: SLOPE_COLORS[wi], wi: wi });
+    });
+    
+    // --- Display EITHER line annotations OR legend (respecting showLabels and showPValues) ---
+  // (always show annotations/legend, no showLabels check)
+if (annotationDisplayMode === 'lines') {
+    // Draw annotations on the lines
+    lineEndpoints.forEach((ep, idx) => {
+        const slope = slopes[ep.wi];
+        const pval = slopePvals[ep.wi];
+        const star = pStar(pval);
+        
+        let labelText;
+        if (showPValues) {
+            const pStr = pval < .001 ? '<.001' : pval.toFixed(3);
+            labelText = `b = ${slope.toFixed(3)}${star}, p ${pStr}`;
+        } else {
+            labelText = `b = ${slope.toFixed(3)}${star}`;
+        }
+        
+        ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+        const textWidth = ctx.measureText(labelText).width;
+        
+        const paddingX = 6;
+        const paddingY = 3;
+        const boxWidth = textWidth + paddingX * 2;
+        const boxHeight = 16;
+        
+        let labelX = ep.x + 12;
+        let labelY = ep.y - 10;
+        
+        if (labelX + boxWidth > W - 10) labelX = ep.x - boxWidth - 12;
+        if (labelY - boxHeight < 10) labelY = ep.y + 15;
+        
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowBlur = 0;
+        roundRect(ctx, labelX, labelY - boxHeight + 3, boxWidth, boxHeight, 8);
+        ctx.fill();
+        ctx.strokeStyle = ep.color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#1E2745';
+        ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.fillText(labelText, labelX + paddingX, labelY);
+    });
+} else if (annotationDisplayMode === 'legend') {
+    // Draw legend in top-right corner
+    const lfs = Math.round(W / 70);
+    const lh = lfs * 1.4;
+    
+    const legEntries = SLOPE_LABELS_BASE.map((lbl, i) => {
+        const slope = slopes[i];
+        const pval = slopePvals[i];
+        const star = pStar(pval);
+        
+        if (showPValues) {
+            const pStr = pval < .001 ? '<.001' : pval.toFixed(3);
+            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}, p ${pStr}`];
+        } else {
+            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}`];
+        }
+    });
+    
+    ctx.font = `500 ${lfs}px Sora, sans-serif`;
+    let maxLegW = 0;
+    legEntries.forEach(lines => lines.forEach(line => {
+        const m = ctx.measureText(line).width;
+        if (m > maxLegW) maxLegW = m;
+    }));
+    
+    const legLineStroke = 20;
+    const legW = legLineStroke + 6 + maxLegW + 8 * 2;
+    const rowsPerEntry = legEntries[0].length;
+    const legItemH = rowsPerEntry * lh + 5;
+    const legH = legEntries.length * legItemH + 6 * 2;
+    
+    const legX = pad.left + pw - 6 - legW;
+    const legY = pad.top + 6;
+    
+    ctx.save();
+    ctx.shadowColor = 'rgba(61, 90, 241, .08)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = isPubStyle ? '#FFFFFF' : 'rgba(255, 255, 255, .95)';
+    ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(180, 196, 220, .6)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, legX, legY, legW, legH, 6);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    
+    legEntries.forEach((lines, i) => {
+        const col = SLOPE_COLORS[i];
+        const entryY = legY + 6 + legItemH * i;
+        const midY = entryY + legItemH / 2;
+        
+        ctx.beginPath();
+        ctx.moveTo(legX + 8, midY);
+        ctx.lineTo(legX + 8 + legLineStroke, midY);
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        ctx.setLineDash(SLOPE_DASHES[i]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(legX + 8 + legLineStroke / 2, midY, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+        
+        lines.forEach((line, j) => {
+            const isFirstLine = j === 0;
+            ctx.fillStyle = isFirstLine ? textColor : (isPubStyle ? '#666666' : '#6878a8');
+            ctx.font = `${isFirstLine ? '600' : '500'} ${lfs}px Sora, sans-serif`;
+            ctx.textAlign = 'left';
+            const textY = entryY + 6 + (j + 0.7) * lh;
+            ctx.fillText(line, legX + 8 + legLineStroke + 6, textY);
+        });
+    });
+}
+    
+    // X Axis Label
+    const axisFontSize = Math.round(W / 58);
+    ctx.fillStyle = textColor;
+    ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(xn, pad.left + pw / 2, H - 12);
+    
+    // Y Axis Label
+    ctx.save();
+    const yLabelX = 22;
+    const yLabelY = pad.top + ph / 2;
+    ctx.translate(yLabelX, yLabelY);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = textColor;
+    ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(yn, 0, 0);
+    ctx.restore();
+    
+    // Title
+    ctx.fillStyle = textColor;
+    ctx.font = `700 ${Math.round(W / 48)}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Simple Slopes: ${xn} → ${yn} by ${wn}`, W / 2, 28);
+    
+    // Footer
+    ctx.fillStyle = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, .28)';
+    ctx.font = `400 ${Math.round(W / 80)}px Sora, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText('MedModr v1.0', W - 8, H - 6);
+}
+
+// --- Toggle between legend (top-right) and line annotations ---
+window.toggleAnnotationDisplayMode = function() {
+    if (window._annotationDisplayMode === 'legend') {
+        window._annotationDisplayMode = 'lines';
+    } else {
+        window._annotationDisplayMode = 'legend';
+    }
+    
+    const btn = document.getElementById('annotationDisplayBtn');
+    if (btn) {
+        if (window._annotationDisplayMode === 'legend') {
+            btn.innerHTML = '<i class="fas fa-arrow-up-right-from-square"></i> Legend (Top-Right)';
+        } else {
+            btn.innerHTML = '<i class="fas fa-chart-line"></i> Annotations on Lines';
+        }
+        btn.classList.toggle('active', window._annotationDisplayMode === 'lines');
+    }
+    redrawAllSlopes();
+};
+
+// --- Publication Ready toggle ---
+window.togglePublicationStyle = function() {
+    window._publicationStyleActive = !window._publicationStyleActive;
+    const btn = document.getElementById('publicationStyleBtn');
+    if (btn) {
+        btn.classList.toggle('active', window._publicationStyleActive);
+        btn.innerHTML = window._publicationStyleActive ? '<i class="fas fa-chalkboard-user"></i> Default Style' : '<i class="fas fa-file-alt"></i> Publication Ready';
+    }
+    redrawAllSlopes();
+};
+
+// --- Toggle show/hide annotations  -
+
+window.togglePValues = function() {
+    window._showPValues = !window._showPValues;
+    const btn = document.getElementById('togglePValueBtn');
+    if (btn) {
+        btn.classList.toggle('active', window._showPValues);
+        btn.innerHTML = window._showPValues ? '<i class="fas fa-chart-simple"></i> Show p-values' : '<i class="fas fa-chart-line"></i> Hide p-values';
+    }
+    redrawAllSlopes();
+};
+
+window.toggleAnnotationDisplayMode = function() {
+    if (window._annotationDisplayMode === 'legend') {
+        window._annotationDisplayMode = 'lines';
+    } else {
+        window._annotationDisplayMode = 'legend';
+    }
+    
+    const btn = document.getElementById('annotationDisplayBtn');
+    if (btn) {
+        if (window._annotationDisplayMode === 'legend') {
+            btn.innerHTML = '<i class="fas fa-arrow-up-right-from-square"></i> Legend (Top-Right)';
+        } else {
+            btn.innerHTML = '<i class="fas fa-chart-line"></i> Annotations on Lines';
+        }
+        btn.classList.toggle('active', window._annotationDisplayMode === 'lines');
+    }
+    redrawAllSlopes();
+};
+
+window.togglePublicationStyle = function() {
+    window._publicationStyleActive = !window._publicationStyleActive;
+    const btn = document.getElementById('publicationStyleBtn');
+    if (btn) {
+        btn.classList.toggle('active', window._publicationStyleActive);
+        btn.innerHTML = window._publicationStyleActive ? '<i class="fas fa-chalkboard-user"></i> Default Style' : '<i class="fas fa-file-alt"></i> Publication Ready';
+    }
+    redrawAllSlopes();
+};
+
+// Helper function to redraw all slopes
+function redrawAllSlopes() {
+    // Redraw inline canvas
+    const inlineCanvas = document.querySelector('.slopes-canvas-wrap canvas');
+    if (inlineCanvas && _slopesData) {
+        drawSlopes(inlineCanvas, _slopesData, window._showLabels);
+    }
+    // Redraw modal canvas
+    const modalCanvas = document.getElementById('slopesModalCanvas');
+    if (modalCanvas && _slopesData) {
+        drawSlopes(modalCanvas, _slopesData, window._showLabels);
+    }
 }
 
 function roundRect(ctx,x,y,w,h,r){
@@ -1567,30 +1861,64 @@ function roundRect(ctx,x,y,w,h,r){
   ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
 }
 
-function buildSlopesHTML(data,xn,wn,yn){
-  _slopesData={...data,xn,wn,yn};
-  const uid='slc_'+Date.now();
-  const titleStr=`Simple Slopes: ${xn} → ${yn} at Three Levels of ${wn}`;
-  document.getElementById('slopesModalTitle').textContent=titleStr;
-  const html=`
-  <div class="slopes-wrap">
+// buildSlopesHTML 
+function buildSlopesHTML(data, xn, wn, yn) {
+    _slopesData = { ...data, xn, wn, yn };
+    const uid = 'slc_' + Date.now();
+    const titleStr = `Simple Slopes: ${xn} → ${yn} at Three Levels of ${wn}`;
+    document.getElementById('slopesModalTitle').textContent = titleStr;
+
+    // Initialize settings if not set
+    if (window._annotationDisplayMode === undefined) window._annotationDisplayMode = 'legend';
+    if (window._publicationStyleActive === undefined) window._publicationStyleActive = false;
+    if (window._showPValues === undefined) window._showPValues = true;
+
+    const colorPickerIds = SLOPE_COLORS.map((_, idx) => `colorPicker_${uid}_${idx}`);
+
+// Toolbar div (no Hide/Show Labels button)
+const html = `
+<div class="slopes-wrap">
     <div class="slopes-toolbar">
-      <div class="slopes-toolbar-title"><i class="fas fa-chart-line"></i>${titleStr}</div>
-      <button class="slopes-toggle-btn active" id="inlineAnnotBtn" onclick="toggleSlopesAnnot()"><i class="fas fa-tag"></i> <span id="inlineAnnotLabel">Hide Labels</span></button>
+        <div class="slopes-toolbar-title"><i class="fas fa-chart-line"></i>${titleStr}</div>
+        <button class="slopes-toggle-btn ${window._annotationDisplayMode === 'lines' ? 'active' : ''}" id="annotationDisplayBtn" onclick="toggleAnnotationDisplayMode()"><i class="fas fa-arrow-up-right-from-square"></i> ${window._annotationDisplayMode === 'legend' ? 'Legend (Top-Right)' : 'Annotations on Lines'}</button>
+        <button class="slopes-toggle-btn ${window._showPValues ? 'active' : ''}" id="togglePValueBtn" onclick="togglePValues()"><i class="fas fa-chart-simple"></i> ${window._showPValues ? 'Show p-values' : 'Hide p-values'}</button>
+        <button class="slopes-toggle-btn ${window._publicationStyleActive ? 'active' : ''}" id="publicationStyleBtn" onclick="togglePublicationStyle()"><i class="fas fa-file-alt"></i> ${window._publicationStyleActive ? 'Default Style' : 'Publication Ready'}</button>
     </div>
     <div class="slopes-canvas-wrap"><canvas id="${uid}" width="700" height="430"></canvas></div>
     <div class="slopes-btn-row">
-      <button class="slopes-expand-btn" onclick="openSlopesModal()"><i class="fas fa-expand"></i> Full Screen</button>
-      <button class="slopes-dl-btn" onclick="dlSlopesInline('${uid}')"><i class="fas fa-download"></i> Download PNG</button>
+        <div style="display: flex; gap: 8px; align-items: center; margin-right: auto; padding-left: 5px;">
+            ${SLOPE_LABELS_BASE.map((label, idx) => `
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label style="font-size: 0.7rem; font-weight: 600;">${label}:</label>
+                    <input type="color" id="${colorPickerIds[idx]}" value="${SLOPE_COLORS[idx]}" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer;">
+                </div>
+            `).join('')}
+        </div>
+        <button class="slopes-expand-btn" onclick="openSlopesModal()"><i class="fas fa-expand"></i> Full Screen</button>
+        <button class="slopes-dl-btn" onclick="dlSlopesInline('${uid}')"><i class="fas fa-download"></i> Download PNG</button>
     </div>
-  </div>`;
-  requestAnimationFrame(()=>{
-    const c=document.getElementById(uid);
-    if(c){drawSlopes(c,_slopesData,_slopesShowAnnot);}
-    const mc=document.getElementById('slopesModalCanvas');
-    if(mc){drawSlopes(mc,_slopesData,_slopesShowAnnot);}
-  });
-  return html;
+</div>`;
+
+    setTimeout(() => {
+        const canvas = document.getElementById(uid);
+        if (canvas) {
+            drawSlopes(canvas, _slopesData, window._showLabels);
+            
+            colorPickerIds.forEach((pickerId, idx) => {
+                const picker = document.getElementById(pickerId);
+                if (picker) {
+                    picker.addEventListener('input', (event) => {
+                        SLOPE_COLORS[idx] = event.target.value;
+                        redrawAllSlopes();
+                    });
+                }
+            });
+        }
+        const modalCanvas = document.getElementById('slopesModalCanvas');
+        if (modalCanvas) drawSlopes(modalCanvas, _slopesData, window._showLabels);
+    }, 50);
+
+    return html;
 }
 
 function redrawAllSlopes(){
@@ -1755,7 +2083,7 @@ function toggleDirectLineStyle() {
     renderModalDiag(); 
 }
 
-// NEW FUNCTION: Adjust line length
+// Adjust line length
 function adjustLineLength(delta) {
     let newLength = _diagLineLength + delta;
     newLength = Math.min(1.8, Math.max(0.6, newLength));
@@ -1768,7 +2096,7 @@ function adjustLineLength(delta) {
     renderModalDiag();
 }
 
-// NEW FUNCTION: Toggle card box display
+// Toggle card box display
 function toggleCardBox() {
     _diagShowCardBox = !_diagShowCardBox;
     const btn = document.getElementById('toggleCardBoxBtn');
@@ -1779,7 +2107,7 @@ function toggleCardBox() {
     renderModalDiag();
 }
 
-// NEW FUNCTION: Toggle coefficients display
+// Toggle coefficients display
 function toggleCoefs() {
     _diagShowCoefs = !_diagShowCoefs;
     const btn = document.getElementById('toggleCoefsBtn');
@@ -1911,7 +2239,7 @@ function escapeXml(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Helper: Format coefficient lines - FIXED: dp=3 for ALL values
+// Helper: Format coefficient lines - dp=3 for ALL values
 function formatCoefLines(b, b_std, p, mode, showP){
     const val = mode === 'std' ? fmtv(b_std, 3) : fmtv(b, 3);
     const prefix = mode === 'std' ? 'β' : 'b';
@@ -1929,7 +2257,7 @@ function formatCoefLines(b, b_std, p, mode, showP){
     return [line1];
 }
 
-// Helper: Get indirect effect lines - FIXED: dp=3 for ALL values including CI
+// Helper: Get indirect effect lines - dp=3 for ALL values including CI
 function getIndirectLines(d, mode, showP) {
     const indVal = mode === 'std' ? fmtv(d.a_std * d.b_std, 3) : fmtv(d.indirect, 3);
     const prefix = mode === 'std' ? 'β' : 'b';
@@ -1963,7 +2291,7 @@ function getIndirectLines(d, mode, showP) {
     return [line1, line2];
 }
 
-// MAIN SIMPLE MEDIATION DIAGRAM FUNCTION - FIXED (removed diagramSettings reference)
+// MAIN SIMPLE MEDIATION DIAGRAM FUNCTION 
 function buildSimpleMedSVG(d, mode, showP, W, H) {
     const { xn, mn, yn, a, a_std, pa, b, b_std, pb, cp, cp_std, pcp } = d;
     const colors = getDiagramColors();
@@ -2989,16 +3317,39 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption){
   }
   
   // Plot data for slopes plot of X→M at levels of W
-  const plotIntercepts = wLVals.map(wv => rM.coef[0] + a1*mX + rM.coef[2]*(mW + (centerOption==='none'?wv-mW:wv)));
-  const plotData={
-    b_intercept: rM.coef[0]+a1*mX+rM.coef[2]*mW,
-    b_x:a1, b_xw:a3,
-    mX, mW, sW, sdX,
-    wLevelVals: centerOption==='none' ? wLVals.map(wv => wv - mW) : wLVals,
-    slopes, slopeSEs, slopePvals,
+  // IMPORTANT: wLVals should contain the actual W values (not centered) for display
+  let plotWVals;
+  if (centerOption === 'none') {
+    // No centering: use raw W values
+    plotWVals = [mW - sW, mW, mW + sW];
+  } else {
+    // Centered approach: use actual W values (not centered)
+    plotWVals = [mW - sW, mW, mW + sW];
+  }
+  
+  const plotIntercepts = plotWVals.map(wv => rM.coef[0] + a1*mX + rM.coef[2]*wv);
+  
+  // Calculate the correct slopes for each W level
+  const plotSlopes = plotWVals.map(wv => a1 + a3 * (centerOption === 'none' ? wv : wv - mW));
+  const plotSlopeSEs = plotWVals.map(wv => Math.sqrt(rM.se[1]**2 + (centerOption === 'none' ? wv : wv - mW)**2 * rM.se[3]**2));
+  const plotSlopePvals = plotSlopes.map((sl, i) => tcdf2(Math.abs(plotSlopeSEs[i] > 0 ? sl / plotSlopeSEs[i] : 0), rM.df));
+  
+  const plotData = {
+    b_intercept: rM.coef[0] + a1 * mX + rM.coef[2] * mW,
+    b_x: a1,
+    b_xw: a3,
+    mX: mX,
+    mW: mW,
+    sW: sW,
+    sdX: sdX,
+    // For the plot engine, we need centered W values for the x-axis calculation
+    wLevelVals: plotWVals.map(wv => wv - mW),
+    slopes: plotSlopes,
+    slopeSEs: plotSlopeSEs,
+    slopePvals: plotSlopePvals,
     perLevelIntercepts: plotIntercepts
   };
-  const slopesHTML=buildSlopesHTML(plotData,xn,wn,mn);
+  const slopesHTML = buildSlopesHTML(plotData, xn, wn, mn);
   
     // Get bootstrap CI for index from bootRes (the a3×b product)
   let bootCI_index = null;
