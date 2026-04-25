@@ -5,7 +5,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Offline-brightgreen)](https://shinyhealthtools.github.io/medmodr/)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/shinyhealthtools/medmodr)
 
-**MedModr** is a free, open-source web application for advanced statistical analyses including simple mediation, serial mediation, moderation, and moderated mediation (conditional process analysis).
+**MedModr** is a free, open-source web application for simple mediation, serial mediation, moderation, and moderated mediation (conditional process analysis).
 
 All computations run locally in your browser. **Your data never leaves your device** — a privacy-first alternative to commercial software.
 
