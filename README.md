@@ -127,4 +127,4 @@ Contributions welcome: bug fixes, new features, documentation, translations, per
 
 ---
 
-**MedModr** — Transparent, private, professional statistical analysis.
+**MedModr** — Transparent, private, professional mediation and moderation analysis.
