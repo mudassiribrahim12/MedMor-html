@@ -1246,20 +1246,7 @@ function tQuantile(df,alpha){
   }
   return z;
 }
-function fCDF(d1, d2, f) {
-  if (f <= 0) return 0;
-  if (isNaN(d1) || isNaN(d2) || isNaN(f)) return NaN;
-  if (d1 <= 0 || d2 <= 0) return NaN;
-  
-  // For very large F values, return 1 (approaching certainty)
-  if (f > 1000 && d1 <= 2) return 1;
-  if (f > 10000) return 1;
-  
-  const x = (d1 * f) / (d1 * f + d2);
-  // Clamp x to [0,1] to avoid numerical issues
-  const clampedX = Math.min(0.9999999999, Math.max(0, x));
-  return incompleteBeta(d1 / 2, d2 / 2, clampedX);
-}
+function fCDF(d1,d2,f){return incompleteBeta(d1/2,d2/2,d1*f/(d1*f+d2))}
 function matInv(mat){
   const n=mat.length;let a=mat.map(r=>[...r]);
   let id=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
@@ -4472,6 +4459,7 @@ if (loadingVersionEl && loadingScreen) {
   // Prevent scrolling while loading
   document.body.style.overflow = 'hidden';
 }
+
 </script>
 </body>
 </html>
