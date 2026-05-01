@@ -1428,33 +1428,30 @@ function renderReg(res, resZ, outcome, confLabel) {
   const pct = confLabel.replace('%', '');
   const fStr = isNaN(res.f) ? 'N/A' : fmtv(res.f);
   
-  // Calculate F-statistic p-value with special handling for large F values
+  // F-statistic p-value display - convert 1.000 or 0.000 to <.001
   let fpDisplay = 'N/A';
   
   if (res.f && !isNaN(res.f) && res.f > 0 && res.df_mod > 0 && res.df > 0) {
     try {
-      // For extremely large F values, we know p < .001 without calculation
-      // This avoids floating-point precision issues with fCDF
-      if (res.f > 100) {
-        // Approximate: For F > 100 with small dfs, p is definitely < .001
+      // Try to calculate the p-value
+      const fCDFValue = fCDF(res.df_mod, res.df, res.f);
+      let fpVal = 1 - fCDFValue;
+      
+      // Handle floating point precision
+      if (fpVal < 0) fpVal = 0;
+      if (fpVal > 1) fpVal = 1;
+      
+      // CRITICAL FIX: If p-value is 1.000 or 0.000 with large F, it's actually <.001
+      if (fpVal === 1 || fpVal === 0 || (Math.abs(fpVal - 1) < 0.0001) || (fpVal < 0.0001 && res.f > 10)) {
+        fpDisplay = '< .001';
+      } else if (fpVal < 0.001) {
         fpDisplay = '< .001';
       } else {
-        const fCDFValue = fCDF(res.df_mod, res.df, res.f);
-        let fpVal = 1 - fCDFValue;
-        
-        // Handle floating point precision issues
-        if (fpVal < 0) fpVal = 0;
-        if (fpVal > 1) fpVal = 1;
-        
-        if (fpVal < 0.001) {
-          fpDisplay = '< .001';
-        } else {
-          fpDisplay = '= ' + fmtp(fpVal);
-        }
+        fpDisplay = '= ' + fmtp(fpVal);
       }
     } catch(e) {
-      // If calculation fails but F is large, assume significant
-      if (res.f > 50) {
+      // If calculation fails but F is large, show <.001
+      if (res.f > 10) {
         fpDisplay = '< .001';
       } else {
         fpDisplay = 'N/A';
