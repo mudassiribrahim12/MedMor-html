@@ -2772,6 +2772,9 @@ function buildModerationSVG(d, mode, showP, W, H){
 }
 
 // ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
+// Both Stages: Moderator on LEFT side, two arrows, TWO HORIZONTAL CARDS side by side (only when Card Box ON)
+// First Stage: Moderator on LEFT, one arrow to X→M line, single bottom card (only when Card Box ON)
+// Second Stage: Moderator on RIGHT, one arrow to M→Y line, single bottom card (only when Card Box ON)
 function buildModMedSVG(d, mode, showP, W, H){
   const {xn,mn,yn,wn,a1,a1_std,pa1,a3,a3_std,pa3,b,b_std,pb,cp,cp_std,pcp,indexMM,bootCI_index} = d;
   const colors = getDiagramColors();
@@ -2779,20 +2782,20 @@ function buildModMedSVG(d, mode, showP, W, H){
   
   // Triangle layout: X bottom-left, M top-center, Y bottom-right
   const xB = {x: 35, y: H - 70};
-  const mB = {x: W/2 - bw/2, y: 45};
+  const mB = {x: W/2 - bw/2, y: 85};
   const yB = {x: W - bw - 35, y: H - 70};
   
-  // X→M path (a1) - calculate points
-  const ax1 = xB.x + bw, ay1 = xB.y + bh/2;
-  const ax2 = mB.x, ay2 = mB.y + bh/2;
-  const aMidX = (ax1 + ax2)/2;
-  const aMidY = (ay1 + ay2)/2;
+  // X→M path (a1) - calculate points (the actual line segment)
+  const aStart = {x: xB.x + bw, y: xB.y + bh/2};
+  const aEnd = {x: mB.x, y: mB.y + bh/2};
+  const aMidX = (aStart.x + aEnd.x) / 2;
+  const aMidY = (aStart.y + aEnd.y) / 2;
   
-  // M→Y path (b)
-  const bx1 = mB.x + bw, by1 = mB.y + bh/2;
-  const bx2 = yB.x, by2 = yB.y + bh/2;
-  const bMidX = (bx1 + bx2)/2;
-  const bMidY = (by1 + by2)/2;
+  // M→Y path (b) - calculate points (the actual line segment)
+  const bStart = {x: mB.x + bw, y: mB.y + bh/2};
+  const bEnd = {x: yB.x, y: yB.y + bh/2};
+  const bMidX = (bStart.x + bEnd.x) / 2;
+  const bMidY = (bStart.y + bEnd.y) / 2;
   
   // X→Y direct path (c')
   const cpx1 = xB.x + bw, cpy1 = xB.y + bh/2 + 10;
@@ -2800,7 +2803,7 @@ function buildModMedSVG(d, mode, showP, W, H){
   const cpMidX = (cpx1 + cpx2)/2;
   const cpMidY = (cpy1 + cpy2)/2;
   
-  // Format lines - respecting _diagShowCoefs
+  // Format lines
   let a1Lines = [], bLines = [], cpLines = [];
   if (_diagShowCoefs) {
     a1Lines = formatCoefLines(a1, a1_std, pa1, mode, showP);
@@ -2811,151 +2814,167 @@ function buildModMedSVG(d, mode, showP, W, H){
   const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
   const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
   
-  // Get bootstrap CI values for Index
-  let bootCILo = null, bootCIHi = null;
-  if (bootCI_index && bootCI_index.lo !== undefined && bootCI_index.hi !== undefined) {
-    bootCILo = bootCI_index.lo;
-    bootCIHi = bootCI_index.hi;
-  } else if (d.bootCI_index && d.bootCI_index.lo !== undefined && d.bootCI_index.hi !== undefined) {
-    bootCILo = d.bootCI_index.lo;
-    bootCIHi = d.bootCI_index.hi;
-  }
-  
-// Index of Moderated Mediation with bootstrap CI
-let indexLine1 = '', indexLine2 = '';
-if (_diagShowCoefs) {
-  // Use the pre-calculated standardized index from the data
-  const indexStd = d.indexMM_std !== undefined ? d.indexMM_std : (a3_std * b_std);
-  const indexVal = mode === 'std' ? fmtv(indexStd, 3) : fmtv(indexMM, 3);
-  const indexPrefix = mode === 'std' ? 'β' : 'b';
-  indexLine1 = `${indexPrefix} = ${indexVal}`;
-    
-    if (bootCILo !== null && bootCIHi !== null && !isNaN(bootCILo) && !isNaN(bootCIHi)) {
-      indexLine2 = `95% CI [${fmtv(bootCILo, 3)}, ${fmtv(bootCIHi, 3)}]`;
-    } else {
-      indexLine2 = `95% CI [N/A, N/A]`;
-    }
-  }
-  
   const markerDefs = _useBlackAndWhite ? 
     '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
     '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
   
-// Coefficient label positions 
-const aLabelX = aMidX - 10;   
-const aLabelY = aMidY - 55;   
-
-const bLabelX = bMidX - 10;   
-const bLabelY = bMidY - 55;   
-  
-  // c'-path coefficient (X→Y direct)
+  // Coefficient label positions
+  const aLabelX = aMidX - 10;
+  const aLabelY = aMidY - 45;
+  const bLabelX = bMidX - 10;
+  const bLabelY = bMidY - 45;
   const cpLabelX = cpMidX;
   const cpLabelY = cpMidY + 28;
   
   let stageContent = '';
-  const cardWidth = 340;
-  const cardHeight = 50;
-  const cardY = H + 15;  // Moved below the diagram
+  
+  // W box dimensions
+  const wWidth = 85;
+  const wHeight = 44;
+  const cardWidth = 260;
+  const cardHeight = 65;
+  const cardSpacing = 20;
   
   if (_currentModMedStage === 'first') {
-    // FIRST STAGE ONLY: W on LEFT side, arrow from BOTTOM of W card
-    const wB = {x: 15, y: mB.y + bh/2 - 22};
-    const wWidth = 90;
-    const wHeight = 44;
-    
-    // Arrow from BOTTOM edge of W box to the X→M line
-    const wStartX = wB.x + wWidth/2;
-    const wStartY = wB.y + wHeight;
-    // Arrow target on X→M line (midpoint)
+    // FIRST STAGE: W on LEFT side, one arrow to X→M line
+    const wB = {x: 15, y: mB.y + bh/2 - wHeight/2};
+    const wStartX = wB.x + wWidth;
+    const wStartY = wB.y + wHeight/2;
     const targetX = aMidX;
     const targetY = aMidY;
+    const cardY = H + 15;
+    
+    const a3_star = pStar(pa3);
+    const a3_val_fmt = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
+    const a3_prefix = mode === 'std' ? 'β' : 'b';
+    const a3_p_fmt = fmtp(pa3);
     
     stageContent = `
     ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
     <line x1="${wStartX}" y1="${wStartY}" x2="${targetX}" y2="${targetY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
     
-    <!-- Index Card only -->
     ${_diagShowCardBox ? `
     <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}">Index of Moderated Mediation:</text>
-    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${escapeXml(indexLine1)}  ${escapeXml(indexLine2)}</text>
+    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">First Stage Interaction</text>
+    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${xn}×${wn} → ${mn}</text>
+    <text x="${W/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}</text>
     ` : ''}`;
     
   } else if (_currentModMedStage === 'second') {
-    // SECOND STAGE ONLY: W on RIGHT side, arrow from BOTTOM of W card
-    const wB = {x: W - 90 - 15, y: mB.y + bh/2 - 22};
-    const wWidth = 90;
-    const wHeight = 44;
-    
-    // Arrow from BOTTOM edge of W box to the M→Y line
-    const wStartX = wB.x + wWidth/2;
-    const wStartY = wB.y + wHeight;
-    // Arrow target on M→Y line (midpoint)
+    // SECOND STAGE: W on RIGHT side, one arrow to M→Y line
+    const wB = {x: W - wWidth - 15, y: mB.y + bh/2 - wHeight/2};
+    const wStartX = wB.x;
+    const wStartY = wB.y + wHeight/2;
     const targetX = bMidX;
     const targetY = bMidY;
+    const cardY = H + 15;
+    
+    const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
+    const b3_val = d.b3 !== undefined ? d.b3 : 0;
+    const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
+    const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
+    const b3_prefix = mode === 'std' ? 'β' : 'b';
+    const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
     
     stageContent = `
     ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
     <line x1="${wStartX}" y1="${wStartY}" x2="${targetX}" y2="${targetY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
     
-    <!-- Index Card only -->
     ${_diagShowCardBox ? `
     <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}">Index of Moderated Mediation:</text>
-    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${escapeXml(indexLine1)}  ${escapeXml(indexLine2)}</text>
+    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">Second Stage Interaction</text>
+    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${mn}×${wn} → ${yn}</text>
+    <text x="${W/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}</text>
     ` : ''}`;
     
   } else {
-    // BOTH STAGES: Two W boxes (left and right)
-    const wWidth = 85;
-    const wHeight = 44;
+    // BOTH STAGES: Moderator on LEFT side
+    // Arrow 1 (to M→Y): from RIGHT side of card
+    // Arrow 2 (to X→M): from BOTTOM of card
+    const wB = {x: 15, y: mB.y + bh/2 - wHeight/2};
     
-    // Left W (first stage) - arrow from BOTTOM
-    const wB_left = {x: 15, y: mB.y + bh/2 - 22};
-    const wStartX_left = wB_left.x + wWidth/2;
-    const wStartY_left = wB_left.y + wHeight;
-    const targetX_left = aMidX;
-    const targetY_left = aMidY;
+    // Arrow 1 (to M→Y line): starts from RIGHT side of moderator card
+    const wStartX1 = wB.x + wWidth;
+    const wStartY1 = wB.y + wHeight/2;
+    const targetX1 = bMidX;
+    const targetY1 = bMidY;
     
-    // Right W (second stage) - arrow from BOTTOM
-    const wB_right = {x: W - wWidth - 15, y: mB.y + bh/2 - 22};
-    const wStartX_right = wB_right.x + wWidth/2;
-    const wStartY_right = wB_right.y + wHeight;
-    const targetX_right = bMidX;
-    const targetY_right = bMidY;
+    // Arrow 2 (to X→M line): starts from BOTTOM of moderator card
+    const wStartX2 = wB.x + wWidth/2;
+    const wStartY2 = wB.y + wHeight;
+    const targetX2 = aMidX;
+    const targetY2 = aMidY;
+    
+    const cardY = H + 15;
+    const leftCardX = W/2 - cardWidth - cardSpacing/2;
+    const rightCardX = W/2 + cardSpacing/2;
+    
+    // First Stage Interaction Effect (a₃)
+    const a3_star = pStar(pa3);
+    const a3_val_fmt = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
+    const a3_prefix = mode === 'std' ? 'β' : 'b';
+    const a3_p_fmt = fmtp(pa3);
+    
+    // Second Stage Interaction Effect (b₃)
+    const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
+    const b3_val = d.b3 !== undefined ? d.b3 : 0;
+    const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
+    const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
+    const b3_prefix = mode === 'std' ? 'β' : 'b';
+    const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
+    
+    // Only show bottom cards if Card Box is ON
+    const bottomCardsHTML = _diagShowCardBox ? `
+    <!-- First Stage Interaction Card (LEFT) -->
+    <rect x="${leftCardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${leftCardX + cardWidth/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">First Stage Interaction</text>
+    <text x="${leftCardX + cardWidth/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${xn}×${wn} → ${mn}</text>
+    <text x="${leftCardX + cardWidth/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}</text>
+    
+    <!-- Second Stage Interaction Card (RIGHT) -->
+    <rect x="${rightCardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${rightCardX + cardWidth/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">Second Stage Interaction</text>
+    <text x="${rightCardX + cardWidth/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${mn}×${wn} → ${yn}</text>
+    <text x="${rightCardX + cardWidth/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}</text>
+    ` : '';
     
     stageContent = `
-    <!-- Left W (first stage moderation) -->
-    ${drawNode(wB_left.x, wB_left.y, wWidth, wHeight, wn, false)}
-    <line x1="${wStartX_left}" y1="${wStartY_left}" x2="${targetX_left}" y2="${targetY_left}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
     
-    <!-- Right W (second stage moderation) -->
-    ${drawNode(wB_right.x, wB_right.y, wWidth, wHeight, wn, false)}
-    <line x1="${wStartX_right}" y1="${wStartY_right}" x2="${targetX_right}" y2="${targetY_right}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    <!-- Arrow to M→Y path (second stage moderation) - from RIGHT side of card -->
+    <line x1="${wStartX1}" y1="${wStartY1}" x2="${targetX1}" y2="${targetY1}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
     
-    <!-- Index Card (Center Bottom) -->
-    ${_diagShowCardBox ? `
-    <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}">Index of Moderated Mediation (Total):</text>
-    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${escapeXml(indexLine1)}  ${escapeXml(indexLine2)}</text>
-    ` : ''}`;
+    <!-- Arrow to X→M path (first stage moderation) - from BOTTOM of card -->
+    <line x1="${wStartX2}" y1="${wStartY2}" x2="${targetX2}" y2="${targetY2}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    
+    ${bottomCardsHTML}`;
   }
   
-  return `<svg viewBox="0 0 ${W} ${H+80}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+  // Adjust SVG height based on Card Box visibility and stage
+  let svgHeight = H + 80;
+  if (_currentModMedStage !== 'both' && _diagShowCardBox) {
+    svgHeight = H + 100;
+  } else if (_currentModMedStage === 'both' && _diagShowCardBox) {
+    svgHeight = H + 100;
+  } else {
+    svgHeight = H + 60;
+  }
+  
+  return `<svg viewBox="0 0 ${W} ${svgHeight}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
     <defs>${markerDefs}</defs>
     ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
     ${drawNode(mB.x, mB.y, bw, bh, mn, true)}
     ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
     
     <!-- X → M path (a-path) -->
-    <line x1="${ax1}" y1="${ay1}" x2="${ax2}" y2="${ay2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    <line x1="${aStart.x}" y1="${aStart.y}" x2="${aEnd.x}" y2="${aEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.5" ${lineStyle} marker-end="${markerUrl}"/>
     ${_diagShowCoefs && a1Lines.length > 0 ? drawLabelBox(aLabelX, aLabelY, a1Lines, 100) : ''}
     
     <!-- M → Y path (b-path) -->
-    <line x1="${bx1}" y1="${by1}" x2="${bx2}" y2="${by2}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    <line x1="${bStart.x}" y1="${bStart.y}" x2="${bEnd.x}" y2="${bEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.5" ${lineStyle} marker-end="${markerUrl}"/>
     ${_diagShowCoefs && bLines.length > 0 ? drawLabelBox(bLabelX, bLabelY, bLines, 100) : ''}
     
-    <!-- X → Y direct path (c'-path) - label BELOW the line with gap -->
+    <!-- X → Y direct path (c'-path) -->
     <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
     ${_diagShowCoefs && cpLines.length > 0 ? drawLabelBox(cpLabelX, cpLabelY, cpLines, 120) : ''}
     
