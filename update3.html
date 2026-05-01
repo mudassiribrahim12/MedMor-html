@@ -2954,9 +2954,10 @@ function buildModerationSVG(d, mode, showP, W, H){
     </svg>`;
 }
 // ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
-// Both Stages: Moderator on LEFT side, two arrows, TWO HORIZONTAL CARDS side by side (only when Card Box ON)
-// First Stage: Moderator on LEFT, one arrow to X→M line, single bottom card (only when Card Box ON)
-// Second Stage: Moderator on RIGHT, one arrow to M→Y line, single bottom card (only when Card Box ON)
+// First Stage: Shows IMM with 95% bootstrap CI
+// Second Stage: Shows IMM with 95% bootstrap CI
+// Both Stages: Shows two interaction cards (First Stage Interaction & Second Stage Interaction)
+// Show Coefs OFF: Removes ALL coefficients (path coefficients AND bottom estimates)
 function buildModMedSVG(d, mode, showP, W, H){
   const {xn,mn,yn,wn,a1,a1_std,pa1,a3,a3_std,pa3,b,b_std,pb,cp,cp_std,pcp,indexMM,bootCI_index} = d;
   const colors = getDiagramColors();
@@ -2985,7 +2986,7 @@ function buildModMedSVG(d, mode, showP, W, H){
   const cpMidX = (cpx1 + cpx2)/2;
   const cpMidY = (cpy1 + cpy2)/2;
   
-  // Format lines
+  // Format lines - only if Show Coefs is ON
   let a1Lines = [], bLines = [], cpLines = [];
   if (_diagShowCoefs) {
     a1Lines = formatCoefLines(a1, a1_std, pa1, mode, showP);
@@ -3000,6 +3001,27 @@ function buildModMedSVG(d, mode, showP, W, H){
     '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
     '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
   
+  // Helper function for inline labels (text only, no background)
+  function renderInlineLabel(midX, midY, lines, offsetX = 0, offsetY = 0) {
+    if (!lines || lines.length === 0 || !_diagShowCoefs) return '';
+    const fs = 10;
+    const lineHeight = 14;
+    const totalHeight = lines.length * lineHeight;
+    const startY = midY + offsetY - totalHeight / 2 + lineHeight - 2;
+    
+    let textElements = '';
+    lines.forEach((line, i) => {
+      textElements += `<text x="${midX + offsetX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
+    });
+    return textElements;
+  }
+  
+  // Helper for single line text
+  function renderSingleLine(midX, midY, text, isBold = false) {
+    if (!text || !_diagShowCoefs) return '';
+    return `<text x="${midX}" y="${midY}" text-anchor="middle" font-size="10" font-weight="${isBold ? '700' : '600'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(text)}</text>`;
+  }
+  
   // Coefficient label positions
   const aLabelX = aMidX - 10;
   const aLabelY = aMidY - 45;
@@ -3008,17 +3030,63 @@ function buildModMedSVG(d, mode, showP, W, H){
   const cpLabelX = cpMidX;
   const cpLabelY = cpMidY + 28;
   
+  // Draw path labels based on Card Box and Show Coefs settings
+  let aLabelHTML = '', bLabelHTML = '', cpLabelHTML = '';
+  
+  if (_diagShowCoefs) {
+    if (_diagShowCardBox) {
+      aLabelHTML = drawLabelBox(aLabelX, aLabelY, a1Lines, 100);
+      bLabelHTML = drawLabelBox(bLabelX, bLabelY, bLines, 100);
+      cpLabelHTML = drawLabelBox(cpLabelX, cpLabelY, cpLines, 120);
+    } else {
+      aLabelHTML = renderInlineLabel(aMidX, aMidY, a1Lines, -10, -45);
+      bLabelHTML = renderInlineLabel(bMidX, bMidY, bLines, -10, -45);
+      cpLabelHTML = renderInlineLabel(cpMidX, cpMidY, cpLines, 0, 28);
+    }
+  }
+  
   let stageContent = '';
   
   // W box dimensions
   const wWidth = 85;
   const wHeight = 44;
-  const cardWidth = 260;
-  const cardHeight = 65;
-  const cardSpacing = 20;
+  const cardWidth = 300;
+  const cardHeight = 55;
+  const cardSpacing = 15;
+  
+  // Get IMM with bootstrap CI (for First and Second stages)
+  let immText = '';
+  if (_diagShowCoefs) {
+    const immVal = mode === 'std' ? fmtv(indexMM_std, 3) : fmtv(indexMM, 3);
+    const immPrefix = mode === 'std' ? 'β' : 'b';
+    
+    let ciText = '';
+    if (bootCI_index && bootCI_index.lo !== undefined && bootCI_index.hi !== undefined && !isNaN(bootCI_index.lo) && !isNaN(bootCI_index.hi)) {
+      ciText = `95% CI [${fmtv(bootCI_index.lo, 3)}, ${fmtv(bootCI_index.hi, 3)}]`;
+    } else {
+      ciText = `95% CI [N/A, N/A]`;
+    }
+    immText = `${immPrefix} = ${immVal}, ${ciText}`;
+  }
+  
+  // First Stage Interaction text (for Both Stages only)
+  const a3_star = pStar(pa3);
+  const a3_val_fmt = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
+  const a3_prefix = mode === 'std' ? 'β' : 'b';
+  const a3_p_fmt = fmtp(pa3);
+  const firstStageText = `${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}`;
+  
+  // Second Stage Interaction text (for Both Stages only)
+  const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
+  const b3_val = d.b3 !== undefined ? d.b3 : 0;
+  const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
+  const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
+  const b3_prefix = mode === 'std' ? 'β' : 'b';
+  const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
+  const secondStageText = `${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}`;
   
   if (_currentModMedStage === 'first') {
-    // FIRST STAGE: W on LEFT side, one arrow to X→M line
+    // FIRST STAGE: W on LEFT side, one arrow to X→M line, shows IMM with CI
     const wB = {x: 15, y: mB.y + bh/2 - wHeight/2};
     const wStartX = wB.x + wWidth;
     const wStartY = wB.y + wHeight/2;
@@ -3026,24 +3094,26 @@ function buildModMedSVG(d, mode, showP, W, H){
     const targetY = aMidY;
     const cardY = H + 15;
     
-    const a3_star = pStar(pa3);
-    const a3_val_fmt = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
-    const a3_prefix = mode === 'std' ? 'β' : 'b';
-    const a3_p_fmt = fmtp(pa3);
-    
     stageContent = `
     ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
     <line x1="${wStartX}" y1="${wStartY}" x2="${targetX}" y2="${targetY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    `;
     
-    ${_diagShowCardBox ? `
-    <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">First Stage Interaction</text>
-    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${xn}×${wn} → ${mn}</text>
-    <text x="${W/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}</text>
-    ` : ''}`;
+    // IMM Card (only if Show Coefs is ON)
+    if (_diagShowCoefs && immText) {
+      if (_diagShowCardBox) {
+        stageContent += `
+        <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+        <text x="${W/2}" y="${cardY + 18}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${colors.boxText}">Index of Moderated Mediation</text>
+        <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${colors.boxText}">${immText}</text>
+        `;
+      } else {
+        stageContent += renderSingleLine(W/2, H + 50, `Index of Moderated Mediation: ${immText}`, true);
+      }
+    }
     
   } else if (_currentModMedStage === 'second') {
-    // SECOND STAGE: W on RIGHT side, one arrow to M→Y line
+    // SECOND STAGE: W on RIGHT side, one arrow to M→Y line, shows IMM with CI
     const wB = {x: W - wWidth - 15, y: mB.y + bh/2 - wHeight/2};
     const wStartX = wB.x;
     const wStartY = wB.y + wHeight/2;
@@ -3051,74 +3121,39 @@ function buildModMedSVG(d, mode, showP, W, H){
     const targetY = bMidY;
     const cardY = H + 15;
     
-    const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
-    const b3_val = d.b3 !== undefined ? d.b3 : 0;
-    const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
-    const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
-    const b3_prefix = mode === 'std' ? 'β' : 'b';
-    const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
-    
     stageContent = `
     ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
     <line x1="${wStartX}" y1="${wStartY}" x2="${targetX}" y2="${targetY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    `;
     
-    ${_diagShowCardBox ? `
-    <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">Second Stage Interaction</text>
-    <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${mn}×${wn} → ${yn}</text>
-    <text x="${W/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}</text>
-    ` : ''}`;
+    // IMM Card (only if Show Coefs is ON)
+    if (_diagShowCoefs && immText) {
+      if (_diagShowCardBox) {
+        stageContent += `
+        <rect x="${W/2 - cardWidth/2}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+        <text x="${W/2}" y="${cardY + 18}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${colors.boxText}">Index of Moderated Mediation</text>
+        <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${colors.boxText}">${immText}</text>
+        `;
+      } else {
+        stageContent += renderSingleLine(W/2, H + 50, `Index of Moderated Mediation: ${immText}`, true);
+      }
+    }
     
   } else {
-    // BOTH STAGES: Moderator on LEFT side
-    // Arrow 1 (to M→Y): from RIGHT side of card
-    // Arrow 2 (to X→M): from BOTTOM of card
+    // BOTH STAGES: Moderator on LEFT side, two arrows, shows TWO interaction cards (smaller, publication ready)
     const wB = {x: 15, y: mB.y + bh/2 - wHeight/2};
     
-    // Arrow 1 (to M→Y line): starts from RIGHT side of moderator card
+    // Arrow 1 (to M→Y line): from RIGHT side of moderator card
     const wStartX1 = wB.x + wWidth;
     const wStartY1 = wB.y + wHeight/2;
     const targetX1 = bMidX;
     const targetY1 = bMidY;
     
-    // Arrow 2 (to X→M line): starts from BOTTOM of moderator card
+    // Arrow 2 (to X→M line): from BOTTOM of moderator card
     const wStartX2 = wB.x + wWidth/2;
     const wStartY2 = wB.y + wHeight;
     const targetX2 = aMidX;
     const targetY2 = aMidY;
-    
-    const cardY = H + 15;
-    const leftCardX = W/2 - cardWidth - cardSpacing/2;
-    const rightCardX = W/2 + cardSpacing/2;
-    
-    // First Stage Interaction Effect (a₃)
-    const a3_star = pStar(pa3);
-    const a3_val_fmt = mode === 'std' ? fmtv(a3_std, 3) : fmtv(a3, 3);
-    const a3_prefix = mode === 'std' ? 'β' : 'b';
-    const a3_p_fmt = fmtp(pa3);
-    
-    // Second Stage Interaction Effect (b₃)
-    const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
-    const b3_val = d.b3 !== undefined ? d.b3 : 0;
-    const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
-    const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
-    const b3_prefix = mode === 'std' ? 'β' : 'b';
-    const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
-    
-    // Only show bottom cards if Card Box is ON
-    const bottomCardsHTML = _diagShowCardBox ? `
-    <!-- First Stage Interaction Card (LEFT) -->
-    <rect x="${leftCardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${leftCardX + cardWidth/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">First Stage Interaction</text>
-    <text x="${leftCardX + cardWidth/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${xn}×${wn} → ${mn}</text>
-    <text x="${leftCardX + cardWidth/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}</text>
-    
-    <!-- Second Stage Interaction Card (RIGHT) -->
-    <rect x="${rightCardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${rightCardX + cardWidth/2}" y="${cardY + 20}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">Second Stage Interaction</text>
-    <text x="${rightCardX + cardWidth/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${mn}×${wn} → ${yn}</text>
-    <text x="${rightCardX + cardWidth/2}" y="${cardY + 56}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}</text>
-    ` : '';
     
     stageContent = `
     ${drawNode(wB.x, wB.y, wWidth, wHeight, wn, false)}
@@ -3128,16 +3163,47 @@ function buildModMedSVG(d, mode, showP, W, H){
     
     <!-- Arrow to X→M path (first stage moderation) - from BOTTOM of card -->
     <line x1="${wStartX2}" y1="${wStartY2}" x2="${targetX2}" y2="${targetY2}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    `;
     
-    ${bottomCardsHTML}`;
+    const cardY = H + 15;
+    // Smaller cards for publication ready
+    const smallCardWidth = 250;
+    const smallCardHeight = 52;
+    const leftCardX = W/2 - smallCardWidth - cardSpacing/2;
+    const rightCardX = W/2 + cardSpacing/2;
+    
+    // Two Interaction Cards (only if Show Coefs is ON)
+    if (_diagShowCoefs) {
+      if (_diagShowCardBox) {
+        stageContent += `
+        <!-- First Stage Interaction Card (LEFT) -->
+        <rect x="${leftCardX}" y="${cardY}" width="${smallCardWidth}" height="${smallCardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+        <text x="${leftCardX + smallCardWidth/2}" y="${cardY + 17}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}">First Stage Interaction</text>
+        <text x="${leftCardX + smallCardWidth/2}" y="${cardY + 35}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${firstStageText}</text>
+        
+        <!-- Second Stage Interaction Card (RIGHT) -->
+        <rect x="${rightCardX}" y="${cardY}" width="${smallCardWidth}" height="${smallCardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+        <text x="${rightCardX + smallCardWidth/2}" y="${cardY + 17}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}">Second Stage Interaction</text>
+        <text x="${rightCardX + smallCardWidth/2}" y="${cardY + 35}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${secondStageText}</text>
+        `;
+      } else {
+        // Card Box OFF: inline text below diagram - maintain separate positions (no overlap)
+        const inlineY = H + 35;
+        // Position texts directly below their respective card positions
+        const leftTextX = leftCardX + smallCardWidth/2;
+        const rightTextX = rightCardX + smallCardWidth/2;
+        stageContent += `
+        ${renderSingleLine(leftTextX, inlineY, `First Stage Interaction: ${firstStageText}`, false)}
+        ${renderSingleLine(rightTextX, inlineY, `Second Stage Interaction: ${secondStageText}`, false)}
+        `;
+      }
+    }
   }
   
-  // Adjust SVG height based on Card Box visibility and stage
+  // Adjust SVG height based on content
   let svgHeight = H + 80;
-  if (_currentModMedStage !== 'both' && _diagShowCardBox) {
-    svgHeight = H + 100;
-  } else if (_currentModMedStage === 'both' && _diagShowCardBox) {
-    svgHeight = H + 100;
+  if (_diagShowCoefs) {
+    svgHeight = H + 95;
   } else {
     svgHeight = H + 60;
   }
@@ -3150,15 +3216,15 @@ function buildModMedSVG(d, mode, showP, W, H){
     
     <!-- X → M path (a-path) -->
     <line x1="${aStart.x}" y1="${aStart.y}" x2="${aEnd.x}" y2="${aEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.5" ${lineStyle} marker-end="${markerUrl}"/>
-    ${_diagShowCoefs && a1Lines.length > 0 ? drawLabelBox(aLabelX, aLabelY, a1Lines, 100) : ''}
+    ${aLabelHTML}
     
     <!-- M → Y path (b-path) -->
     <line x1="${bStart.x}" y1="${bStart.y}" x2="${bEnd.x}" y2="${bEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.5" ${lineStyle} marker-end="${markerUrl}"/>
-    ${_diagShowCoefs && bLines.length > 0 ? drawLabelBox(bLabelX, bLabelY, bLines, 100) : ''}
+    ${bLabelHTML}
     
     <!-- X → Y direct path (c'-path) -->
     <line x1="${cpx1}" y1="${cpy1}" x2="${cpx2}" y2="${cpy2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
-    ${_diagShowCoefs && cpLines.length > 0 ? drawLabelBox(cpLabelX, cpLabelY, cpLines, 120) : ''}
+    ${cpLabelHTML}
     
     ${stageContent}
   </svg>`;
