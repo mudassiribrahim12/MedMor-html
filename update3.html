@@ -2408,14 +2408,13 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     const scale = _diagLineLength;
     const bw = 120;  // box width
     const bh = 50;   // box height
-    const spacing = 60 * scale; // dynamic spacing based on line length
     
     // Node positions with dynamic spacing
     const xB = { x: 25, y: H/2 - bh/2 };
     const mB = { x: W/2 - bw/2, y: 25 };
     const yB = { x: W - bw - 25, y: H/2 - bh/2 };
     
-    // Path coordinates (these stay the same - line length affects spacing, not these)
+    // Path coordinates
     const aStart = { x: xB.x + bw, y: xB.y + bh/2 };
     const aEnd = { x: mB.x, y: mB.y + bh/2 };
     const bStart = { x: mB.x + bw, y: mB.y + bh/2 };
@@ -2423,24 +2422,37 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     const cpStart = { x: xB.x + bw, y: xB.y + bh/2 + 18 };
     const cpEnd = { x: yB.x, y: yB.y + bh/2 + 18 };
     
-    // Label positions - adjust based on line length
+    // Label positions
     const aMid = { x: (aStart.x + aEnd.x) / 2 - (35 * scale), y: (aStart.y + aEnd.y) / 2 - 22 };
     const bMid = { x: (bStart.x + bEnd.x) / 2 + (35 * scale), y: (bStart.y + bEnd.y) / 2 - 22 };
     const cpMid = { x: W / 2, y: cpStart.y + 30 };
     
-// Format lines - if coefficients are hidden, show empty or minimal
-    let aLines, bLines, cpLines, indLines;
+    // Format coefficient lines
+    let aLines = [], bLines = [], cpLines = [];
+    let indirectText = "";
     
-    if (!_diagShowCoefs) {
-        aLines = [];
-        bLines = [];
-        cpLines = [];
-        indLines = ["Indirect effect"];
-    } else {
+    if (_diagShowCoefs) {
         aLines = formatCoefLines(a, a_std, pa, mode, showP);
         bLines = formatCoefLines(b, b_std, pb, mode, showP);
-        cpLines = formatCoefLines(cp, cp_std, pcp, mode, showP);  
-        indLines = getIndirectLines(d, mode, showP);
+        cpLines = formatCoefLines(cp, cp_std, pcp, mode, showP);
+        
+        // Format indirect effect as single line: "b = X.XXX, 95% CI [X.XXX, X.XXX]"
+        const indVal = mode === 'std' ? fmtv(d.a_std * d.b_std, 3) : fmtv(d.indirect, 3);
+        const indPrefix = mode === 'std' ? 'β' : 'b';
+        
+        let ciText = "";
+        if (_indirectDisplayMode === 'ci') {
+            if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined) {
+                ciText = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
+            } else if (d.indirect_se !== undefined && !isNaN(d.indirect_se)) {
+                const lo = d.indirect - 1.96 * d.indirect_se;
+                const hi = d.indirect + 1.96 * d.indirect_se;
+                ciText = `95% CI [${fmtv(lo, 3)}, ${fmtv(hi, 3)}]`;
+            } else {
+                ciText = `95% CI [N/A, N/A]`;
+            }
+        }
+        indirectText = `${indPrefix} = ${indVal}, ${ciText}`;
     }
     
     const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
@@ -2450,12 +2462,59 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
         '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
         '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
     
-    // Only show indirect effect box if coefficients are visible
-    const indirectBoxHTML = _diagShowCoefs ? `
-    <rect x="${W/2-170}" y="${H-68}" width="340" height="60" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${H-68+14}" text-anchor="middle" font-size="11" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Simple indirect effect:</text>
-    ${indLines.map((l, i) => `<text x="${W/2}" y="${H-68+30+i*16}" text-anchor="middle" font-size="${i === 0 ? 11 : 10}" font-weight="${i === 0 ? '600' : '500'}" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`).join('')}
-    ` : '';
+    // Helper function for inline labels (no box)
+    function renderInlineLabel(midX, midY, lines) {
+        if (!lines || lines.length === 0) return '';
+        const fs = 10;
+        const lineHeight = 14;
+        const totalHeight = lines.length * lineHeight;
+        const startY = midY - totalHeight / 2 + lineHeight - 2;
+        let textElements = '';
+        lines.forEach((line, i) => {
+            textElements += `<text x="${midX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif" paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-opacity="0.95">${escapeXml(line)}</text>`;
+        });
+        return textElements;
+    }
+    
+    // Draw a-path label (with or without box)
+    const aLabelHTML = (aLines.length > 0) ? (
+        _diagShowCardBox ? drawLabelBox(aMid.x, aMid.y, aLines, 120) : 
+        `<g>${renderInlineLabel(aMid.x, aMid.y, aLines)}</g>`
+    ) : '';
+    
+    // Draw b-path label (with or without box)
+    const bLabelHTML = (bLines.length > 0) ? (
+        _diagShowCardBox ? drawLabelBox(bMid.x, bMid.y, bLines, 120) : 
+        `<g>${renderInlineLabel(bMid.x, bMid.y, bLines)}</g>`
+    ) : '';
+    
+    // Draw c'-path label (with or without box)
+    const cpLabelHTML = (cpLines.length > 0) ? (
+        _diagShowCardBox ? drawLabelBox(cpMid.x, cpMid.y, cpLines, 140) : 
+        `<g>${renderInlineLabel(cpMid.x, cpMid.y, cpLines)}</g>`
+    ) : '';
+    
+    // Indirect effect section - moved up (positioned higher)
+    let indirectHTML = '';
+    if (_diagShowCoefs && indirectText) {
+        if (_diagShowCardBox) {
+            // Card Box ON: Show indirect effect in a styled box
+            const boxWidth = 340;
+            const boxHeight = 48;
+            const boxX = W/2 - boxWidth/2;
+            // Moved up: from H - 52 to H - 65 (13px higher)
+            const boxY = H - 65;
+            indirectHTML = `
+            <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+            <text x="${W/2}" y="${boxY + 18}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Simple indirect effect</text>
+            <text x="${W/2}" y="${boxY + 38}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(indirectText)}</text>
+            `;
+        } else {
+            // Card Box OFF: Show indirect effect as inline text (no box) - also moved up
+            const inlineY = H - 28;
+            indirectHTML = `<text x="${W/2}" y="${inlineY}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif" paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-opacity="0.95">Simple indirect effect: ${escapeXml(indirectText)}</text>`;
+        }
+    }
     
     return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
     <defs>${markerDefs}</defs>
@@ -2465,15 +2524,15 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
     
     <line x1="${aStart.x}" y1="${aStart.y}" x2="${aEnd.x}" y2="${aEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
-    ${aLines.length > 0 ? drawLabelBox(aMid.x, aMid.y, aLines, 120) : ''}
+    ${aLabelHTML}
     
     <line x1="${bStart.x}" y1="${bStart.y}" x2="${bEnd.x}" y2="${bEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
-    ${bLines.length > 0 ? drawLabelBox(bMid.x, bMid.y, bLines, 120) : ''}
+    ${bLabelHTML}
     
     <line x1="${cpStart.x}" y1="${cpStart.y}" x2="${cpEnd.x}" y2="${cpEnd.y}" stroke="${colors.lineStroke}" stroke-width="1.8" ${directStyle} marker-end="${markerUrl}"/>
-    ${cpLines.length > 0 ? drawLabelBox(cpMid.x, cpMid.y, cpLines, 140) : ''}
+    ${cpLabelHTML}
     
-    ${indirectBoxHTML}
+    ${indirectHTML}
     </svg>`;
 }
 
@@ -2666,21 +2725,13 @@ function buildModerationSVG(d, mode, showP, W, H){
   const directLabelX = hitPointX;
   const directLabelY = pathStartY + 32;
   
-  // Format coefficient lines with auto-wrap - respects _diagShowCoefs
+  // Format coefficient lines
   let xLines = [];
+  let modLine1 = '', modLine2 = '';
+  
   if (_diagShowCoefs) {
     xLines = formatCoefLines(b_x, b_x_std, pb_x, mode, showP);
-  }
-  const hasPValue = showP && xLines.length > 1;
-  const boxHeight = hasPValue ? 54 : 38;
-  const boxWidth = 140;
-  
-  const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
-  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
-  
-  // Moderation effect display - respects _diagShowCoefs
-  let modLine1 = '', modLine2 = '';
-  if (_diagShowCoefs) {
+    
     const modVal = mode === 'std' ? fmtv(b_xw_std, 3) : fmtv(b_xw, 3);
     const modPrefix = mode === 'std' ? 'β' : 'b';
     const modStar = showP ? pStar(pb_xw) : '';
@@ -2695,63 +2746,91 @@ function buildModerationSVG(d, mode, showP, W, H){
     }
   }
   
-  const modBoxHeight = modLine2 ? 54 : 38;
-  const modBoxY = H - (modBoxHeight + 10);
+  const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
   
-  // Marker definitions
   const markerDefs = _useBlackAndWhite ? 
     '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
     '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
   
-  // Build direct effect label HTML - Card Box OFF removes the background rectangle
-  const directLabelHTML = _diagShowCoefs ? (() => {
-    const fs = 10.5, lh = 15, padX = 8, padY = 4;
-    const maxWidth = boxWidth;
-    const maxChars = Math.floor(maxWidth / 6.5);
-    
-    // Wrap text lines
-    const wrappedLines = [];
-    const line1 = `Direct effect`;
-    const line2 = xLines[0] || '';
-    const line3 = hasPValue ? xLines[1] : '';
-    
-    wrappedLines.push(line1);
-    if (line2) wrappedLines.push(line2);
-    if (line3) wrappedLines.push(line3);
-    
-    const totalH = wrappedLines.length * lh + padY * 2;
-    const x = directLabelX - maxWidth/2;
-    const y = directLabelY - 8 - (totalH/2) + 19;
-    
-    const texts = wrappedLines.map((l, i) => {
-      let fontWeight = '700';
-      let fontSize = fs;
-      if (i === 0) {
-        fontWeight = '700';
-        fontSize = fs;
-      } else {
-        fontWeight = '500';
-        fontSize = fs;
-      }
-      return `<text x="${directLabelX}" y="${y + padY + fontSize + i*lh}" text-anchor="middle" font-size="${fontSize}" font-weight="${fontWeight}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`;
-    }).join('');
-    
-    if (!_diagShowCardBox) {
-      // Card Box OFF: just text with subtle background for readability (no border/stroke)
-      return `<g>${texts}</g>`;
-    }
-    
-    // Card Box ON: full rectangle with border
-    return `<rect x="${x}" y="${y}" width="${maxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
-  })() : '';
+  // Helper function for inline labels (no box)
+  function renderInlineLabel(midX, midY, lines) {
+    if (!lines || lines.length === 0) return '';
+    const fs = 10;
+    const lineHeight = 14;
+    const totalHeight = lines.length * lineHeight;
+    const startY = midY - totalHeight / 2 + lineHeight - 2;
+    let textElements = '';
+    lines.forEach((line, i) => {
+      textElements += `<text x="${midX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif" paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-opacity="0.95">${escapeXml(line)}</text>`;
+    });
+    return textElements;
+  }
   
-  // Build moderation box HTML (only if card box is ON and coefs are shown)
-  const moderationBoxHTML = (_diagShowCardBox && _diagShowCoefs) ? `
-    <rect x="${W/2 - 170}" y="${modBoxY}" width="340" height="${modBoxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-    <text x="${W/2}" y="${modBoxY + 18}" text-anchor="middle" font-size="11" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Moderation effect:</text>
-    <text x="${W/2}" y="${modBoxY + 34}" text-anchor="middle" font-size="11" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine1)}</text>
-    ${modLine2 ? `<text x="${W/2}" y="${modBoxY + 48}" text-anchor="middle" font-size="9.5" font-weight="500" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modLine2)}</text>` : ''}
-  ` : '';
+  // Direct effect label (with or without box)
+  let directLabelHTML = '';
+  if (_diagShowCoefs && xLines.length > 0) {
+    const line1 = 'Direct effect';
+    const line2 = xLines[0] || '';
+    const line3 = (showP && xLines.length > 1) ? xLines[1] : '';
+    const allLines = [line1, line2, line3].filter(l => l);
+    
+    if (_diagShowCardBox) {
+      // Card Box ON: Show in styled box
+      const fs = 10.5, lh = 15, padX = 8, padY = 4;
+      const maxWidth = 140;
+      const maxChars = Math.floor(maxWidth / 6.5);
+      const wrappedLines = [];
+      allLines.forEach(line => {
+        wrappedLines.push(...autoWrapText(line, maxChars));
+      });
+      const totalH = wrappedLines.length * lh + padY * 2;
+      const x = directLabelX - maxWidth/2;
+      const y = directLabelY - 8 - (totalH/2) + 19;
+      const texts = wrappedLines.map((l, i) => {
+        let fontWeight = '700';
+        let fontSize = fs;
+        if (i === 0) {
+          fontWeight = '700';
+          fontSize = fs;
+        } else {
+          fontWeight = '500';
+          fontSize = fs;
+        }
+        return `<text x="${directLabelX}" y="${y + padY + fontSize + i*lh}" text-anchor="middle" font-size="${fontSize}" font-weight="${fontWeight}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`;
+      }).join('');
+      directLabelHTML = `<rect x="${x}" y="${y}" width="${maxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
+    } else {
+      // Card Box OFF: Inline text (no box)
+      const inlineText = allLines.join(' · ');
+      directLabelHTML = `<text x="${directLabelX}" y="${directLabelY}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif" paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-opacity="0.95">${escapeXml(inlineText)}</text>`;
+    }
+  }
+  
+  // Moderation effect (with or without box) - positioned with appropriate spacing
+  let moderationHTML = '';
+  if (_diagShowCoefs && modLine1) {
+    const modTitle = 'Moderation effect';
+    const modText = modLine2 ? `${modLine1}, ${modLine2}` : modLine1;
+    
+    if (_diagShowCardBox) {
+      // Card Box ON: Show in styled box - positioned higher (moved up)
+      const boxWidth = 340;
+      const boxHeight = modLine2 ? 55 : 45;
+      const boxX = W/2 - boxWidth/2;
+      // Moved up: from H - boxHeight - 10 to H - boxHeight - 35 (25px higher)
+      const boxY = H - boxHeight - 35;
+      moderationHTML = `
+      <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+      <text x="${W/2}" y="${boxY + 18}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">${modTitle}</text>
+      <text x="${W/2}" y="${boxY + 38}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modText)}</text>
+      `;
+    } else {
+      // Card Box OFF: Inline text (no box) - also moved up
+      const inlineY = H - 35;
+      moderationHTML = `<text x="${W/2}" y="${inlineY}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif" paint-order="stroke" stroke="#ffffff" stroke-width="3" stroke-opacity="0.95">${modTitle}: ${escapeXml(modText)}</text>`;
+    }
+  }
   
   return `<svg viewBox="0 0 ${W} ${H + 60}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
     <defs>${markerDefs}</defs>
@@ -2761,13 +2840,13 @@ function buildModerationSVG(d, mode, showP, W, H){
     ${drawNode(wB.x, wB.y, bw, bh, wn, false)}
     
     <!-- Main effect X → Y path -->
-    <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="${colors.lineStroke}" stroke-width="2.2" ${lineStyle} marker-end="${markerUrl}"/>
+    <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="${colors.lineStroke}" stroke-width="2.2" ${directStyle} marker-end="${markerUrl}"/>
     
     <!-- Moderator W → arrow points to X→Y line -->
-    <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}" stroke="${colors.lineStroke}" stroke-width="2" ${directStyle} marker-end="${markerUrl}"/>
     
     ${directLabelHTML}
-    ${moderationBoxHTML}
+    ${moderationHTML}
     </svg>`;
 }
 
@@ -3971,10 +4050,28 @@ document.addEventListener('DOMContentLoaded',()=>{
 
 function runAnalysis(){
   const cfg=TYPE_CFG[curType];const vars={};let nObs=null,valid=true,errMsg='';
+  
+  // Define default fallback names for each variable type
+  const defaultNames = {
+    simple: { x: 'X', m: 'M', y: 'Y' },
+    serial: { x: 'X', m1: 'M1', m2: 'M2', y: 'Y' },
+    moderation: { x: 'X', w: 'W', y: 'Y' },
+    modmed: { x: 'X', m: 'M', y: 'Y', w: 'W' }
+  };
+  
   cfg.vars.forEach(v=>{
     const nameEl=document.querySelector(`.var-name-input[data-key="${v.key}_name"]`);
     const dataEl=document.querySelector(`.var-data-input[data-key="${v.key}"]`);
-    const uLabel=nameEl&&nameEl.value.trim()?nameEl.value.trim():v.ph.split(' ').slice(-1)[0]||v.key.toUpperCase();
+    
+    // Use default name if user didn't provide one, otherwise use user input
+    let uLabel;
+    if (nameEl && nameEl.value.trim()) {
+      uLabel = nameEl.value.trim();
+    } else {
+      // Use default based on variable key
+      uLabel = defaultNames[curType][v.key] || v.key.toUpperCase();
+    }
+    
     vars[v.key+'name']=uLabel;
     if(!dataEl||!dataEl.value.trim()){errMsg=`Data missing for ${v.label}.`;valid=false;return;}
     const nums=parseNums(dataEl.value);
@@ -4009,7 +4106,7 @@ function runAnalysis(){
       let html='';
       if(curType==='simple')html=runSimpleMed(vars,covArrays,covNames,cl,nBoot);
       else if(curType==='serial')html=runSerialMed(vars,covArrays,covNames,cl,nBoot);
-else if(curType==='moderation')html=runModeration(vars,covArrays,covNames,cl,centerOption,nBoot);
+      else if(curType==='moderation')html=runModeration(vars,covArrays,covNames,cl,centerOption,nBoot);
       else if(curType==='modmed')html=runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,modStage);
       showResult(html);
     }catch(e){showResult(err('Error: '+e.message));console.error(e);}
