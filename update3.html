@@ -2953,9 +2953,10 @@ function buildModerationSVG(d, mode, showP, W, H){
     ${moderationHTML}
     </svg>`;
 }
+
 // ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
 // First Stage: Shows IMM with 95% bootstrap CI
-// Second Stage: Shows IMM with 95% bootstrap CI
+// Second Stage: Shows IMM with 95% bootstrap CI  
 // Both Stages: Shows two interaction cards (First Stage Interaction & Second Stage Interaction)
 // Show Coefs OFF: Removes ALL coefficients (path coefficients AND bottom estimates)
 function buildModMedSVG(d, mode, showP, W, H){
@@ -3076,13 +3077,17 @@ function buildModMedSVG(d, mode, showP, W, H){
   const a3_p_fmt = fmtp(pa3);
   const firstStageText = `${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}`;
   
-  // Second Stage Interaction text (for Both Stages only)
-  const b3_star = pStar(d.pb3 !== undefined ? d.pb3 : 1);
-  const b3_val = d.b3 !== undefined ? d.b3 : 0;
-  const b3_std_val = d.b3_std !== undefined ? d.b3_std : 0;
-  const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
+  // Extract b3 values from diagram data (works for both First and Second stages)
+  // For First Stage, b3_val is 0; for Second Stage, b3_val comes from the data
+  const b3_val = (d.b3 !== undefined && d.b3 !== null) ? d.b3 : 0;
+  const b3_std_val = (d.b3_std !== undefined && d.b3_std !== null) ? d.b3_std : 0;
   const b3_prefix = mode === 'std' ? 'β' : 'b';
-  const b3_p_fmt = fmtp(d.pb3 !== undefined ? d.pb3 : 1);
+  const b3_val_fmt = mode === 'std' ? fmtv(b3_std_val, 3) : fmtv(b3_val, 3);
+  
+  // For p-value: use pb3 if available (Second Stage), otherwise use 1 (non-significant fallback)
+  const b3_p_val = (d.pb3 !== undefined && d.pb3 !== null && !isNaN(d.pb3)) ? d.pb3 : 1;
+  const b3_star = pStar(b3_p_val);
+  const b3_p_fmt = fmtp(b3_p_val);
   const secondStageText = `${b3_prefix} = ${b3_val_fmt}${b3_star ? ' ' + b3_star : ''}, p ${b3_p_fmt}`;
   
   if (_currentModMedStage === 'first') {
@@ -3140,7 +3145,7 @@ function buildModMedSVG(d, mode, showP, W, H){
     }
     
   } else {
-    // BOTH STAGES: Moderator on LEFT side, two arrows, shows TWO interaction cards (smaller, publication ready)
+    // BOTH STAGES: Moderator on LEFT side, two arrows, shows TWO interaction cards
     const wB = {x: 15, y: mB.y + bh/2 - wHeight/2};
     
     // Arrow 1 (to M→Y line): from RIGHT side of moderator card
@@ -3166,7 +3171,6 @@ function buildModMedSVG(d, mode, showP, W, H){
     `;
     
     const cardY = H + 15;
-    // Smaller cards for publication ready
     const smallCardWidth = 250;
     const smallCardHeight = 52;
     const leftCardX = W/2 - smallCardWidth - cardSpacing/2;
@@ -3187,9 +3191,8 @@ function buildModMedSVG(d, mode, showP, W, H){
         <text x="${rightCardX + smallCardWidth/2}" y="${cardY + 35}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${secondStageText}</text>
         `;
       } else {
-        // Card Box OFF: inline text below diagram - maintain separate positions (no overlap)
+        // Card Box OFF: inline text below diagram
         const inlineY = H + 35;
-        // Position texts directly below their respective card positions
         const leftTextX = leftCardX + smallCardWidth/2;
         const rightTextX = rightCardX + smallCardWidth/2;
         stageContent += `
@@ -3831,46 +3834,48 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     rBothM = rM; rBothMz = rMz; rBothY = rY; rBothYz = rYz;
   }
   
-  // ========== EXTRACT COEFFICIENTS ==========
-  let a1_val, a3_val, b1_val, b3_val, cp_val;
-  let a1_se, a3_se, b1_se, b3_se, cp_se;
-  let a1_p, a3_p, b1_p, b3_p, cp_p;
-  let a1_std, a3_std, b1_std, b3_std, cp_std;
-  
-  if (stage === 'first') {
-    a1_val = rM.coef[1]; a1_se = rM.se[1]; a1_p = rM.p[1]; a1_std = rMz ? rMz.coef[1] : NaN;
-    a3_val = rM.coef[3]; a3_se = rM.se[3]; a3_p = rM.p[3]; a3_std = rMz ? rMz.coef[3] : NaN;
-    b1_val = rY_simple.coef[2]; b1_se = rY_simple.se[2]; b1_p = rY_simple.p[2]; b1_std = rYz_simple ? rYz_simple.coef[2] : NaN;
-    b3_val = 0; b3_std = 0;
-    cp_val = rY_simple.coef[1]; cp_std = rYz_simple ? rYz_simple.coef[1] : NaN; cp_p = rY_simple.p[1];
-    cp_se = rY_simple.se[1];
-  } else if (stage === 'second') {
-    a1_val = rM_simple.coef[1]; a1_se = rM_simple.se[1]; a1_p = rM_simple.p[1]; a1_std = rMz_simple ? rMz_simple.coef[1] : NaN;
-    a3_val = 0; a3_std = 0;
-    b1_val = rY.coef[2]; b1_se = rY.se[2]; b1_p = rY.p[2]; b1_std = rYz ? rYz.coef[2] : NaN;
-    b3_val = rY.coef[4]; b3_se = rY.se[4]; b3_p = rY.p[4]; b3_std = rYz ? rYz.coef[4] : NaN;
-    cp_val = rY.coef[1]; cp_std = rYz ? rYz.coef[1] : NaN; cp_p = rY.p[1];
-    cp_se = rY.se[1];
-  } else {
-    a1_val = rBothM.coef[1]; a1_se = rBothM.se[1]; a1_p = rBothM.p[1]; a1_std = rBothMz ? rBothMz.coef[1] : NaN;
-    a3_val = rBothM.coef[3]; a3_se = rBothM.se[3]; a3_p = rBothM.p[3]; a3_std = rBothMz ? rBothMz.coef[3] : NaN;
-    b1_val = rBothY.coef[2]; b1_se = rBothY.se[2]; b1_p = rBothY.p[2]; b1_std = rBothYz ? rBothYz.coef[2] : NaN;
-    b3_val = rBothY.coef[4]; b3_se = rBothY.se[4]; b3_p = rBothY.p[4]; b3_std = rBothYz ? rBothYz.coef[4] : NaN;
-    cp_val = rBothY.coef[1]; cp_std = rBothYz ? rBothYz.coef[1] : NaN; cp_p = rBothY.p[1];
-    cp_se = rBothY.se[1];
-  }
-  
-  let indexMM = 0, indexMM_std = 0;
-  if (stage === 'first') {
-    indexMM = a3_val * b1_val;
-    indexMM_std = a3_std * b1_std;
-  } else if (stage === 'second') {
-    indexMM = a1_val * b3_val;
-    indexMM_std = a1_std * b3_std;
-  } else {
-    indexMM = a3_val * b1_val;
-    indexMM_std = a3_std * b1_std;
-  }
+ // In the runModMed function, replace the coefficient extraction section (lines around 2400-2500) with:
+
+// ========== EXTRACT COEFFICIENTS ==========
+let a1_val, a3_val, b1_val, b3_val, cp_val;
+let a1_se, a3_se, b1_se, b3_se, cp_se;
+let a1_p, a3_p, b1_p, b3_p, cp_p;
+let a1_std, a3_std, b1_std, b3_std, cp_std;
+
+if (stage === 'first') {
+  a1_val = rM.coef[1]; a1_se = rM.se[1]; a1_p = rM.p[1]; a1_std = rMz ? rMz.coef[1] : NaN;
+  a3_val = rM.coef[3]; a3_se = rM.se[3]; a3_p = rM.p[3]; a3_std = rMz ? rMz.coef[3] : NaN;
+  b1_val = rY_simple.coef[2]; b1_se = rY_simple.se[2]; b1_p = rY_simple.p[2]; b1_std = rYz_simple ? rYz_simple.coef[2] : NaN;
+  b3_val = 0; b3_std = 0; b3_p = 1;
+  cp_val = rY_simple.coef[1]; cp_std = rYz_simple ? rYz_simple.coef[1] : NaN; cp_p = rY_simple.p[1];
+  cp_se = rY_simple.se[1];
+} else if (stage === 'second') {
+  a1_val = rM_simple.coef[1]; a1_se = rM_simple.se[1]; a1_p = rM_simple.p[1]; a1_std = rMz_simple ? rMz_simple.coef[1] : NaN;
+  a3_val = 0; a3_std = 0; a3_p = 1;
+  b1_val = rY.coef[2]; b1_se = rY.se[2]; b1_p = rY.p[2]; b1_std = rYz ? rYz.coef[2] : NaN;
+  b3_val = rY.coef[4]; b3_se = rY.se[4]; b3_p = rY.p[4]; b3_std = rYz ? rYz.coef[4] : NaN;
+  cp_val = rY.coef[1]; cp_std = rYz ? rYz.coef[1] : NaN; cp_p = rY.p[1];
+  cp_se = rY.se[1];
+} else { // BOTH stages
+  a1_val = rBothM.coef[1]; a1_se = rBothM.se[1]; a1_p = rBothM.p[1]; a1_std = rBothMz ? rBothMz.coef[1] : NaN;
+  a3_val = rBothM.coef[3]; a3_se = rBothM.se[3]; a3_p = rBothM.p[3]; a3_std = rBothMz ? rBothMz.coef[3] : NaN;
+  b1_val = rBothY.coef[2]; b1_se = rBothY.se[2]; b1_p = rBothY.p[2]; b1_std = rBothYz ? rBothYz.coef[2] : NaN;
+  b3_val = rBothY.coef[4]; b3_se = rBothY.se[4]; b3_p = rBothY.p[4]; b3_std = rBothYz ? rBothYz.coef[4] : NaN;
+  cp_val = rBothY.coef[1]; cp_std = rBothYz ? rBothYz.coef[1] : NaN; cp_p = rBothY.p[1];
+  cp_se = rBothY.se[1];
+}
+
+let indexMM = 0, indexMM_std = 0;
+if (stage === 'first') {
+  indexMM = a3_val * b1_val;
+  indexMM_std = a3_std * b1_std;
+} else if (stage === 'second') {
+  indexMM = a1_val * b3_val;
+  indexMM_std = a1_std * b3_std;
+} else { // BOTH stages
+  indexMM = a3_val * b1_val;
+  indexMM_std = a3_std * b1_std;
+}
   
   // ========== BOOTSTRAP (ONLY for First and Second stages, NOT for Both) ==========
   let bootHtml = '';
