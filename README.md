@@ -27,7 +27,7 @@ All computations run locally in your browser. **Your data never leaves your devi
 | **Simple Mediation** | X → M → Y with path coefficients (b and β), Sobel test, bootstrap CIs, interactive path diagram |
 | **Serial Mediation** | X → M1 → M2 → Y with specific and total indirect effects, bootstrap CIs |
 | **Moderation** | X × W → Y with simple slopes at ±1 SD and mean, annotated plot |
-| **Moderated Mediation** | Conditional indirect effects + Index of Moderated Mediation (IMM) with bootstrap CIs |
+| **Moderated Mediation** | Conditional indirect effects + Index of Moderated Mediation (IMM) with bootstrap CIs. **NEW:** Select which stage(s) of moderation — first stage (X→M), second stage (M→Y), or both stages — for the moderated mediation model. |
 | **Bootstrap** | 1,000–10,000 resamples with percentile confidence intervals |
 | **Interactive Diagrams** | Toggle unstandardized/standardized coefficients, p-values, color schemes |
 | **Simple Slopes Plot** | Annotated with b and p-values; toggle legend; export high-res PNG |
@@ -41,7 +41,7 @@ All computations run locally in your browser. **Your data never leaves your devi
 | Simple Mediation | X → M → Y |
 | Serial Mediation | X → M1 → M2 → Y |
 | Moderation | X × W → Y |
-| Moderated Mediation | Conditional indirect effect of X on Y via M, moderated by W |
+| Moderated Mediation | Conditional indirect effect of X on Y via M, moderated by W. **Stage selection:** First stage (X→M path moderated by W), Second stage (M→Y path moderated by W), or Both stages (both paths moderated by W). |
 
 ## 🚀 Quick Start
 
@@ -49,8 +49,9 @@ All computations run locally in your browser. **Your data never leaves your devi
 1. Go to [https://shinyhealthtools.github.io/medmodr/](https://shinyhealthtools.github.io/medmodr/)
 2. Select analysis type → Enter variables → Paste data (one value per line, no headers)
 3. Add covariates (optional: first row = names, subsequent rows = values)
-4. Set confidence level (90%/95%/99%) and bootstrap samples (1000–10,000)
-5. Click **"Run Analysis"**
+4. **For Moderated Mediation:** Choose the moderation stage — First Stage, Second Stage, or Both Stages
+5. Set confidence level (90%/95%/99%) and bootstrap samples (1000–10,000)
+6. Click **"Run Analysis"**
 
 ### Offline / Local
 1. Download `index.html` from this repository
@@ -61,11 +62,11 @@ All computations run locally in your browser. **Your data never leaves your devi
 
 **All inputs:** One numeric value per line. **No headers.**
 
-| Variable | Example Input |
+| Variable | Values (one per line) |
 | :--- | :--- |
-| X (Stress) | `2.3` `4.1` `3.8` `5.0` |
-| M (Coping) | `3.1` `2.5` `4.2` `3.9` |
-| Y (Wellbeing) | `5.2` `4.8` `4.1` `3.5` |
+| **X (Stress)** | `2.3`<br>`4.1`<br>`3.8`<br>`5.0` |
+| **M (Coping)** | `3.1`<br>`2.5`<br>`4.2`<br>`3.9` |
+| **Y (Wellbeing)** | `5.2`<br>`4.8`<br>`4.1`<br>`3.5` |
 
 **Covariates:**
 - Row 1: Variable names (space/tab separated) → `age education`
@@ -82,6 +83,7 @@ All computations run locally in your browser. **Your data never leaves your devi
 | **Descriptives** | N, mean, SD, min, max for all variables |
 | **Path Diagrams** | Interactive SVG — toggle b/β, p-values, B&W mode, dotted direct path |
 | **Regression Tables** | b, SE, t, p, 95% CI, β, R, R², Adj. R², F-test |
+| **Conditional Indirect Effects (Moderated Mediation)** | Effects at -1 SD, Mean, +1 SD of moderator, plus Index of Moderated Mediation (IMM) with bootstrap CIs |
 | **Simple Slopes Plot** | At -1 SD, mean, +1 SD of moderator |
 | **APA Summary** | Narrative results ready for manuscripts |
 | **Export** | Copy to clipboard or download as `.doc` (Word) |
