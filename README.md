@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-blue.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 [![Platform](https://img.shields.io/badge/Platform-Web%20%7C%20Offline-brightgreen)](https://shinyhealthtools.github.io/medmodr/)
-[![Version](https://img.shields.io/badge/Version-1.0.0-blue)](https://github.com/shinyhealthtools/medmodr)
+[![Version](https://img.shields.io/badge/Version-2.0-blue)](https://github.com/shinyhealthtools/medmodr)
 
 **MedModr** is a free, open-source web application for simple mediation, serial mediation, moderation, and moderated mediation (conditional process analysis).
 
@@ -27,7 +27,7 @@ All computations run locally in your browser. **Your data never leaves your devi
 | **Simple Mediation** | X → M → Y with path coefficients (b and β), Sobel test, bootstrap CIs, interactive path diagram |
 | **Serial Mediation** | X → M1 → M2 → Y with specific and total indirect effects, bootstrap CIs |
 | **Moderation** | X × W → Y with simple slopes at ±1 SD and mean, annotated plot |
-| **Moderated Mediation** | Conditional indirect effects + Index of Moderated Mediation (IMM) with bootstrap CIs. **NEW:** Select which stage(s) of moderation — first stage (X→M), second stage (M→Y), or both stages — for the moderated mediation model. |
+| **Moderated Mediation** | Conditional indirect effects + Index of Moderated Mediation (IMM) with bootstrap CIs. **Note:** Select which stage(s) of moderation — first stage (X→M), second stage (M→Y), or both stages — for the moderated mediation model. |
 | **Bootstrap** | 1,000–10,000 resamples with percentile confidence intervals |
 | **Interactive Diagrams** | Toggle unstandardized/standardized coefficients, p-values, color schemes |
 | **Simple Slopes Plot** | Annotated with b and p-values; toggle legend; export high-res PNG |
