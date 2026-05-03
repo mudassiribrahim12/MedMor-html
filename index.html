@@ -2125,8 +2125,42 @@ let _diagShowCardBox = true;
 let _diagShowCoefs = true;        
 
 function setCoefMode(m){_diagMode=m;document.getElementById('btnUnstd').classList.toggle('active',m==='unstd');document.getElementById('btnStd').classList.toggle('active',m==='std');renderModalDiag();}
+
 function toggleDiagPval(){_diagShowP=!_diagShowP;const btn=document.getElementById('btnPval');btn.classList.toggle('active',_diagShowP);btn.innerHTML=`<i class="fas fa-star-of-david"></i> ${_diagShowP?'Hide p-values':'Show p-values'}`;renderModalDiag();}
-function openDiagramModal(data){_diagData=data;_diagMode='unstd';_diagShowP=true;document.getElementById('btnUnstd').classList.add('active');document.getElementById('btnStd').classList.remove('active');document.getElementById('btnPval').classList.add('active');document.getElementById('btnPval').innerHTML='<i class="fas fa-star-of-david"></i> Hide p-values';renderModalDiag();document.getElementById('diagramModal').classList.add('open');}
+
+function openDiagramModal(data){
+    _diagData = data;
+    _diagMode = 'unstd';
+    _diagShowP = true;
+    
+    // Set initial indirect display mode based on whether bootstrap CI is available
+    const hasBootCI = data.bootCI && data.bootCI.lo !== undefined && data.bootCI.hi !== undefined && 
+                      !isNaN(data.bootCI.lo) && !isNaN(data.bootCI.hi);
+    
+    if (!hasBootCI && (data.type === 'simple' || data.type === 'serial')) {
+        _indirectDisplayMode = 'pvalue';
+        const btn = document.getElementById('toggleIndirectBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-chart-simple"></i> Show 95% CI';
+            btn.classList.remove('active');
+        }
+    } else {
+        _indirectDisplayMode = 'ci';
+        const btn = document.getElementById('toggleIndirectBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-chart-line"></i> Show p-value';
+            btn.classList.add('active');
+        }
+    }
+    
+    document.getElementById('btnUnstd').classList.add('active');
+    document.getElementById('btnStd').classList.remove('active');
+    document.getElementById('btnPval').classList.add('active');
+    document.getElementById('btnPval').innerHTML = '<i class="fas fa-star-of-david"></i> Hide p-values';
+    renderModalDiag();
+    document.getElementById('diagramModal').classList.add('open');
+}
+
 function closeDiagramModal(){document.getElementById('diagramModal').classList.remove('open');}
 function renderModalDiag(){if(!_diagData)return;document.getElementById('modalDiagramContainer').innerHTML=buildDiagSVG(_diagData,_diagMode,_diagShowP,true);}
 
@@ -2202,13 +2236,38 @@ function getIndirectEffectLines(d, mode, showP) {
 
 // --- Function to toggle indirect effect display mode ---
 function toggleIndirectDisplay() {
-    _indirectDisplayMode = _indirectDisplayMode === 'ci' ? 'pvalue' : 'ci';
-    const btn = document.getElementById('toggleIndirectBtn');
-    if (btn) {
-        btn.innerHTML = _indirectDisplayMode === 'ci' ? '<i class="fas fa-chart-line"></i> Show p-value' : '<i class="fas fa-chart-simple"></i> Show 95% CI';
-        btn.classList.toggle('active', _indirectDisplayMode === 'ci');
+    // Check if bootstrap CI is available in the current diagram data
+    const hasBootCI = _diagData && _diagData.bootCI && 
+                      _diagData.bootCI.lo !== undefined && 
+                      _diagData.bootCI.hi !== undefined &&
+                      !isNaN(_diagData.bootCI.lo) && !isNaN(_diagData.bootCI.hi);
+    
+    // Also check for serial mediation bootstrap CI
+    const hasSerialBootCI = _diagData && _diagData.bootCI && 
+                            _diagData.bootCI.lo !== undefined && 
+                            _diagData.bootCI.hi !== undefined;
+    
+    const hasAnyBootCI = hasBootCI || hasSerialBootCI;
+    
+    // If no bootstrap CI available, force to p-value mode
+    if (!hasAnyBootCI && _diagData && (_diagData.type === 'simple' || _diagData.type === 'serial')) {
+        _indirectDisplayMode = 'pvalue';
+        const btn = document.getElementById('toggleIndirectBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-chart-simple"></i> Show 95% CI';
+            btn.classList.remove('active');
+            btn.classList.add('active'); // Actually, p-value mode should be active? Let's style differently
+        }
+    } else {
+        // Toggle between modes when bootstrap is available
+        _indirectDisplayMode = _indirectDisplayMode === 'ci' ? 'pvalue' : 'ci';
+        const btn = document.getElementById('toggleIndirectBtn');
+        if (btn) {
+            btn.innerHTML = _indirectDisplayMode === 'ci' ? '<i class="fas fa-chart-line"></i> Show p-value' : '<i class="fas fa-chart-simple"></i> Show 95% CI';
+            btn.classList.toggle('active', _indirectDisplayMode === 'ci');
+        }
     }
-    renderModalDiag(); 
+    renderModalDiag();
 }
 
 // --- Global variable to control direct effect line style (dotted = true by default) ---
@@ -2470,13 +2529,15 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
         bLines = formatCoefLines(b, b_std, pb, mode, showP);
         cpLines = formatCoefLines(cp, cp_std, pcp, mode, showP);
         
-        // Format indirect effect as single line: "b = X.XXX, 95% CI [X.XXX, X.XXX]"
+        // Format indirect effect as single line
         const indVal = mode === 'std' ? fmtv(d.a_std * d.b_std, 3) : fmtv(d.indirect, 3);
         const indPrefix = mode === 'std' ? 'β' : 'b';
-        
-        let ciText = "";
+        const star = (d.indirect_p !== undefined && d.indirect_p < 0.05) ? pStar(d.indirect_p) : '';
+
         if (_indirectDisplayMode === 'ci') {
-            if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined) {
+            // CI mode - show confidence interval
+            let ciText = "";
+            if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined && !isNaN(d.bootCI.lo) && !isNaN(d.bootCI.hi)) {
                 ciText = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
             } else if (d.indirect_se !== undefined && !isNaN(d.indirect_se)) {
                 const lo = d.indirect - 1.96 * d.indirect_se;
@@ -2485,8 +2546,23 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
             } else {
                 ciText = `95% CI [N/A, N/A]`;
             }
+            indirectText = `${indPrefix} = ${indVal}${star ? ' ' + star : ''}, ${ciText}`;
+        } else {
+            // p-value mode - show p-value (for Sobel method)
+            let pText = "";
+            if (d.indirect_p !== undefined && !isNaN(d.indirect_p)) {
+                let pFormatted;
+                if (d.indirect_p < 0.001) {
+                    pFormatted = '<.001';
+                } else {
+                    pFormatted = d.indirect_p.toFixed(3);
+                }
+                pText = `p ${pFormatted}`;
+            } else {
+                pText = `p N/A`;
+            }
+            indirectText = `${indPrefix} = ${indVal}${star ? ' ' + star : ''}, ${pText}`;
         }
-        indirectText = `${indPrefix} = ${indVal}, ${ciText}`;
     }
     
     const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
@@ -2659,24 +2735,39 @@ const b1y2 = yB.y + bh/2;
     b1Lines  = formatCoefLines(b1, b1_std, pb1, mode, showP);
   }
   
-  // Format serial indirect effect (compact)
-  let serialIndText = "";
-  if (_diagShowCoefs) {
-    const indVal = mode === 'std' ? fmtv(a1_std * d21_std * b2_std, 3) : fmtv(serial_indirect, 3);
-    const indPrefix = mode === 'std' ? 'β' : 'b';
-    
+ // Format serial indirect effect (compact)
+let serialIndText = "";
+if (_diagShowCoefs) {
+  const indVal = mode === 'std' ? fmtv(a1_std * d21_std * b2_std, 3) : fmtv(serial_indirect, 3);
+  const indPrefix = mode === 'std' ? 'β' : 'b';
+  const star = (d.serial_p !== undefined && d.serial_p < 0.05) ? pStar(d.serial_p) : '';
+  
+  if (_indirectDisplayMode === 'ci') {
+    // CI mode - show confidence interval
     let ciText = "";
-    if (_indirectDisplayMode === 'ci') {
-      if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined && !isNaN(d.bootCI.lo) && !isNaN(d.bootCI.hi)) {
-        ciText = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
-      } else {
-        ciText = `95% CI [N/A, N/A]`;
-      }
-      serialIndText = `${indPrefix} = ${indVal}, ${ciText}`;
+    if (d.bootCI && d.bootCI.lo !== undefined && d.bootCI.hi !== undefined && !isNaN(d.bootCI.lo) && !isNaN(d.bootCI.hi)) {
+      ciText = `95% CI [${fmtv(d.bootCI.lo, 3)}, ${fmtv(d.bootCI.hi, 3)}]`;
     } else {
-      serialIndText = `${indPrefix} = ${indVal}`;
+      ciText = `95% CI [N/A, N/A]`;
     }
+    serialIndText = `${indPrefix} = ${indVal}${star ? ' ' + star : ''}, ${ciText}`;
+  } else {
+    // p-value mode - show p-value (for Sobel method)
+    let pText = "";
+    if (d.serial_p !== undefined && !isNaN(d.serial_p)) {
+      let pFormatted;
+      if (d.serial_p < 0.001) {
+        pFormatted = '<.001';
+      } else {
+        pFormatted = d.serial_p.toFixed(3);
+      }
+      pText = `p ${pFormatted}`;
+    } else {
+      pText = `p N/A`;
+    }
+    serialIndText = `${indPrefix} = ${indVal}${star ? ' ' + star : ''}, ${pText}`;
   }
+}
   
   const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
   const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
@@ -3288,7 +3379,28 @@ function buildDiagSVG(d, mode, showP, big){
 }
 
 function diagPreview(data){
-  const svg=buildDiagSVG(data,'unstd',false,false);
+  // Check if bootstrap CI is available for this data
+  const hasBootCI = data.bootCI && data.bootCI.lo !== undefined && data.bootCI.hi !== undefined && 
+                    !isNaN(data.bootCI.lo) && !isNaN(data.bootCI.hi);
+  
+  // For serial mediation, check bootCI similarly
+  const hasSerialBootCI = data.bootCI && data.bootCI.lo !== undefined && data.bootCI.hi !== undefined;
+  
+  const hasAnyBootCI = hasBootCI || hasSerialBootCI;
+  
+  // Save current indirect display mode
+  const savedMode = _indirectDisplayMode;
+  
+  // Temporarily set to p-value mode if no bootstrap CI available
+  if (!hasAnyBootCI && (data.type === 'simple' || data.type === 'serial')) {
+    _indirectDisplayMode = 'pvalue';
+  }
+  
+  const svg = buildDiagSVG(data, 'unstd', false, false);
+  
+  // Restore saved mode
+  _indirectDisplayMode = savedMode;
+  
   return `<div class="diagram-preview-wrap">
     <div style="font-size:.82rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:8px"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:6px"></i>Path Diagram Preview</div>
     ${svg}
@@ -3413,14 +3525,16 @@ c'-path (Direct effect, ${xn} → ${yn}): b = ${fmtv(cp)}, SE = ${fmtv(rY.se[1])
 
 <p><strong>Overall interpretation:</strong> ${mediationType}. The indirect effect of ${xn} on ${yn} through ${mn} ${indirectSig ? 'is' : 'is not'} statistically significant based on the Sobel test. The direct effect ${directEffectSig ? 'remains significant' : 'is not significant'} after accounting for the mediator.</p>`;
   }
-  const diagData={
-    type:'simple',xn,mn,yn,
-    a,a_std:a_s,pa:rM.p[1],
-    b,b_std:b_s,pb:rY.p[2],
-    cp,cp_std:cp_s,pcp:rY.p[1],
-    indirect:ind,
-    bootCI: bootSimple ? { lo: bootSimple.lo, hi: bootSimple.hi } : null
-  };
+
+const diagData={
+  type:'simple',xn,mn,yn,
+  a,a_std:a_s,pa:rM.p[1],
+  b,b_std:b_s,pb:rY.p[2],
+  cp,cp_std:cp_s,pcp:rY.p[1],
+  indirect:ind,
+  indirect_p: p_sob,  
+  bootCI: bootSimple ? { lo: bootSimple.lo, hi: bootSimple.hi } : null
+};
 
   return `${renderDesc([{name:xn,vals:xRaw},{name:mn,vals:mRaw},{name:yn,vals:yRaw}])}
   <div class="panel" style="margin-bottom:18px">
@@ -3615,17 +3729,18 @@ Via ${m2n} only: b = ${fmtv(i2)}, SE = ${fmtv(se_i2)}, z = ${fmtv(z_i2,3)}, p ${
 <p><strong>Overall interpretation:</strong> ${mediationType}. The serial indirect effect of ${xn} on ${yn} through ${m1n} and ${m2n} ${serialIndirectSig ? 'is' : 'is not'} statistically significant based on the Sobel test. The direct effect ${directEffectSig ? 'remains significant' : 'is not significant'} after accounting for the serial mediators.</p>`;
   }
 
-  const diagData={
-    type:'serial',xn,m1n,m2n,yn,
-    a1,a1_std:a1s,pa1:rM1.p[1],
-    d21,d21_std:d21s,pd21:rM2.p[2],
-    b1,b1_std:b1s,pb1:rY.p[2],
-    a2,a2_std:a2s,pa2:rM2.p[1],
-    b2,b2_std:b2s,pb2:rY.p[3],
-    cp:direct,cp_std:cps,pcp:rY.p[1],
-    serial_indirect:i12,
-    bootCI: (nBoot>0 && bootSerial) ? { lo: bootSerial.lo, hi: bootSerial.hi } : null
-  };
+const diagData={
+  type:'serial',xn,m1n,m2n,yn,
+  a1,a1_std:a1s,pa1:rM1.p[1],
+  d21,d21_std:d21s,pd21:rM2.p[2],
+  b1,b1_std:b1s,pb1:rY.p[2],
+  a2,a2_std:a2s,pa2:rM2.p[1],
+  b2,b2_std:b2s,pb2:rY.p[3],
+  cp:direct,cp_std:cps,pcp:rY.p[1],
+  serial_indirect:i12,
+  serial_p: p_i12,  
+  bootCI: (nBoot>0 && bootSerial) ? { lo: bootSerial.lo, hi: bootSerial.hi } : null
+};
 
   return `${renderDesc([{name:xn,vals:xRaw},{name:m1n,vals:m1Raw},{name:m2n,vals:m2Raw},{name:yn,vals:yRaw}])}
   <div class="panel" style="margin-bottom:18px">
