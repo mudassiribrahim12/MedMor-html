@@ -2629,15 +2629,15 @@ function buildSerialMedSVG(d, mode, showP, W, H){
   const cpx2 = yB.x;
   const cpy2 = yB.y + bh/2 + 12;
   
-  const a2x1 = xB.x + bw;
-  const a2y1 = xB.y + bh - 5;
+const a2x1 = xB.x + bw;
+const a2y1 = xB.y + bh/2 + 5;  
   const a2x2 = m2B.x;
   const a2y2 = m2B.y + bh - 5;
   
-  const b1x1 = m1B.x + bw;
-  const b1y1 = m1B.y + bh - 5;
-  const b1x2 = yB.x;
-  const b1y2 = yB.y + bh/2 - 10;
+const b1x1 = m1B.x + bw;
+const b1y1 = m1B.y + bh/2;
+const b1x2 = yB.x;                   
+const b1y2 = yB.y + bh/2;            
   
   const a1Mid = { x: (a1x1 + a1x2) / 2, y: (a1y1 + a1y2) / 2 };
   const d21Mid = { x: (d21x1 + d21x2) / 2, y: (d21y1 + d21y2) / 2 };
