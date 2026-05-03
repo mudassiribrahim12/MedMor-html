@@ -643,6 +643,12 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   fill: #1a2035 !important;
 }
 
+/* Hide seed input completely */
+#seedLabel,
+#seedInput {
+    display: none !important;
+}
+
 </style>
 </head>
 <body>
@@ -820,20 +826,26 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
  <div class="options-row" id="optionsRow">
   <span class="opt-label">Confidence level:</span>
   <select class="opt-select" id="confLevel"><option value="0.95">95%</option><option value="0.99">99%</option><option value="0.90">90%</option></select>
+  
   <span class="opt-label">Bootstrap samples:</span>
   <select class="opt-select" id="bootSamples"><option value="0">None (Sobel only)</option><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select>
-  <span class="opt-label" id="centerLabel" style="display:none">Mean centering:</span>
-  <select class="opt-select" id="centerOption" style="display:none">
-    <option value="all" selected>Mean centering (all variables)</option>
-    <option value="continuous">Mean centering (only continuous vars)</option>
-    <option value="none">No mean centering</option>
-  </select>
-  <span class="opt-label" id="stageLabel" style="display:none">Moderation stage:</span>
-  <select class="opt-select" id="modStageOption" style="display:none">
-    <option value="first" selected>First Stage (X→M moderated)</option>
-    <option value="second">Second Stage (M→Y moderated)</option>
-    <option value="both">Both Stages</option>
-  </select>
+  
+  <div style="display:inline-flex; align-items:center; gap:20px; flex-wrap:wrap;">
+    <span class="opt-label" id="centerLabel" style="display:none">Mean centering:</span>
+    <select class="opt-select" id="centerOption" style="display:none">
+      <option value="all" selected>Mean centering (all variables)</option>
+      <option value="continuous">Mean centering (only continuous vars)</option>
+      <option value="none">No mean centering</option>
+    </select>
+    
+    <span class="opt-label" id="stageLabel" style="display:none">Moderation stage:</span>
+    <select class="opt-select" id="modStageOption" style="display:none">
+      <option value="first" selected>First Stage (X→M moderated)</option>
+      <option value="second">Second Stage (M→Y moderated)</option>
+      <option value="both">Both Stages</option>
+    </select>
+  </div>
+  
   <span class="opt-label" id="seedLabel" style="display:none">Random Seed:</span>
   <input type="number" id="seedInput" class="opt-select" style="display:none; width: 100px;" value="12345" step="1" min="1">
 </div>
