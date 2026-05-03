@@ -834,6 +834,8 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
     <option value="second">Second Stage (M→Y moderated)</option>
     <option value="both">Both Stages</option>
   </select>
+  <span class="opt-label" id="seedLabel" style="display:none">Random Seed:</span>
+  <input type="number" id="seedInput" class="opt-select" style="display:none; width: 100px;" value="12345" step="1" min="1">
 </div>
         </div>
       </div>
@@ -1302,12 +1304,34 @@ function parseNums(raw){
 }
 
 // ══════════════════════════════════════════════════════
+//  RANDOM SEED FOR REPRODUCIBILITY
+// ══════════════════════════════════════════════════════
+let _randomSeed = 12345; // Default seed
+
+function setRandomSeed(seed) {
+    _randomSeed = seed;
+}
+
+// Seeded random number generator (Mulberry32 algorithm)
+function seededRandom() {
+    let t = _randomSeed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+}
+
+// Replace Math.random() with seeded version for bootstrap
+function getRandomInt(max) {
+    return Math.floor(seededRandom() * max);
+}
+
+// ══════════════════════════════════════════════════════
 //  BOOTSTRAP
 // ══════════════════════════════════════════════════════
 function bootCI_simple(x,m,y,nB,cl,covs=[]){
   const n=x.length,alpha=1-cl,samp=[];
   for(let b=0;b<nB;b++){
-    const idx=Array.from({length:n},()=>Math.floor(Math.random()*n));
+ const idx = Array.from({length:n},()=>getRandomInt(n));
     const bx=idx.map(i=>x[i]),bm=idx.map(i=>m[i]),by=idx.map(i=>y[i]);
     const bc=covs.map(c=>idx.map(i=>c[i]));
     const rM=ols(bm,buildMat([bx,...bc]),['X',...bc.map((_,i)=>'C'+i)]);
@@ -1322,7 +1346,7 @@ function bootCI_simple(x,m,y,nB,cl,covs=[]){
 function bootCI_serial(x,m1,m2,y,nB,cl,covs=[]){
   const n=x.length,alpha=1-cl,paths={xm1m2y:[],xm1y:[],xm2y:[]};
   for(let b=0;b<nB;b++){
-    const idx=Array.from({length:n},()=>Math.floor(Math.random()*n));
+  const idx = Array.from({length:n},()=>getRandomInt(n));
     const bx=idx.map(i=>x[i]),bm1=idx.map(i=>m1[i]),bm2=idx.map(i=>m2[i]),by=idx.map(i=>y[i]);
     const bc=covs.map(c=>idx.map(i=>c[i]));
     const rM1=ols(bm1,buildMat([bx,...bc]),['X']);
@@ -1345,7 +1369,7 @@ function bootCI_modmed_first(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[]){
   const n=xRaw.length,alpha=1-cl,res={low:[],mid:[],high:[],index:[]};
   const sdWo=sd(wRaw);
   for(let b=0;b<nB;b++){
-    const idx=Array.from({length:n},()=>Math.floor(Math.random()*n));
+ const idx = Array.from({length:n},()=>getRandomInt(n));
     const bxR=idx.map(i=>xRaw[i]),bwR=idx.map(i=>wRaw[i]),bm=idx.map(i=>mRaw[i]),by=idx.map(i=>yRaw[i]);
     const bc=covs.map(c=>idx.map(i=>c[i]));
     // Raw X, raw W, but interaction = xc*wc
@@ -1375,7 +1399,7 @@ function bootCI_modmed_second(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[]){
   const mW=mean(wRaw), sW=sd(wRaw);
   
   for(let b=0;b<nB;b++){
-    const idx=Array.from({length:n},()=>Math.floor(Math.random()*n));
+   const idx = Array.from({length:n},()=>getRandomInt(n));
     const bxR=idx.map(i=>xRaw[i]), bwR=idx.map(i=>wRaw[i]), bm=idx.map(i=>mRaw[i]), by=idx.map(i=>yRaw[i]);
     const bc=covs.map(c=>idx.map(i=>c[i]));
     
@@ -4344,6 +4368,10 @@ function toggleCenterOption() {
   const centerSelect = document.getElementById('centerOption');
   const stageLabel = document.getElementById('stageLabel');
   const stageSelect = document.getElementById('modStageOption');
+  const seedLabel = document.getElementById('seedLabel');
+  const seedInput = document.getElementById('seedInput');
+  const bootSamples = document.getElementById('bootSamples');
+  
   if (curType === 'moderation' || curType === 'modmed') {
     centerLabel.style.display = 'inline-block';
     centerSelect.style.display = 'inline-block';
@@ -4351,6 +4379,7 @@ function toggleCenterOption() {
     centerLabel.style.display = 'none';
     centerSelect.style.display = 'none';
   }
+  
   // Show stage selector ONLY for moderated mediation
   if (curType === 'modmed') {
     stageLabel.style.display = 'inline-block';
@@ -4358,6 +4387,15 @@ function toggleCenterOption() {
   } else {
     stageLabel.style.display = 'none';
     stageSelect.style.display = 'none';
+  }
+  
+  // Show seed input ONLY when bootstrap is enabled
+  if (bootSamples && bootSamples.value !== '0') {
+    seedLabel.style.display = 'inline-block';
+    seedInput.style.display = 'inline-block';
+  } else {
+    seedLabel.style.display = 'none';
+    seedInput.style.display = 'none';
   }
 }
 
@@ -4374,7 +4412,7 @@ function toggleCenterOption() {
 
 document.addEventListener('DOMContentLoaded',()=>{
   renderVarsPanel();
-   document.querySelectorAll('.atab').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.atab').forEach(btn=>btn.addEventListener('click',()=>{
     document.querySelectorAll('.atab').forEach(b=>b.classList.remove('active'));
     btn.classList.add('active');curType=btn.dataset.type;renderVarsPanel();
     toggleCenterOption();  
@@ -4390,7 +4428,27 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('resultsPanel').classList.remove('visible');
     document.getElementById('resultsPanel').innerHTML='';
   });
-  initTheme();initNav();initHamburger();
+  
+  // ADD THIS BOOTSTRAP SEED EVENT LISTENER:
+  const bootSelect = document.getElementById('bootSamples');
+  if (bootSelect) {
+    bootSelect.addEventListener('change', function() {
+      const seedLabel = document.getElementById('seedLabel');
+      const seedInput = document.getElementById('seedInput');
+      if (this.value !== '0') {
+        seedLabel.style.display = 'inline-block';
+        seedInput.style.display = 'inline-block';
+      } else {
+        seedLabel.style.display = 'none';
+        seedInput.style.display = 'none';
+      }
+    });
+  }
+  
+  initTheme();
+  initNav();
+  initHamburger();
+  
   const yr=new Date().getFullYear();
   document.getElementById('yr').textContent=yr;
   document.getElementById('diagramModal').addEventListener('click',function(e){if(e.target===this)closeDiagramModal();});
@@ -4447,6 +4505,10 @@ function runAnalysis(){
   const nBoot=parseInt(document.getElementById('bootSamples').value)||0;
   const centerOption = document.getElementById('centerOption').value;
   const modStage = document.getElementById('modStageOption').value;
+  
+    const seed = parseInt(document.getElementById('seedInput')?.value) || 12345;
+  setRandomSeed(seed);
+  
   _currentModMedStage = modStage;
   _slopesShowAnnot=true;
   showResult('<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Running analysis…</div>');
