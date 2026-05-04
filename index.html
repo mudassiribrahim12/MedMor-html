@@ -2830,16 +2830,42 @@ if (_diagShowCoefs) {
     return `<rect x="${boxX}" y="${boxY}" width="${maxWidth + 8}" height="${totalHeight}" rx="3" fill="#ffffff" fill-opacity="1" stroke="none"/>${textElements}`;
   }
   
-  function drawPathLabel(midX, midY, lines, boxWidth = 100, offsetX = 0, offsetY = 0) {
-    if (!lines || lines.length === 0) return '';
-    const labelX = midX + offsetX;
-    const labelY = midY + offsetY;
-    if (_diagShowCardBox) {
-      return drawLabelBox(labelX, labelY, lines, boxWidth);
-    } else {
-      return `<g>${renderInlineLabel(labelX, labelY, lines)}</g>`;
-    }
+ // REPLACE the drawPathLabel function with this corrected version (same as you have - it's correct):
+
+function drawPathLabel(midX, midY, lines, boxWidth = 100, offsetX = 0, offsetY = 0) {
+  if (!lines || lines.length === 0) return '';
+  const labelX = midX + offsetX;
+  const labelY = midY + offsetY;
+  
+  if (!_diagShowCardBox) {
+    // Card box OFF: Pure plain text - NO background, NO rectangle
+    const fs = 9;
+    const lineHeight = 12;
+    const startY = labelY - (lines.length * lineHeight) / 2 + lineHeight;
+    
+    let textElements = '';
+    lines.forEach((line, i) => {
+      textElements += `<text x="${labelX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
+    });
+    
+    return `<g>${textElements}</g>`;
+  } else {
+    // Card box ON: Original behavior with styled box background
+    const maxChars = Math.floor(boxWidth / 6.5);
+    const wrappedLines = [];
+    lines.forEach(line => {
+      wrappedLines.push(...autoWrapText(line, maxChars));
+    });
+    const fs = 10.5, lh = 15, padX = 8, padY = 4;
+    const totalH = wrappedLines.length * lh + padY * 2;
+    const x = labelX - boxWidth/2;
+    const y = labelY - totalH/2;
+    const texts = wrappedLines.map((l, i) => 
+      `<text x="${labelX}" y="${y + padY + fs + i*lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
+    ).join('');
+    return `<rect x="${x}" y="${y}" width="${boxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
   }
+}
   
   // Position the indirect effect card directly below the Y node and X→Y direct path
   const lowestNodeY = Math.max(yB.y + bh, cpy2 + 15);
@@ -2893,12 +2919,12 @@ if (_diagShowCoefs) {
     ${drawPathLabel(cpMid.x, cpMid.y, cpLines, 120, 0, 18)}
     
     <!-- a2-path: X → M2 -->
-    <line x1="${a2x1}" y1="${a2y1}" x2="${a2x2}" y2="${a2y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
-    ${drawPathLabel(a2Mid.x, a2Mid.y, a2Lines, 100, -20, 7)}
+<line x1="${a2x1}" y1="${a2y1}" x2="${a2x2}" y2="${a2y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+${drawPathLabel(a2Mid.x, a2Mid.y, a2Lines, 100, -45, -15)}
     
     <!-- b1-path: M1 → Y -->
-    <line x1="${b1x1}" y1="${b1y1}" x2="${b1x2}" y2="${b1y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
-    ${drawPathLabel(b1Mid.x, b1Mid.y, b1Lines, 100, 20, 7)}
+<line x1="${b1x1}" y1="${b1y1}" x2="${b1x2}" y2="${b1y2}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+${drawPathLabel(b1Mid.x, b1Mid.y, b1Lines, 100, 45, -15)}
     
     ${serialIndirectHTML}
     </svg>`;
