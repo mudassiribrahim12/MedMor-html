@@ -3072,6 +3072,9 @@ function buildModerationSVG(d, mode, showP, W, H){
     }
   }
   
+  // Calculate line midpoint for centering (position boxes under the X→Y line)
+  const lineMidX = (pathStartX + pathEndX) / 2;
+  
   // Calculate bottom card position - moved closer to path diagram
   // Find the lowest point of the path diagram (Y node bottom)
   const lowestNodeY = yB.y + bh;
@@ -3086,26 +3089,26 @@ function buildModerationSVG(d, mode, showP, W, H){
     const modText = modLine2 ? `${modLine1}, ${modLine2}` : modLine1;
     
     if (_diagShowCardBox) {
-      // Card Box ON: Show in styled box
+      // Card Box ON: Show in styled box centered under the X→Y line
       const boxWidth = 320;
       const boxHeight = modLine2 ? 55 : 45;
-      const boxX = W/2 - boxWidth/2;
+      const boxX = lineMidX - boxWidth/2;  // Center under line midpoint, not W/2
       const boxY = bottomCardTop;
       moderationHTML = `
       <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
-      <text x="${W/2}" y="${boxY + 18}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">${modTitle}</text>
-      <text x="${W/2}" y="${boxY + 38}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(modText)}</text>
+      <text x="${lineMidX}" y="${boxY + 18}" text-anchor="middle" font-size="10" font-weight="700" fill="${colors.boxText}">${modTitle}</text>
+      <text x="${lineMidX}" y="${boxY + 38}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.boxText}">${escapeXml(modText)}</text>
       `;
     } else {
-      // Card Box OFF: Inline text with white background (no box)
+      // Card Box OFF: Inline text with white background centered under the X→Y line
       const inlineY = bottomCardTop + 22;
       const fullText = `${modTitle}: ${modText}`;
       const textWidth = fullText.length * 5.5;
-      const boxX = W/2 - textWidth/2 - 10;
+      const boxX = lineMidX - textWidth/2 - 10;
       const boxY = inlineY - 12;
       moderationHTML = `
       <rect x="${boxX}" y="${boxY}" width="${textWidth + 20}" height="22" rx="4" fill="#ffffff" fill-opacity="1" stroke="none"/>
-      <text x="${W/2}" y="${inlineY}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(fullText)}</text>
+      <text x="${lineMidX}" y="${inlineY}" text-anchor="middle" font-size="10" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(fullText)}</text>
       `;
     }
   }
