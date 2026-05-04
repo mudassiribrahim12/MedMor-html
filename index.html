@@ -2936,18 +2936,30 @@ function buildModerationSVG(d, mode, showP, W, H){
   const colors = getDiagramColors();
   const bw = 120, bh = 50;
   
-  // Position boxes
-  const xB = {x: 28, y: H/2 - bh/2};
-  const wB = {x: W/2 - bw/2, y: 20};
-  const yB = {x: W - bw - 28, y: H/2 - bh/2};
+  // Line length reduction factor (0.7 = 30% shorter)
+  const reductionFactor = 0.65; 
   
-  // X → Y path coordinates
+  // Calculate new positions 
+  const totalWidth = W;
+  const availableWidth = totalWidth - 100; // Leave margins
+  const reducedWidth = availableWidth * reductionFactor;
+  
+  // Position X card (left side)
+  const xB = {x: 40, y: H/2 - bh/2};
+  
+  // Position Y card - moved closer to X based on reduction factor
+  const yB = {x: xB.x + bw + reducedWidth, y: H/2 - bh/2};
+  
+  // Position W card (moderator) - centered between X and Y
+  const wB = {x: (xB.x + yB.x + bw) / 2 - bw/2, y: 20};
+  
+  // X → Y path coordinates (now naturally shorter because cards are closer)
   const pathStartX = xB.x + bw;
   const pathStartY = xB.y + bh/2;
   const pathEndX = yB.x;
   const pathEndY = yB.y + bh/2;
   
-  // Hit point for moderator arrow
+  // Hit point for moderator arrow (midpoint of the line)
   const hitPointX = (pathStartX + pathEndX) / 2;
   const hitPointY = (pathStartY + pathEndY) / 2;
   
