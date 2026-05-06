@@ -1483,7 +1483,7 @@ function renderReg(res, resZ, outcome, confLabel) {
       if (fpVal < 0) fpVal = 0;
       if (fpVal > 1) fpVal = 1;
       
-      // CRITICAL FIX: If p-value is 1.000 or 0.000 with large F, it's actually <.001
+      // If p-value is 1.000 or 0.000 with large F, it's actually <.001
       if (fpVal === 1 || fpVal === 0 || (Math.abs(fpVal - 1) < 0.0001) || (fpVal < 0.0001 && res.f > 10)) {
         fpDisplay = '< .001';
       } else if (fpVal < 0.001) {
@@ -2292,7 +2292,7 @@ function toggleIndirectDisplay() {
         if (btn) {
             btn.innerHTML = '<i class="fas fa-chart-simple"></i> Show 95% CI';
             btn.classList.remove('active');
-            btn.classList.add('active'); // Actually, p-value mode should be active? Let's style differently
+            btn.classList.add('active'); 
         }
     } else {
         // Toggle between modes when bootstrap is available
@@ -2649,8 +2649,8 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     // Calculate bottom card position - moved closer to path diagram
     // Find the lowest point of the path diagram (Y node bottom)
     const lowestNodeY = yB.y + bh;
-    const directEffectY = cpMid.y + 25; // Approximate direct effect label bottom
-    const bottomCardTop = Math.max(lowestNodeY, directEffectY) + 12; // 12px gap after the lowest element
+    const directEffectY = cpMid.y + 25; 
+    const bottomCardTop = Math.max(lowestNodeY, directEffectY) + 12; 
     
     // Indirect effect section - positioned just below the path diagram
     let indirectHTML = '';
@@ -2702,7 +2702,7 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     </svg>`;
 }
 
-// ── SERIAL MEDIATION DIAGRAM (ULTRA COMPACT) ──
+// ── SERIAL MEDIATION DIAGRAM ──
 function buildSerialMedSVG(d, mode, showP, W, H){
   const {xn,m1n,m2n,yn,
     a1,a1_std,pa1,
@@ -2714,7 +2714,7 @@ function buildSerialMedSVG(d, mode, showP, W, H){
     serial_indirect} = d;
 
   const colors = getDiagramColors();
-  const bw = 105, bh = 42;  // Even smaller boxes
+  const bw = 105, bh = 42;  
   
   const xB   = {x: 18, y: H/2 - bh/2};
   const m1B  = {x: W/3 - bw/2, y: 30};
@@ -2830,7 +2830,7 @@ if (_diagShowCoefs) {
     return `<rect x="${boxX}" y="${boxY}" width="${maxWidth + 8}" height="${totalHeight}" rx="3" fill="#ffffff" fill-opacity="1" stroke="none"/>${textElements}`;
   }
   
- // REPLACE the drawPathLabel function with this corrected version (same as you have - it's correct):
+ // drawPathLabel function 
 
 function drawPathLabel(midX, midY, lines, boxWidth = 100, offsetX = 0, offsetY = 0) {
   if (!lines || lines.length === 0) return '';
@@ -2941,7 +2941,7 @@ function buildModerationSVG(d, mode, showP, W, H){
   
   // Calculate new positions 
   const totalWidth = W;
-  const availableWidth = totalWidth - 100; // Leave margins
+  const availableWidth = totalWidth - 100; 
   const reducedWidth = availableWidth * reductionFactor;
   
   // Position X card (left side)
@@ -3092,7 +3092,7 @@ function buildModerationSVG(d, mode, showP, W, H){
       // Card Box ON: Show in styled box centered under the X→Y line
       const boxWidth = 320;
       const boxHeight = modLine2 ? 55 : 45;
-      const boxX = lineMidX - boxWidth/2;  // Center under line midpoint, not W/2
+      const boxX = lineMidX - boxWidth/2;  
       const boxY = bottomCardTop;
       moderationHTML = `
       <rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
@@ -3134,7 +3134,7 @@ function buildModerationSVG(d, mode, showP, W, H){
     </svg>`;
 }
 
-// ── MODERATED MEDIATION DIAGRAM with Stage Selection (FIXED) ──
+// ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
 function buildModMedSVG(d, mode, showP, W, H){
   const {xn,mn,yn,wn,a1,a1_std,pa1,a3,a3_std,pa3,b,b_std,pb,cp,cp_std,pcp,indexMM,bootCI_index} = d;
   
@@ -3244,7 +3244,7 @@ function buildModMedSVG(d, mode, showP, W, H){
   const cardHeight = 55;
   const cardSpacing = 15;
   
-  // Get IMM with bootstrap CI (for First and Second stages) - WITH SAFETY
+  // Get IMM with bootstrap CI (for First and Second stages) 
   let immText = '';
   if (_diagShowCoefs) {
     // Use safe standardized value
@@ -3265,7 +3265,7 @@ function buildModMedSVG(d, mode, showP, W, H){
     immText = `${immPrefix} = ${immVal}, ${ciText}`;
   }
   
-  // First Stage Interaction text (for Both Stages only) - WITH SAFETY
+  // First Stage Interaction text (for Both Stages only) 
   const a3_star = pStar(pa3);
   let a3_val_fmt, a3_prefix;
   if (mode === 'std') {
@@ -3278,7 +3278,7 @@ function buildModMedSVG(d, mode, showP, W, H){
   const a3_p_fmt = fmtp(pa3);
   const firstStageText = `${a3_prefix} = ${a3_val_fmt}${a3_star ? ' ' + a3_star : ''}, p ${a3_p_fmt}`;
   
-  // Second Stage Interaction text - WITH SAFETY
+  // Second Stage Interaction text 
   let b3_val_fmt, b3_prefix;
   if (mode === 'std') {
     b3_val_fmt = fmtv(b3_std_val, 3);
@@ -3571,7 +3571,7 @@ c'-path (Direct effect, ${xn} → ${yn}): b = ${fmtv(cp)}, SE = ${fmtv(rY.se[1])
     se_sob = Math.sqrt(b*b*sea*sea + a*a*seb*seb);
     z_sob = se_sob > 0 ? ind / se_sob : 0;
     p_sob = 2 * (1 - normalCDF(Math.abs(z_sob)));
-    const z_crit = 1.96; // For 95% CI
+    const z_crit = 1.96; 
     sobelCI_lo = ind - z_crit * se_sob;
     sobelCI_hi = ind + z_crit * se_sob;
     
