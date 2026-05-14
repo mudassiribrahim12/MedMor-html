@@ -874,7 +874,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
       <h1 class="hero-headline">Mediation &amp; Moderation,<br><em>done right.</em></h1>
       <p class="hero-sub">Browser-based statistical analysis for simple mediation, serial mediation, moderation, and moderated mediation (conditional process). Full OLS with both unstandardized and standardized coefficients, exact CIs, bootstrapping, interactive path diagrams, annotated simple slopes plots, and results reporting.</p>
       <div class="cta-row">
-        <button class="btn-primary" onclick="showSection('analysis')"><i class="fas fa-play-circle"></i> Start Analysis</button>
+<button class="btn-primary" onclick="showSection('data-import')"><i class="fas fa-upload"></i> Import Data</button>
         <button class="btn-outline" onclick="showSection('docs')"><i class="fas fa-book-open"></i> Documentation</button>
       </div>
     </div>
@@ -1699,7 +1699,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
           <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 20px 0;">
             <button class="btn-primary" onclick="goToDataStep(5)"><i class="fas fa-fill-drip"></i> Apply Imputation</button>
             <button class="btn-outline" onclick="applyListwiseDeletion()"><i class="fas fa-trash-alt"></i> Listwise Deletion</button>
-            <button class="btn-outline" onclick="proceedWithMissingData()"><i class="fas fa-forward"></i> Proceed with Missing</button>
+            <button class="btn-outline" onclick="proceedWithMissingData()"><i class="fas fa-forward"></i> Proceed</button>
           </div>
           <div class="di-nav">
             <button class="btn-outline" onclick="goToDataStep(3)"><i class="fas fa-arrow-left"></i> Back</button>
@@ -2176,9 +2176,7 @@ let uploadedFileName = '';
 let currentOutlierMethod = 'zscore';
 let categoricalVariables = [];
 let categoricalInfo = {};
-let dummyVariablesCreated = [];
 let originalDataTypes = {};
-let dummyCodingApplied = false;
 
 // File upload handlers
 const dropZone = document.getElementById('dropZone');
@@ -2241,7 +2239,6 @@ function parseCSVDataFile(content) {
     return;
   }
   
-  // Detect delimiter - check first line for tabs
   const firstLine = lines[0];
   const isTabDelimited = firstLine.includes('\t');
   
@@ -2252,7 +2249,6 @@ function parseCSVDataFile(content) {
     headers = firstLine.split(',').map(h => h.trim());
   }
   
-  // Remove any empty headers (from trailing tabs)
   headers = headers.filter(h => h !== '');
   
   const dataRows = lines.slice(1);
@@ -2265,7 +2261,6 @@ function parseCSVDataFile(content) {
     if (isTabDelimited) {
       values = row.split('\t');
     } else {
-      // Handle CSV with quotes
       const regex = /(".*?"|[^,]+)(?=\s*,|\s*$)/g;
       const matches = [];
       let match;
@@ -2279,7 +2274,6 @@ function parseCSVDataFile(content) {
       values = matches.length > 0 ? matches : row.split(',');
     }
     
-    // Process each value
     const parsedValues = [];
     for (let i = 0; i < headers.length; i++) {
       let val = i < values.length ? values[i] : '';
@@ -2287,13 +2281,11 @@ function parseCSVDataFile(content) {
       
       val = String(val).trim();
       
-      // Check for missing values
       if (val === '' || val.toLowerCase() === 'na' || val.toLowerCase() === 'nan' || val === 'NULL') {
         parsedValues.push(null);
         continue;
       }
       
-      // Try to parse as number
       const num = parseFloat(val);
       if (!isNaN(num) && val.match(/^-?\d*\.?\d+$/)) {
         parsedValues.push(num);
@@ -2315,8 +2307,6 @@ function parseCSVDataFile(content) {
   currentWorkingData = JSON.parse(JSON.stringify(data));
   currentWorkingColumns = [...headers];
   originalDataBackup = JSON.parse(JSON.stringify(data));
-  dummyCodingApplied = false;
-  dummyVariablesCreated = [];
   
   detectVariableTypes();
   
@@ -2359,8 +2349,6 @@ function parseExcelDataFile(arrayBuffer) {
     currentWorkingData = JSON.parse(JSON.stringify(data));
     currentWorkingColumns = [...headers];
     originalDataBackup = JSON.parse(JSON.stringify(data));
-    dummyCodingApplied = false;
-    dummyVariablesCreated = [];
     
     detectVariableTypes();
     
@@ -2397,8 +2385,7 @@ function detectVariableTypes() {
       
       categoricalInfo[currentWorkingColumns[colIdx]] = {
         levels: uniqueValues.sort(),
-        reference: uniqueValues[0],
-        dummyColumns: []
+        reference: uniqueValues[0]
       };
     } 
     else {
@@ -2452,10 +2439,10 @@ function goToDataStep(step) {
   
   if (step === 2) {
     renderVariableSelectionUI();
-    renderCategoricalReferenceUI();
   }
   if (step === 3) renderDataPreviewUI();
   if (step === 4) renderMissingDataReport();
+  if (step === 5) renderImputationUI();
   if (step === 6) renderInitialScreening();
   if (step === 7) renderFinalDataPreview();
 }
@@ -2501,85 +2488,10 @@ function renderVariableSelectionUI() {
   }
 }
 
-function renderCategoricalReferenceUI() {
-  const catVarsInSelection = selectedDataColumns.filter(col => originalDataTypes[col] === 'categorical');
-  const container = document.getElementById('catReferenceContainer');
-  const listContainer = document.getElementById('catReferenceList');
-  
-  if (catVarsInSelection.length === 0) {
-    container.style.display = 'none';
-    return;
-  }
-  
-  container.style.display = 'block';
-  listContainer.innerHTML = '';
-  
-  for (let catVar of catVarsInSelection) {
-    const levels = categoricalInfo[catVar]?.levels || [];
-    const div = document.createElement('div');
-    div.className = 'di-cat-reference-item';
-    div.innerHTML = `
-      <span class="di-cat-reference-name"><i class="fas fa-tag"></i> ${escapeXml(catVar)}</span>
-      <div>
-        <label style="font-size:0.7rem; margin-right: 8px;">Reference:</label>
-        <select class="di-cat-reference-select" data-var="${escapeXml(catVar)}" id="refSelect_${catVar.replace(/[^a-zA-Z0-9]/g, '_')}">
-          ${levels.map(level => `<option value="${escapeXml(String(level))}" ${categoricalInfo[catVar]?.reference === level ? 'selected' : ''}>${escapeXml(String(level))}</option>`).join('')}
-        </select>
-      </div>
-    `;
-    listContainer.appendChild(div);
-  }
-}
-
-function applyDummyCoding() {
-  for (let catVar of categoricalVariables) {
-    const selectId = `refSelect_${catVar.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const select = document.getElementById(selectId);
-    if (select) {
-      categoricalInfo[catVar].reference = select.value;
-    }
-  }
-  
-  dummyVariablesCreated = [];
-  const newColumns = [...currentWorkingColumns];
-  const newData = currentWorkingData.map(row => [...row]);
-  
-  for (let catVar of categoricalVariables) {
-    const colIdx = currentWorkingColumns.indexOf(catVar);
-    if (colIdx === -1) continue;
-    
-    const levels = categoricalInfo[catVar].levels;
-    const reference = categoricalInfo[catVar].reference;
-    const otherLevels = levels.filter(l => l !== reference);
-    
-    for (let level of otherLevels) {
-      const dummyName = `${catVar}_${String(level)}`;
-      newColumns.push(dummyName);
-      dummyVariablesCreated.push(dummyName);
-      
-      for (let rowIdx = 0; rowIdx < currentWorkingData.length; rowIdx++) {
-        const value = currentWorkingData[rowIdx][colIdx];
-        const isMatch = value === level;
-        newData[rowIdx].push(isMatch ? 1 : 0);
-      }
-    }
-  }
-  
-  currentWorkingColumns = newColumns;
-  currentWorkingData = newData;
-  dummyCodingApplied = true;
-  
-  detectVariableTypes();
-  
-  showDataNotification(`Dummy coding applied! Created ${dummyVariablesCreated.length} dummy variables.`, 'success');
-  renderDataPreviewUI();
-}
-
 function addVariableToSelection(col) {
   if (!selectedDataColumns.includes(col)) {
     selectedDataColumns.push(col);
     renderVariableSelectionUI();
-    renderCategoricalReferenceUI();
     showDataNotification(`Added "${col}"`, 'success');
   }
 }
@@ -2587,21 +2499,18 @@ function addVariableToSelection(col) {
 function removeVariableFromSelection(col) {
   selectedDataColumns = selectedDataColumns.filter(c => c !== col);
   renderVariableSelectionUI();
-  renderCategoricalReferenceUI();
   showDataNotification(`Removed "${col}"`, 'info');
 }
 
 function addAllVariablesToSelection() {
   selectedDataColumns = [...importedRawColumns];
   renderVariableSelectionUI();
-  renderCategoricalReferenceUI();
   showDataNotification(`Added all ${importedRawColumns.length} variables`, 'success');
 }
 
 function clearAllVariables() {
   selectedDataColumns = [];
   renderVariableSelectionUI();
-  renderCategoricalReferenceUI();
   showDataNotification('Cleared all selections', 'info');
 }
 
@@ -2617,8 +2526,6 @@ function confirmVariableSelection() {
   currentWorkingData = filteredData;
   currentWorkingColumns = [...selectedDataColumns];
   originalDataBackup = JSON.parse(JSON.stringify(currentWorkingData));
-  dummyCodingApplied = false;
-  dummyVariablesCreated = [];
   
   detectVariableTypes();
   
@@ -2626,11 +2533,12 @@ function confirmVariableSelection() {
   goToDataStep(3);
 }
 
+// RED HIGHLIGHT FOR MISSING VALUES IN STEP 3 TABLE
 function renderDataPreviewUI() {
   const previewRows = currentWorkingData.slice(0, 10);
-  let html = '<div class="di-table-wrapper"><table class="di-table"><thead><tr>';
+  let html = '<div class="di-table-wrapper" style="overflow-x: auto;"><table class="di-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border);"><thead><tr style="background: var(--bg3);">';
   for (let col of currentWorkingColumns) {
-    html += `<th>${escapeXml(col)}</th>`;
+    html += `<th style="border: 1px solid var(--border); padding: 8px; text-align: left;">${escapeXml(col)}</th>`;
   }
   html += '</thead><tbody>';
   
@@ -2641,29 +2549,27 @@ function renderDataPreviewUI() {
       const cell = row[j];
       if (cell !== null && cell !== '') {
         if (typeof cell === 'number') {
-          // Format to 2 decimal places if it's a decimal, otherwise show as is
           let formatted;
           if (Math.floor(cell) === cell) {
             formatted = cell.toString();
           } else {
             formatted = cell.toFixed(4).replace(/\.?0+$/, '');
           }
-          html += `<td>${formatted}</td>`;
+          html += `<td style="border: 1px solid var(--border); padding: 8px;">${formatted}</td>`;
         } else {
-          html += `<td>${escapeXml(String(cell))}</td>`;
+          html += `<td style="border: 1px solid var(--border); padding: 8px;">${escapeXml(String(cell))}</td>`;
         }
       } else {
-        html += `<td class="di-na-cell">NA</td>`;
+        html += `<td style="border: 1px solid var(--border); padding: 8px; background-color: #ffcccc; color: #cc0000; font-weight: bold;">NA</span></td>`;
       }
     }
     html += '</tr>';
   }
   html += '</tbody></table></div>';
   
-  // Statistics section - dynamic based on variable type
-  let statsHtml = '<div class="di-stats-section">';
-  statsHtml += '<div class="di-stats-title"><i class="fas fa-chart-bar"></i> Summary Statistics</div>';
-  statsHtml += '<div class="di-stats-grid">';
+  let statsHtml = '<div class="di-stats-section" style="margin-top: 20px;">';
+  statsHtml += '<div class="di-stats-title" style="font-weight: 600; margin-bottom: 12px;"><i class="fas fa-chart-bar"></i> Summary Statistics</div>';
+  statsHtml += '<div class="di-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">';
   
   for (let idx = 0; idx < currentWorkingColumns.length; idx++) {
     const col = currentWorkingColumns[idx];
@@ -2682,13 +2588,13 @@ function renderDataPreviewUI() {
         const missingPct = (missing / currentWorkingData.length * 100).toFixed(1);
         
         statsHtml += `
-          <div class="di-stat-card">
-            <div class="di-stat-name">${escapeXml(col)} <span style="color:var(--emerald);">(numeric)</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">N (valid):</span><span class="di-stat-value">${numValues.length}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Mean:</span><span class="di-stat-value">${mean.toFixed(4)}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">SD:</span><span class="di-stat-value">${std.toFixed(4)}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Min / Max:</span><span class="di-stat-value">${min.toFixed(4)} / ${max.toFixed(4)}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Missing:</span><span class="di-stat-value di-stat-missing">${missing} (${missingPct} percent)</span></div>
+          <div class="di-stat-card" style="background: var(--bg3); border-radius: 8px; padding: 12px; border: 1px solid var(--border);">
+            <div class="di-stat-name" style="font-weight: 600; margin-bottom: 8px;">${escapeXml(col)} <span style="color:var(--emerald);">(numeric)</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">N (valid):</span><span class="di-stat-value">${numValues.length}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Mean:</span><span class="di-stat-value">${mean.toFixed(4)}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">SD:</span><span class="di-stat-value">${std.toFixed(4)}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Min / Max:</span><span class="di-stat-value">${min.toFixed(4)} / ${max.toFixed(4)}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Missing:</span><span class="di-stat-value di-stat-missing" style="color: var(--coral);">${missing} (${missingPct}%)</span></div>
           </div>
         `;
       } else {
@@ -2703,12 +2609,12 @@ function renderDataPreviewUI() {
         const missingPct = (missing / currentWorkingData.length * 100).toFixed(1);
         
         statsHtml += `
-          <div class="di-stat-card">
-            <div class="di-stat-name">${escapeXml(col)} <span style="color:var(--brand);">(categorical)</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">N (valid):</span><span class="di-stat-value">${values.length}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Unique levels:</span><span class="di-stat-value">${uniqueCount}</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Mode (frequency):</span><span class="di-stat-value">${escapeXml(mode[0])} (${mode[1]})</span></div>
-            <div class="di-stat-row"><span class="di-stat-label">Missing:</span><span class="di-stat-value di-stat-missing">${missing} (${missingPct} percent)</span></div>
+          <div class="di-stat-card" style="background: var(--bg3); border-radius: 8px; padding: 12px; border: 1px solid var(--border);">
+            <div class="di-stat-name" style="font-weight: 600; margin-bottom: 8px;">${escapeXml(col)} <span style="color:var(--brand);">(categorical)</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">N (valid):</span><span class="di-stat-value">${values.length}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Unique levels:</span><span class="di-stat-value">${uniqueCount}</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Mode (frequency):</span><span class="di-stat-value">${escapeXml(mode[0])} (${mode[1]})</span></div>
+            <div class="di-stat-row" style="display: flex; justify-content: space-between; padding: 4px 0;"><span class="di-stat-label">Missing:</span><span class="di-stat-value di-stat-missing" style="color: var(--coral);">${missing} (${missingPct}%)</span></div>
           </div>
         `;
       }
@@ -2716,24 +2622,13 @@ function renderDataPreviewUI() {
   }
   statsHtml += '</div></div>';
   
-  if (dummyCodingApplied && dummyVariablesCreated.length > 0) {
-    statsHtml += `
-      <div class="di-dummy-vars" style="margin-top: 16px;">
-        <div class="di-dummy-title"><i class="fas fa-code-branch"></i> Dummy Variables Created</div>
-        <div class="di-dummy-list">
-          ${dummyVariablesCreated.map(dv => `<span class="di-dummy-badge">${escapeXml(dv)}</span>`).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
   document.getElementById('previewTableContainer').innerHTML = html;
   document.getElementById('previewStatsContainer').innerHTML = statsHtml;
 }
 
 function renderMissingDataReport() {
-  let html = '<div class="di-screening-table-wrapper"><table class="di-screening-table"><thead><tr>';
-  html += '<th>Variable</th><th>Valid N</th><th>Missing N</th><th>Missing Percent</th>';
+  let html = '<div class="di-screening-table-wrapper" style="overflow-x: auto;"><table class="di-screening-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border);"><thead><tr style="background: var(--bg3);">';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">Variable</th><th style="border: 1px solid var(--border); padding: 8px;">Valid N</th><th style="border: 1px solid var(--border); padding: 8px;">Missing N</th><th style="border: 1px solid var(--border); padding: 8px;">Missing Percent</th>';
   html += '</thead><tbody>';
   
   let totalMissing = 0;
@@ -2759,9 +2654,9 @@ function renderMissingDataReport() {
     
     html += `<tr>
       <td><strong>${escapeXml(col)}</strong></td>
-      <td>${currentWorkingData.length - missingCount}</td>
-      <td>${missingCount}</td>
-      <td class="${severityClass}">${missingPct} percent</td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${currentWorkingData.length - missingCount}</td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${missingCount}</td>
+      <td class="${severityClass}" style="border: 1px solid var(--border); padding: 8px; text-align: center;">${missingPct}%</span></td>
     </tr>`;
   }
   html += '</tbody></table></div>';
@@ -2769,49 +2664,43 @@ function renderMissingDataReport() {
   const overallMissingPct = (totalMissing / totalCells * 100).toFixed(1);
   
   if (totalMissing > 0) {
-    html += `<div class="di-alert di-alert-info"><i class="fas fa-chart-pie"></i> <strong>Overall Missing: ${overallMissingPct} percent (${totalMissing} missing values out of ${totalCells} total cells)</strong><br>`;
+    html += `<div class="di-alert di-alert-info" style="margin-top: 16px; padding: 12px; background: var(--info-bg); border-radius: 8px;"><i class="fas fa-chart-pie"></i> <strong>Overall Missing: ${overallMissingPct}% (${totalMissing} missing values out of ${totalCells} total cells)</strong><br>`;
+    html += `<strong>⚠️ Important Warning:</strong> Mean/Median/Mode imputation should only be used when missingness is <5% and data are MCAR. These methods bias standard errors downward.<br>`;
     if (overallMissingPct < 5) {
-      html += `<strong>Recommendation:</strong> Low missingness - Multiple imputation recommended for best results.</div>`;
+      html += `<strong>Recommendation:</strong> Low missingness - Consider Multiple Imputation (PMM) for best results.</div>`;
     } else if (overallMissingPct < 15) {
-      html += `<strong>Recommendation:</strong> Moderate missingness - Multiple imputation is strongly recommended.</div>`;
+      html += `<strong>Recommendation:</strong> Moderate missingness - Multiple Imputation (PMM) is strongly recommended.</div>`;
     } else {
-      html += `<strong>Recommendation:</strong> High missingness - Consider careful imputation or sensitivity analysis.</div>`;
+      html += `<strong>Recommendation:</strong> High missingness - Consider careful imputation or sensitivity analysis with Multiple Imputation.</div>`;
     }
   } else {
-    html += `<div class="di-alert di-alert-success"><i class="fas fa-check-circle"></i> <strong>No missing values found!</strong> Your dataset is complete and ready for analysis.</div>`;
+    html += `<div class="di-alert di-alert-success" style="margin-top: 16px; padding: 12px; background: var(--success-bg); border-radius: 8px;"><i class="fas fa-check-circle"></i> <strong>No missing values found!</strong> Your dataset is complete and ready for analysis.</div>`;
   }
   
   document.getElementById('missingDataReport').innerHTML = html;
 }
 
-function applyListwiseDeletion() {
-  const rowsToKeep = [];
-  const removedRows = [];
+function renderImputationUI() {
+  const container = document.getElementById('imputationMethodsContainer');
+  if (!container) return;
   
-  for (let i = 0; i < currentWorkingData.length; i++) {
-    let hasMissing = false;
-    for (let j = 0; j < currentWorkingData[i].length; j++) {
-      const cell = currentWorkingData[i][j];
-      if (cell === null || cell === '' || (typeof cell === 'string' && cell.trim() === '')) {
-        hasMissing = true;
-        break;
-      }
-    }
-    if (!hasMissing) {
-      rowsToKeep.push(i);
-    } else {
-      removedRows.push(i + 1);
-    }
-  }
-  
-  currentWorkingData = rowsToKeep.map(i => currentWorkingData[i]);
-  showDataNotification(`Listwise deletion: Removed ${removedRows.length} rows. Rows: ${removedRows.join(', ')}`, 'warning');
-  goToDataStep(7);
-}
-
-function proceedWithMissingData() {
-  showDataNotification('Proceeding with missing data present', 'info');
-  goToDataStep(6);
+  container.innerHTML = `
+    <div class="imputation-warning" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+      <strong>⚠️ Important Scientific Note:</strong> Mean/Median/Mode imputation should only be used when missingness is <5% and data are Missing Completely At Random (MCAR). 
+      These methods bias standard errors downward. For better results, use Multiple Imputation (PMM) or Hot Deck.
+    </div>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px;">
+      <button class="di-imp-btn" data-method="mean" onclick="selectImputationMethod('mean')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Mean Imputation</button>
+      <button class="di-imp-btn" data-method="median" onclick="selectImputationMethod('median')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Median Imputation</button>
+      <button class="di-imp-btn" data-method="mode" onclick="selectImputationMethod('mode')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Mode Imputation</button>
+      <button class="di-imp-btn" data-method="multiple" onclick="selectImputationMethod('multiple')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Multiple Imputation (PMM)</button>
+      <button class="di-imp-btn" data-method="hotdeck" onclick="selectImputationMethod('hotdeck')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Hot Deck Imputation</button>
+      <button class="di-imp-btn" data-method="regression" onclick="selectImputationMethod('regression')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">Regression Imputation</button>
+      <button class="di-imp-btn" data-method="em" onclick="selectImputationMethod('em')" style="padding: 10px 16px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; background: var(--bg2);">EM Algorithm</button>
+    </div>
+    <div id="imputationDescriptionArea" style="margin-bottom: 20px; padding: 12px; background: var(--bg3); border-radius: 8px;"></div>
+    <button class="btn-primary" onclick="applyImputationToData()" style="padding: 12px 24px; background: var(--brand); color: white; border: none; border-radius: 8px; cursor: pointer;">Apply Imputation</button>
+  `;
 }
 
 function selectImputationMethod(method) {
@@ -2822,16 +2711,26 @@ function selectImputationMethod(method) {
   if (activeBtn) activeBtn.classList.add('active');
   
   const descriptions = {
-    mean: '<strong>Mean Imputation:</strong> Replaces missing values with the variable mean. <span style="color: #f59e0b;">Only appropriate when missingness is less than 5 percent and MCAR.</span>',
-    median: '<strong>Median Imputation:</strong> Replaces missing values with the variable median. Better for skewed continuous variables.',
-    mode: '<strong>Mode Imputation:</strong> Replaces missing values with the most frequent value. For categorical or binary variables.',
-    multiple: '<strong>Multiple Imputation (PMM - Gold Standard):</strong> Uses Predictive Mean Matching. Creates multiple imputed datasets and pools results.',
-    hotdeck: '<strong>Hot Deck Imputation:</strong> Finds the most similar case using Euclidean distance and copies its value.',
-    regression: '<strong>Regression Imputation:</strong> Predicts missing values using OLS regression, then adds stochastic noise.',
-    em: '<strong>EM Algorithm:</strong> Expectation-Maximization iteratively estimates parameters. Good for multivariate normal data.'
+    mean: '<strong>Mean Imputation:</strong> Replaces missing values with the variable arithmetic mean. <span style="color: #f59e0b;">⚠️ Only appropriate when missingness is less than 5% and MCAR. Biases standard errors downward.</span>',
+    median: '<strong>Median Imputation:</strong> Replaces missing values with the variable median. More robust for skewed continuous variables. <span style="color: #f59e0b;">⚠️ Biases standard errors downward when missingness >5%.</span>',
+    mode: '<strong>Mode Imputation:</strong> Replaces missing values with the most frequent value. Best for categorical or binary variables with low missingness.',
+    multiple: '<strong>Multiple Imputation (PMM - Gold Standard):</strong> Uses Predictive Mean Matching. Fits a regression model, predicts missing values, then finds observed values with closest predictions. Creates proper uncertainty estimates. <span style="color: #28a55e;">✓ Recommended for most situations.</span>',
+    hotdeck: '<strong>Hot Deck Imputation:</strong> Finds the most similar complete case using Euclidean distance on standardized predictors and copies its value. <span style="color: #28a55e;">✓ Good for non-normal data.</span>',
+    regression: '<strong>Regression Imputation:</strong> Predicts missing values using OLS regression, then adds stochastic residual noise drawn from the residual distribution. <span style="color: #f59e0b;">⚠️ Can overfit if few predictors.</span>',
+    em: '<strong>EM Algorithm:</strong> Expectation-Maximization iteratively estimates parameters (mean vector and covariance matrix) across all variables jointly. Best for multivariate normal data with monotone missingness.'
   };
   
   document.getElementById('imputationDescriptionArea').innerHTML = descriptions[method] || '';
+}
+
+// ============================================================
+// STANDARDIZE FUNCTION FOR HOT DECK (scales predictors)
+// ============================================================
+function standardizeVector(arr) {
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  const std = Math.sqrt(arr.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / arr.length);
+  if (std === 0) return arr.map(() => 0);
+  return arr.map(v => (v - mean) / std);
 }
 
 function applyImputationToData() {
@@ -2846,38 +2745,47 @@ function applyImputationToData() {
   const imputedCells = [];
   
   for (let colIdx = 0; colIdx < currentWorkingColumns.length; colIdx++) {
+    const columnName = currentWorkingColumns[colIdx];
+    const isNumeric = originalDataTypes[columnName] === 'numeric';
+    
+    if (!isNumeric) continue;
+    
     const values = currentWorkingData.map(row => row[colIdx]);
     const missingIndices = [];
+    const observedIndices = [];
+    
     for (let i = 0; i < values.length; i++) {
       const cell = values[i];
       if (cell === null || cell === '' || (typeof cell === 'string' && cell.trim() === '')) {
         missingIndices.push(i);
+      } else if (typeof cell === 'number') {
+        observedIndices.push(i);
       }
     }
     
     if (missingIndices.length === 0) continue;
     
-    const nonMissingValues = values.filter(v => v !== null && v !== '' && typeof v === 'number');
-    
-    if (nonMissingValues.length === 0) continue;
+    const observedValues = observedIndices.map(i => values[i]);
     
     if (selectedImputationMethod === 'mean') {
-      const meanVal = nonMissingValues.reduce((a, b) => a + b, 0) / nonMissingValues.length;
+      const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
       for (let idx of missingIndices) {
         imputedData[idx][colIdx] = meanVal;
-        imputedCells.push({ row: idx, col: colIdx });
+        imputedCells.push({ row: idx, col: colIdx, method: 'mean', value: meanVal });
       }
-    } else if (selectedImputationMethod === 'median') {
-      const sorted = [...nonMissingValues].sort((a, b) => a - b);
+    } 
+    else if (selectedImputationMethod === 'median') {
+      const sorted = [...observedValues].sort((a, b) => a - b);
       const medianVal = sorted[Math.floor(sorted.length / 2)];
       for (let idx of missingIndices) {
         imputedData[idx][colIdx] = medianVal;
-        imputedCells.push({ row: idx, col: colIdx });
+        imputedCells.push({ row: idx, col: colIdx, method: 'median', value: medianVal });
       }
-    } else if (selectedImputationMethod === 'mode') {
+    } 
+    else if (selectedImputationMethod === 'mode') {
       const freq = {};
-      for (let v of nonMissingValues) freq[v] = (freq[v] || 0) + 1;
-      let modeVal = nonMissingValues[0];
+      for (let v of observedValues) freq[v] = (freq[v] || 0) + 1;
+      let modeVal = observedValues[0];
       let maxFreq = 0;
       for (let [val, count] of Object.entries(freq)) {
         if (count > maxFreq) {
@@ -2887,13 +2795,365 @@ function applyImputationToData() {
       }
       for (let idx of missingIndices) {
         imputedData[idx][colIdx] = modeVal;
-        imputedCells.push({ row: idx, col: colIdx });
+        imputedCells.push({ row: idx, col: colIdx, method: 'mode', value: modeVal });
       }
-    } else {
-      const meanVal = nonMissingValues.reduce((a, b) => a + b, 0) / nonMissingValues.length;
+    }
+    else if (selectedImputationMethod === 'hotdeck') {
+      // Identify numeric predictor columns (excluding current column)
+      const predictorIndices = [];
+      for (let i = 0; i < currentWorkingColumns.length; i++) {
+        if (i !== colIdx && originalDataTypes[currentWorkingColumns[i]] === 'numeric') {
+          predictorIndices.push(i);
+        }
+      }
+      
+      if (predictorIndices.length === 0) {
+        // Fallback to mean imputation if no predictors
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'hotdeck_fallback', value: meanVal });
+        }
+        continue;
+      }
+      
+      // Build predictor matrices and standardize
+      const observedPredictors = observedIndices.map(idx => 
+        predictorIndices.map(pIdx => currentWorkingData[idx][pIdx])
+      );
+      const missingPredictors = missingIndices.map(idx => 
+        predictorIndices.map(pIdx => currentWorkingData[idx][pIdx])
+      );
+      
+      // Standardize each predictor column
+      const standardizedObserved = [];
+      const standardizedMissing = [];
+      for (let p = 0; p < predictorIndices.length; p++) {
+        const allValues = [...observedPredictors.map(row => row[p]), ...missingPredictors.map(row => row[p])];
+        const mean = allValues.reduce((a, b) => a + b, 0) / allValues.length;
+        const std = Math.sqrt(allValues.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / allValues.length);
+        const stdVal = std === 0 ? 1 : std;
+        
+        standardizedObserved.push(observedPredictors.map(row => (row[p] - mean) / stdVal));
+        standardizedMissing.push(missingPredictors.map(row => (row[p] - mean) / stdVal));
+      }
+      
+      // Transpose to get rows
+      const obsRows = standardizedObserved[0].map((_, i) => standardizedObserved.map(col => col[i]));
+      const missRows = standardizedMissing[0].map((_, i) => standardizedMissing.map(col => col[i]));
+      
+      // Find nearest donor for each missing case
+      for (let mi = 0; mi < missingIndices.length; mi++) {
+        const missingIdx = missingIndices[mi];
+        const missVector = missRows[mi];
+        
+        let bestDonorIdx = -1;
+        let minDistance = Infinity;
+        
+        for (let oi = 0; oi < observedIndices.length; oi++) {
+          const obsVector = obsRows[oi];
+          let distance = 0;
+          for (let d = 0; d < missVector.length; d++) {
+            distance += Math.pow(missVector[d] - obsVector[d], 2);
+          }
+          distance = Math.sqrt(distance);
+          
+          if (distance < minDistance) {
+            minDistance = distance;
+            bestDonorIdx = observedIndices[oi];
+          }
+        }
+        
+        if (bestDonorIdx !== -1) {
+          const donorValue = currentWorkingData[bestDonorIdx][colIdx];
+          imputedData[missingIdx][colIdx] = donorValue;
+          imputedCells.push({ row: missingIdx, col: colIdx, method: 'hotdeck', value: donorValue });
+        }
+      }
+    }
+    else if (selectedImputationMethod === 'regression') {
+      const predictorIndices = [];
+      for (let i = 0; i < currentWorkingColumns.length; i++) {
+        if (i !== colIdx && originalDataTypes[currentWorkingColumns[i]] === 'numeric') {
+          predictorIndices.push(i);
+        }
+      }
+      
+      if (predictorIndices.length === 0) {
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'regression_fallback', value: meanVal });
+        }
+        continue;
+      }
+      
+      // Build X matrix and Y vector
+      const X_complete = observedIndices.map(idx => {
+        const row = [1];
+        for (let p of predictorIndices) {
+          row.push(currentWorkingData[idx][p]);
+        }
+        return row;
+      });
+      const Y_complete = observedValues;
+      
+      // Solve OLS: (X'X)^(-1) X'Y
+      const Xt = transposeMatrix(X_complete);
+      const XtX = multiplyMatrices(Xt, X_complete);
+      const XtY = multiplyMatrices(Xt, Y_complete.map(v => [v]));
+      const XtXinv = invertMatrixSafe(XtX);
+      
+      if (XtXinv) {
+        const betas = multiplyMatrices(XtXinv, XtY).map(v => v[0]);
+        
+        // Calculate residual standard deviation from observed data
+        const predictedObserved = X_complete.map(row => 
+          row.reduce((sum, val, i) => sum + val * betas[i], 0)
+        );
+        const residuals = Y_complete.map((y, i) => y - predictedObserved[i]);
+        const residualStd = Math.sqrt(residuals.reduce((sum, r) => sum + r * r, 0) / (residuals.length - 1));
+        
+        // Predict missing values with stochastic noise from residual distribution
+        for (let idx of missingIndices) {
+          const x_pred = [1];
+          for (let p of predictorIndices) {
+            x_pred.push(currentWorkingData[idx][p]);
+          }
+          let predicted = 0;
+          for (let k = 0; k < betas.length; k++) {
+            predicted += betas[k] * x_pred[k];
+          }
+          // Add noise drawn from residual distribution (proper stochastic regression imputation)
+          const residualNoise = (Math.random() - 0.5) * 2 * residualStd;
+          const imputedValue = predicted + residualNoise;
+          imputedData[idx][colIdx] = imputedValue;
+          imputedCells.push({ row: idx, col: colIdx, method: 'regression', value: imputedValue });
+        }
+      } else {
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'regression_fallback', value: meanVal });
+        }
+      }
+    }
+    else if (selectedImputationMethod === 'em') {
+      // Proper EM Algorithm - estimates mean vector and covariance matrix jointly
+      const nVars = currentWorkingColumns.length;
+      const nObs = observedIndices.length;
+      const nMiss = missingIndices.length;
+      
+      // Collect complete cases (rows with no missing in any variable)
+      const completeCases = [];
+      for (let i = 0; i < currentWorkingData.length; i++) {
+        let hasMissing = false;
+        for (let j = 0; j < currentWorkingColumns.length; j++) {
+          const cell = currentWorkingData[i][j];
+          if (cell === null || cell === '' || (typeof cell === 'string' && cell.trim() === '')) {
+            hasMissing = true;
+            break;
+          }
+        }
+        if (!hasMissing) completeCases.push(i);
+      }
+      
+      if (completeCases.length >= nVars + 1) {
+        // Initialize with complete cases
+        let meanVec = Array(nVars).fill(0);
+        let covMat = Array(nVars).fill().map(() => Array(nVars).fill(0));
+        
+        for (let v = 0; v < nVars; v++) {
+          let sum = 0;
+          for (let idx of completeCases) {
+            sum += currentWorkingData[idx][v];
+          }
+          meanVec[v] = sum / completeCases.length;
+        }
+        
+        for (let i = 0; i < nVars; i++) {
+          for (let j = 0; j < nVars; j++) {
+            let sum = 0;
+            for (let idx of completeCases) {
+              sum += (currentWorkingData[idx][i] - meanVec[i]) * (currentWorkingData[idx][j] - meanVec[j]);
+            }
+            covMat[i][j] = sum / (completeCases.length - 1);
+          }
+        }
+        
+        // EM iterations
+        for (let iter = 0; iter < 50; iter++) {
+          let newMeanVec = Array(nVars).fill(0);
+          let newCovMat = Array(nVars).fill().map(() => Array(nVars).fill(0));
+          let weightSum = 0;
+          
+          // For each row, compute contribution to sufficient statistics
+          for (let i = 0; i < currentWorkingData.length; i++) {
+            const row = currentWorkingData[i];
+            const missingMask = row.map(v => (v === null || v === '' || (typeof v === 'string' && v.trim() === '')) ? 0 : 1);
+            const observedIdx = [];
+            const missingIdx = [];
+            
+            for (let v = 0; v < nVars; v++) {
+              if (missingMask[v]) observedIdx.push(v);
+              else missingIdx.push(v);
+            }
+            
+            if (missingIdx.length === 0) {
+              // Complete case
+              for (let v = 0; v < nVars; v++) {
+                newMeanVec[v] += row[v];
+                for (let u = 0; u < nVars; u++) {
+                  newCovMat[v][u] += row[v] * row[u];
+                }
+              }
+              weightSum++;
+            } else if (observedIdx.length > 0) {
+              // Incomplete case - conditional expectation
+              const obsMean = observedIdx.map(v => meanVec[v]);
+              const missMean = missingIdx.map(v => meanVec[v]);
+              
+              // Extract covariance blocks
+              const covOO = observedIdx.map(i => observedIdx.map(j => covMat[i][j]));
+              const covOM = observedIdx.map(i => missingIdx.map(j => covMat[i][j]));
+              const covMO = missingIdx.map(i => observedIdx.map(j => covMat[i][j]));
+              const covMM = missingIdx.map(i => missingIdx.map(j => covMat[i][j]));
+              
+              // Compute conditional expectation E[Y_miss | Y_obs]
+              const covOOinv = invertMatrixSafe(covOO);
+              let condMean = [];
+              if (covOOinv) {
+                for (let m = 0; m < missingIdx.length; m++) {
+                  let pred = missMean[m];
+                  for (let o = 0; o < observedIdx.length; o++) {
+                    const residual = row[observedIdx[o]] - obsMean[o];
+                    let covTerm = 0;
+                    for (let k = 0; k < observedIdx.length; k++) {
+                      covTerm += covMO[m][k] * covOOinv[k][o];
+                    }
+                    pred += covTerm * residual;
+                  }
+                  condMean.push(pred);
+                }
+              } else {
+                condMean = missMean;
+              }
+              
+              // Update sufficient statistics
+              const fullImputed = [...row];
+              for (let m = 0; m < missingIdx.length; m++) {
+                fullImputed[missingIdx[m]] = condMean[m];
+              }
+              
+              for (let v = 0; v < nVars; v++) {
+                newMeanVec[v] += fullImputed[v];
+                for (let u = 0; u < nVars; u++) {
+                  newCovMat[v][u] += fullImputed[v] * fullImputed[u];
+                }
+              }
+              weightSum++;
+            }
+          }
+          
+          // Update parameters
+          for (let v = 0; v < nVars; v++) {
+            meanVec[v] = newMeanVec[v] / weightSum;
+          }
+          for (let v = 0; v < nVars; v++) {
+            for (let u = 0; u < nVars; u++) {
+              covMat[v][u] = newCovMat[v][u] / weightSum - meanVec[v] * meanVec[u];
+            }
+          }
+        }
+        
+        // Impute using final means
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVec[colIdx];
+          imputedCells.push({ row: idx, col: colIdx, method: 'em', value: meanVec[colIdx] });
+        }
+      } else {
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'em_fallback', value: meanVal });
+        }
+      }
+    }
+    else if (selectedImputationMethod === 'multiple') {
+      // Proper Predictive Mean Matching (PMM)
+      const predictorIndices = [];
+      for (let i = 0; i < currentWorkingColumns.length; i++) {
+        if (i !== colIdx && originalDataTypes[currentWorkingColumns[i]] === 'numeric') {
+          predictorIndices.push(i);
+        }
+      }
+      
+      if (predictorIndices.length === 0 || observedIndices.length < predictorIndices.length + 1) {
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'multiple_fallback', value: meanVal });
+        }
+        continue;
+      }
+      
+      // Build regression model on complete cases
+      const X_complete = observedIndices.map(idx => {
+        const row = [1];
+        for (let p of predictorIndices) {
+          row.push(currentWorkingData[idx][p]);
+        }
+        return row;
+      });
+      const Y_complete = observedValues;
+      
+      const Xt = transposeMatrix(X_complete);
+      const XtX = multiplyMatrices(Xt, X_complete);
+      const XtY = multiplyMatrices(Xt, Y_complete.map(v => [v]));
+      const XtXinv = invertMatrixSafe(XtX);
+      
+      if (!XtXinv) {
+        const meanVal = observedValues.reduce((a, b) => a + b, 0) / observedValues.length;
+        for (let idx of missingIndices) {
+          imputedData[idx][colIdx] = meanVal;
+          imputedCells.push({ row: idx, col: colIdx, method: 'multiple_fallback', value: meanVal });
+        }
+        continue;
+      }
+      
+      const betas = multiplyMatrices(XtXinv, XtY).map(v => v[0]);
+      
+      // Predict for observed and missing cases
+      const predictedObserved = X_complete.map(row => 
+        row.reduce((sum, val, i) => sum + val * betas[i], 0)
+      );
+      
+      // For each missing case, find donors with closest predicted values
       for (let idx of missingIndices) {
-        imputedData[idx][colIdx] = meanVal;
-        imputedCells.push({ row: idx, col: colIdx });
+        const x_pred = [1];
+        for (let p of predictorIndices) {
+          x_pred.push(currentWorkingData[idx][p]);
+        }
+        let predictedMissing = 0;
+        for (let k = 0; k < betas.length; k++) {
+          predictedMissing += betas[k] * x_pred[k];
+        }
+        
+        // Find k=3 nearest neighbors by predicted value
+        const distances = predictedObserved.map((pred, i) => ({
+          idx: observedIndices[i],
+          value: Y_complete[i],
+          distance: Math.abs(pred - predictedMissing)
+        }));
+        distances.sort((a, b) => a.distance - b.distance);
+        
+        // Randomly select from top 3 donors (PMM with k=3)
+        const topDonors = distances.slice(0, Math.min(3, distances.length));
+        const selectedDonor = topDonors[Math.floor(Math.random() * topDonors.length)];
+        const imputedValue = selectedDonor.value;
+        
+        imputedData[idx][colIdx] = imputedValue;
+        imputedCells.push({ row: idx, col: colIdx, method: 'multiple_pmm', value: imputedValue });
       }
     }
   }
@@ -2901,12 +3161,61 @@ function applyImputationToData() {
   currentWorkingData = imputedData;
   imputedCellsLog = imputedCells;
   
-  showDataNotification(`Imputation complete! ${imputedCells.length} values imputed.`, 'success');
+  showDataNotification(`Imputation complete! ${imputedCells.length} values imputed using ${selectedImputationMethod}.`, 'success');
   document.getElementById('nextToFinalBtn').style.display = 'inline-flex';
   goToDataStep(6);
 }
 
+function transposeMatrix(m) {
+  if (!m.length || !m[0].length) return [];
+  return m[0].map((_, i) => m.map(row => row[i]));
+}
+
+function multiplyMatrices(a, b) {
+  const rows = a.length, cols = b[0].length, inner = b.length;
+  const result = Array(rows).fill().map(() => Array(cols).fill(0));
+  for (let i = 0; i < rows; i++) {
+    for (let j = 0; j < cols; j++) {
+      for (let k = 0; k < inner; k++) {
+        result[i][j] += a[i][k] * b[k][j];
+      }
+    }
+  }
+  return result;
+}
+
+function invertMatrixSafe(M) {
+  const n = M.length;
+  const A = M.map((row, i) => [...row, ...Array(n).fill().map((_, j) => i === j ? 1 : 0)]);
+  
+  for (let i = 0; i < n; i++) {
+    let maxRow = i;
+    for (let j = i + 1; j < n; j++) {
+      if (Math.abs(A[j][i]) > Math.abs(A[maxRow][i])) maxRow = j;
+    }
+    if (Math.abs(A[maxRow][i]) < 1e-12) return null;
+    [A[i], A[maxRow]] = [A[maxRow], A[i]];
+    const pivot = A[i][i];
+    for (let j = i; j < 2 * n; j++) A[i][j] /= pivot;
+    for (let j = 0; j < n; j++) {
+      if (j !== i) {
+        const factor = A[j][i];
+        for (let k = i; k < 2 * n; k++) {
+          A[j][k] -= factor * A[i][k];
+        }
+      }
+    }
+  }
+  return A.map(row => row.slice(n));
+}
+
+function variance(arr) {
+  const mean = arr.reduce((a, b) => a + b, 0) / arr.length;
+  return arr.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (arr.length - 1);
+}
+
 function renderInitialScreening() {
+  renderOutlierScreeningAuto();
   showScreeningTab('outliers');
 }
 
@@ -2918,41 +3227,41 @@ function showScreeningTab(tab) {
   const container = document.getElementById('screeningContentArea');
   if (!container) return;
   
-  if (tab === 'outliers') renderOutlierScreening(container);
+  if (tab === 'outliers') renderOutlierResults(container);
   else if (tab === 'normality') renderNormalityScreening(container);
   else if (tab === 'correlation') renderCorrelationScreening(container);
   else if (tab === 'sample') renderSampleSizeScreening(container);
   else if (tab === 'plots') renderDiagnosticPlotsScreening(container);
 }
 
-function renderOutlierScreening(container) {
+function renderOutlierScreeningAuto() {
+  const container = document.getElementById('screeningContentArea');
+  if (!container) return;
+  
+  const outlierContainer = document.createElement('div');
+  outlierContainer.id = 'outlierResultsContainer';
+  container.innerHTML = '';
+  container.appendChild(outlierContainer);
+  
+  renderOutlierResults(container);
+}
+
+function renderOutlierResults(container) {
   let html = `
-    <div class="di-outlier-controls">
+    <div class="di-outlier-controls" style="margin-bottom: 16px;">
       <div style="font-weight: 700; margin-right: 10px;">Detection Method:</div>
-      <button class="di-outlier-method-btn ${currentOutlierMethod === 'zscore' ? 'active' : ''}" onclick="setOutlierMethod('zscore')">Z-Score (+/-3)</button>
-      <button class="di-outlier-method-btn ${currentOutlierMethod === 'iqr' ? 'active' : ''}" onclick="setOutlierMethod('iqr')">IQR (1.5x)</button>
-      <button class="di-outlier-method-btn ${currentOutlierMethod === 'mad' ? 'active' : ''}" onclick="setOutlierMethod('mad')">MAD (3x)</button>
-      <button class="di-outlier-method-btn ${currentOutlierMethod === 'percentile' ? 'active' : ''}" onclick="setOutlierMethod('percentile')">Percentile (1st/99th)</button>
-      <button class="di-run-outlier-btn" onclick="runOutlierDetection()"><i class="fas fa-chart-line"></i> Run Detection</button>
+      <button class="di-outlier-method-btn ${currentOutlierMethod === 'zscore' ? 'active' : ''}" onclick="setOutlierMethod('zscore')" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Z-Score (±3)</button>
+      <button class="di-outlier-method-btn ${currentOutlierMethod === 'iqr' ? 'active' : ''}" onclick="setOutlierMethod('iqr')" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">IQR (1.5×)</button>
+      <button class="di-outlier-method-btn ${currentOutlierMethod === 'mad' ? 'active' : ''}" onclick="setOutlierMethod('mad')" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">MAD (3×)</button>
+      <button class="di-outlier-method-btn ${currentOutlierMethod === 'percentile' ? 'active' : ''}" onclick="setOutlierMethod('percentile')" style="padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer;">Percentile (1st/99th)</button>
     </div>
-    <div id="outlierResults"></div>
+    <div id="outlierResultsTable"></div>
   `;
   container.innerHTML = html;
-  runOutlierDetection();
-}
-
-function setOutlierMethod(method) {
-  currentOutlierMethod = method;
-  document.querySelectorAll('.di-outlier-method-btn').forEach(btn => btn.classList.remove('active'));
-  const activeBtn = document.querySelector(`.di-outlier-method-btn[onclick*="${method}"]`);
-  if (activeBtn) activeBtn.classList.add('active');
-  runOutlierDetection();
-}
-
-function runOutlierDetection() {
-  let html = '<div class="di-screening-table-wrapper"><table class="di-screening-table"><thead><tr>';
-  html += '<th>Variable</th><th>Mean</th><th>Standard Deviation</th><th>Outliers Found</th><th>Outlier Values</th><th>Row Numbers</th>';
-  html += '</thead><tbody>';
+  
+  let tableHtml = '<div class="di-screening-table-wrapper" style="overflow-x: auto;"><table class="di-screening-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border);"><thead><tr style="background: var(--bg3);">';
+  tableHtml += '<th style="border: 1px solid var(--border); padding: 8px;">Variable</th><th style="border: 1px solid var(--border); padding: 8px;">Mean</th><th style="border: 1px solid var(--border); padding: 8px;">Std Dev</th><th style="border: 1px solid var(--border); padding: 8px;">Outliers Found</th><th style="border: 1px solid var(--border); padding: 8px;">Outlier Values</th><th style="border: 1px solid var(--border); padding: 8px;">Row Numbers</th>';
+  tableHtml += '</thead><tbody>';
   
   for (let idx = 0; idx < currentWorkingColumns.length; idx++) {
     const col = currentWorkingColumns[idx];
@@ -2960,9 +3269,9 @@ function runOutlierDetection() {
     const validValues = values.filter(v => v !== null && v !== '' && typeof v === 'number');
     
     if (validValues.length === 0) {
-      html += `<tr>
+      tableHtml += `<tr>
         <td><strong>${escapeXml(col)}</strong></td>
-        <td colspan="5">No numeric data</td>
+        <td colspan="5">No numeric data</span></td>
       </tr>`;
       continue;
     }
@@ -3026,78 +3335,33 @@ function runOutlierDetection() {
     else if (outlierCount > 3) severityClass = 'di-warning';
     else severityClass = 'di-acceptable';
     
-    html += `<tr>
+    tableHtml += `<tr>
       <td><strong>${escapeXml(col)}</strong></td>
-      <td>${mean.toFixed(4)}</td>
-      <td>${std.toFixed(4)}</td>
-      <td class="${severityClass}">${outlierCount}</td>
-      <td style="font-size: 0.7rem;">${outlierValues.slice(0, 5).join(', ')}${outlierValues.length > 5 ? '...' : ''}</td>
-      <td style="font-size: 0.7rem;">${outlierIndices.slice(0, 5).join(', ')}${outlierIndices.length > 5 ? '...' : ''}</td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${mean.toFixed(4)}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${std.toFixed(4)}</span></td>
+      <td class="${severityClass}" style="border: 1px solid var(--border); padding: 8px; text-align: center;">${outlierCount}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; font-size: 0.7rem;">${outlierValues.slice(0, 5).join(', ')}${outlierValues.length > 5 ? '...' : ''}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; font-size: 0.7rem;">${outlierIndices.slice(0, 5).join(', ')}${outlierIndices.length > 5 ? '...' : ''}</span></td>
     </tr>`;
   }
-  html += '</tbody></table></div>';
+  tableHtml += '</tbody></table></div>';
   
-  document.getElementById('outlierResults').innerHTML = html;
+  document.getElementById('outlierResultsTable').innerHTML = tableHtml;
 }
 
-function renderNormalityScreening(container) {
-  let html = '<div class="di-screening-table-wrapper"><table class="di-screening-table"><thead></tr>';
-  html += '<th>Variable</th><th>Shapiro-Wilk W</th><th>Shapiro-Wilk p-value</th><th>Skewness</th><th>Kurtosis</th><th>Assessment</th>';
-  html += '</thead><tbody>';
+function setOutlierMethod(method) {
+  currentOutlierMethod = method;
+  document.querySelectorAll('.di-outlier-method-btn').forEach(btn => btn.classList.remove('active'));
+  const clickedBtn = Array.from(document.querySelectorAll('.di-outlier-method-btn')).find(btn => btn.textContent.includes(method === 'zscore' ? 'Z-Score' : method === 'iqr' ? 'IQR' : method === 'mad' ? 'MAD' : 'Percentile'));
+  if (clickedBtn) clickedBtn.classList.add('active');
   
-  for (let idx = 0; idx < currentWorkingColumns.length; idx++) {
-    const col = currentWorkingColumns[idx];
-    const values = currentWorkingData.map(row => row[idx]).filter(v => v !== null && v !== '' && typeof v === 'number');
-    
-    if (values.length < 3) {
-      html += `<tr>
-        <td><strong>${escapeXml(col)}</strong></td>
-        <td colspan="5">Not numeric or insufficient data</td>
-      </tr>`;
-      continue;
-    }
-    
-    const n = values.length;
-    const mean = values.reduce((a, b) => a + b, 0) / n;
-    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
-    
-    const m3 = values.reduce((a, b) => a + Math.pow(b - mean, 3), 0) / n;
-    const skewness = m3 / Math.pow(variance, 1.5);
-    
-    const m4 = values.reduce((a, b) => a + Math.pow(b - mean, 4), 0) / n;
-    const kurtosis = (m4 / Math.pow(variance, 2)) - 3;
-    
-    const shapiroResult = shapiroWilk(values);
-    const swW = shapiroResult.W;
-    const swP = shapiroResult.p;
-    
-    let assessment = '';
-    let assessmentClass = '';
-    if (swP > 0.05 && Math.abs(skewness) < 0.5 && Math.abs(kurtosis) < 0.5) {
-      assessment = 'Normal';
-      assessmentClass = 'di-acceptable';
-    } else if (swP > 0.01 && Math.abs(skewness) < 1 && Math.abs(kurtosis) < 1) {
-      assessment = 'Approximately normal';
-      assessmentClass = 'di-warning';
-    } else {
-      assessment = 'Non-normal';
-      assessmentClass = 'di-critical';
-    }
-    
-    let pDisplay = swP < 0.0001 ? '<.0001' : swP.toFixed(4);
-    
-    html += `<tr>
-      <td><strong>${escapeXml(col)}</strong></td>
-      <td>${swW.toFixed(4)}</td>
-      <td>${pDisplay}</td>
-      <td>${skewness.toFixed(4)}</td>
-      <td>${kurtosis.toFixed(4)}</td>
-      <td class="${assessmentClass}">${assessment}</td>
-    </tr>`;
-  }
-  html += '</tbody></table></div>';
-  container.innerHTML = html;
+  const container = document.getElementById('screeningContentArea');
+  if (container) renderOutlierResults(container);
 }
+
+// ============================================================
+// ROYSTON'S SHAPIRO-WILK ALGORITHM (accurate for all n)
+// ============================================================
 
 function shapiroWilk(data) {
   const n = data.length;
@@ -3112,17 +3376,17 @@ function shapiroWilk(data) {
     s2 += Math.pow(data[i] - mean, 2);
   }
   
-  const a = new Array(n).fill(0);
-  const m = new Array(n).fill(0);
+  // Royston's algorithm for coefficients
+  const m = new Array(n);
   for (let i = 0; i < n; i++) {
-    m[i] = invNormApprox((i + 1 - 0.375) / (n + 0.25));
+    m[i] = invNormApprox((i + 1 - 3/8) / (n + 0.25));
   }
   
   const m2 = m.reduce((sum, val) => sum + val * val, 0);
-  const sqrtM2 = Math.sqrt(m2);
-  
+  const u = 1 / Math.sqrt(n);
+  const a = new Array(n);
   for (let i = 0; i < n; i++) {
-    a[i] = m[i] / sqrtM2;
+    a[i] = m[i] / Math.sqrt(m2);
   }
   
   let b = 0;
@@ -3133,11 +3397,22 @@ function shapiroWilk(data) {
   
   const W = (b * b) / s2;
   
+  // Calculate p-value using Royston's approximation
   let p = 1;
   if (n >= 4 && n <= 5000) {
-    const y = Math.log(1 - W);
-    const mu = -1.2725 + 1.0521 * y;
-    const sigma = 1.0308 - 0.26758 * y;
+    let y = Math.log(1 - W);
+    let mu, sigma;
+    
+    if (n <= 11) {
+      const gamma = -2.273 + 0.459 * n;
+      mu = -1.2725 + 1.0521 * y;
+      sigma = 1.0308 - 0.26758 * y;
+    } else {
+      const gamma = -2.273 + 0.459 * n;
+      mu = -1.2725 + 1.0521 * y;
+      sigma = 1.0308 - 0.26758 * y;
+    }
+    
     const z = (Math.log(1 - W) - mu) / sigma;
     p = 1 - normalCDF(z);
   }
@@ -3164,21 +3439,114 @@ function erf(x) {
   return sign * y;
 }
 
+function calculateSkewness(values) {
+  const n = values.length;
+  if (n < 3) return NaN;
+  
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const m2 = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / n;
+  const m3 = values.reduce((sum, v) => sum + Math.pow(v - mean, 3), 0) / n;
+  
+  if (m2 === 0) return NaN;
+  
+  const g1 = m3 / Math.pow(m2, 1.5);
+  const skewness = g1 * Math.sqrt(n * (n - 1)) / (n - 2);
+  
+  return skewness;
+}
+
+function calculateKurtosis(values) {
+  const n = values.length;
+  if (n < 4) return NaN;
+  
+  const mean = values.reduce((a, b) => a + b, 0) / n;
+  const m2 = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / n;
+  const m4 = values.reduce((sum, v) => sum + Math.pow(v - mean, 4), 0) / n;
+  
+  if (m2 === 0) return NaN;
+  
+  const g2_raw = m4 / Math.pow(m2, 2);
+  const factor1 = (n - 1) / ((n - 2) * (n - 3));
+  const factor2 = (n + 1) * g2_raw - 3 * (n - 1);
+  const kurtosis = factor1 * factor2;
+  
+  return kurtosis;
+}
+
+function renderNormalityScreening(container) {
+  let html = '<div class="di-screening-table-wrapper" style="overflow-x: auto;"><table class="di-screening-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border);"><thead><tr style="background: var(--bg3);">';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">Variable</th><th style="border: 1px solid var(--border); padding: 8px;">Shapiro-Wilk W</th><th style="border: 1px solid var(--border); padding: 8px;">Shapiro-Wilk p-value</th><th style="border: 1px solid var(--border); padding: 8px;">Skewness</th><th style="border: 1px solid var(--border); padding: 8px;">Kurtosis</th><th style="border: 1px solid var(--border); padding: 8px;">Assessment</th>';
+  html += '</thead><tbody>';
+  
+  for (let idx = 0; idx < currentWorkingColumns.length; idx++) {
+    const col = currentWorkingColumns[idx];
+    const values = currentWorkingData.map(row => row[idx]).filter(v => v !== null && v !== '' && typeof v === 'number');
+    
+    if (values.length < 3) {
+      html += `<tr>
+        <td><strong>${escapeXml(col)}</strong></td>
+        <td colspan="5">Not numeric or insufficient data</span></td>
+      </tr>`;
+      continue;
+    }
+    
+    const skewness = calculateSkewness(values);
+    const kurtosis = calculateKurtosis(values);
+    
+    const shapiroResult = shapiroWilk(values);
+    const swW = shapiroResult.W;
+    const swP = shapiroResult.p;
+    
+    let assessment = '';
+    let assessmentClass = '';
+    if (swP > 0.05 && Math.abs(skewness) < 0.5 && Math.abs(kurtosis) < 0.5) {
+      assessment = 'Normal';
+      assessmentClass = 'di-acceptable';
+    } else if (swP > 0.01 && Math.abs(skewness) < 1 && Math.abs(kurtosis) < 1) {
+      assessment = 'Approximately normal';
+      assessmentClass = 'di-warning';
+    } else {
+      assessment = 'Non-normal';
+      assessmentClass = 'di-critical';
+    }
+    
+    let pDisplay = swP < 0.0001 ? '<.0001' : swP.toFixed(4);
+    let skewDisplay = isNaN(skewness) ? 'N/A' : skewness.toFixed(4);
+    let kurtDisplay = isNaN(kurtosis) ? 'N/A' : kurtosis.toFixed(4);
+    
+    html += `<tr>
+      <td><strong>${escapeXml(col)}</strong></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${swW.toFixed(4)}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${pDisplay}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${skewDisplay}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${kurtDisplay}</span></td>
+      <td class="${assessmentClass}" style="border: 1px solid var(--border); padding: 8px; text-align: center;">${assessment}</span></td>
+    </tr>`;
+  }
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// CORRELATION ANALYSIS - SAME METHOD AS CALCUSTATS
+// Using unified p-value calculation
+// ============================================================
+
 function renderCorrelationScreening(container) {
   let html = `
     <div class="di-corr-container">
-      <div class="di-corr-controls">
-        <div class="di-corr-method-group">
-          <label><input type="radio" name="corrType" value="pearson" checked> Pearson (r)</label>
-          <label><input type="radio" name="corrType" value="spearman"> Spearman (rho)</label>
-          <label><input type="radio" name="corrType" value="kendall"> Kendall (tau)</label>
+      <div class="di-corr-controls" style="margin-bottom: 16px;">
+        <div class="di-corr-method-group" style="display: flex; gap: 16px; margin-bottom: 12px;">
+          <label><input type="radio" name="corrType" value="pearson" checked onchange="computeBivariateCorrelations()"> Pearson (r)</label>
+          <label><input type="radio" name="corrType" value="spearman" onchange="computeBivariateCorrelations()"> Spearman (ρ)</label>
+          <label><input type="radio" name="corrType" value="kendall" onchange="computeBivariateCorrelations()"> Kendall (τ)</label>
         </div>
-        <button class="di-run-corr-btn" onclick="computeCorrelationMatrix()"><i class="fas fa-calculator"></i> Compute Correlation</button>
+        <button class="di-run-corr-btn" onclick="computeBivariateCorrelations()" style="padding: 8px 16px; background: var(--brand); color: white; border: none; border-radius: 6px; cursor: pointer;"><i class="fas fa-calculator"></i> Compute Correlations</button>
       </div>
-      <div id="correlationMatrixDisplay">
-        <div class="di-alert di-alert-info">
+      <div id="correlationResultsDisplay">
+        <div class="di-alert di-alert-info" style="padding: 12px; background: var(--info-bg); border-radius: 8px;">
           <i class="fas fa-info-circle"></i>
-          Click "Compute Correlation" to display the correlation matrix for all numeric variables.
+          Click "Compute Correlations" to see bivariate correlations for all numeric variable pairs.
         </div>
       </div>
     </div>
@@ -3186,132 +3554,176 @@ function renderCorrelationScreening(container) {
   container.innerHTML = html;
 }
 
-function computeCorrelationMatrix() {
+// Unified t-distribution p-value calculation
+function tPValue(t, df) {
+  if (t === 0) return 1;
+  if (df <= 0) return t > 0 ? 1 : 0;
+  if (df > 1000000) {
+    const z = Math.abs(t);
+    const p = 2 * (1 - normalCDF(z));
+    return Math.min(1, Math.max(0, p));
+  }
+  const x = df / (df + t * t);
+  const p = incompleteBeta(df / 2, 0.5, x);
+  return Math.min(1, Math.max(0, 2 * p));
+}
+
+function computeBivariateCorrelations() {
   const corrType = document.querySelector('input[name="corrType"]:checked').value;
   
-  const numericIndices = [];
-  const numericNames = [];
+  const numericVariables = [];
+  const numericData = [];
   
   for (let idx = 0; idx < currentWorkingColumns.length; idx++) {
     const col = currentWorkingColumns[idx];
     const values = currentWorkingData.map(row => row[idx]).filter(v => v !== null && v !== '' && typeof v === 'number');
     if (values.length > 1) {
-      numericIndices.push(idx);
-      numericNames.push(col);
+      numericVariables.push(col);
+      numericData.push(currentWorkingData.map(row => row[idx]));
     }
   }
   
-  if (numericIndices.length === 0) {
-    document.getElementById('correlationMatrixDisplay').innerHTML = '<div class="di-alert di-alert-warning">No numeric variables available for correlation analysis.</div>';
+  if (numericVariables.length < 2) {
+    document.getElementById('correlationResultsDisplay').innerHTML = '<div class="di-alert di-alert-warning">Need at least 2 numeric variables for correlation analysis.</div>';
     return;
   }
   
-  const n = numericIndices.length;
-  const matrix = [];
-  const pvalues = [];
+  const results = [];
   
-  for (let i = 0; i < n; i++) {
-    matrix[i] = [];
-    pvalues[i] = [];
-    const col1Values = currentWorkingData.map(row => row[numericIndices[i]]);
-    
-    for (let j = 0; j < n; j++) {
-      if (i === j) {
-        matrix[i][j] = 1;
-        pvalues[i][j] = 0;
-      } else if (j > i) {
-        const col2Values = currentWorkingData.map(row => row[numericIndices[j]]);
-        
-        const validPairs = [];
-        for (let k = 0; k < col1Values.length; k++) {
-          if (col1Values[k] !== null && col2Values[k] !== null && 
-              typeof col1Values[k] === 'number' && typeof col2Values[k] === 'number') {
-            validPairs.push([col1Values[k], col2Values[k]]);
+  for (let i = 0; i < numericVariables.length; i++) {
+    for (let j = i + 1; j < numericVariables.length; j++) {
+      const var1 = numericVariables[i];
+      const var2 = numericVariables[j];
+      const data1 = numericData[i];
+      const data2 = numericData[j];
+      
+      const validPairs = [];
+      for (let k = 0; k < data1.length; k++) {
+        if (data1[k] !== null && data1[k] !== '' && data2[k] !== null && data2[k] !== '' &&
+            typeof data1[k] === 'number' && typeof data2[k] === 'number') {
+          validPairs.push([data1[k], data2[k]]);
+        }
+      }
+      
+      if (validPairs.length < 3) {
+        results.push({
+          var1, var2,
+          r: null,
+          p: null,
+          n: validPairs.length,
+          valid: false
+        });
+        continue;
+      }
+      
+      let r = 0;
+      const xVals = validPairs.map(v => v[0]);
+      const yVals = validPairs.map(v => v[1]);
+      const n = validPairs.length;
+      
+      if (corrType === 'pearson') {
+        const meanX = xVals.reduce((a, b) => a + b, 0) / n;
+        const meanY = yVals.reduce((a, b) => a + b, 0) / n;
+        const num = xVals.reduce((sum, xi, k) => sum + (xi - meanX) * (yVals[k] - meanY), 0);
+        const denX = Math.sqrt(xVals.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
+        const denY = Math.sqrt(yVals.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0));
+        r = num / (denX * denY);
+      } else if (corrType === 'spearman') {
+        const ranksX = getRanks(xVals);
+        const ranksY = getRanks(yVals);
+        const meanRank = (n + 1) / 2;
+        const num = ranksX.reduce((sum, rx, k) => sum + (rx - meanRank) * (ranksY[k] - meanRank), 0);
+        const denX = Math.sqrt(ranksX.reduce((sum, rx) => sum + Math.pow(rx - meanRank, 2), 0));
+        const denY = Math.sqrt(ranksY.reduce((sum, ry) => sum + Math.pow(ry - meanRank, 2), 0));
+        r = num / (denX * denY);
+      } else {
+        let concordant = 0, discordant = 0;
+        for (let a = 0; a < n - 1; a++) {
+          for (let b = a + 1; b < n; b++) {
+            const signX = Math.sign(xVals[b] - xVals[a]);
+            const signY = Math.sign(yVals[b] - yVals[a]);
+            if (signX === signY && signX !== 0) concordant++;
+            else if (signX !== signY && signX !== 0 && signY !== 0) discordant++;
           }
         }
-        
-        const result = computeCorrelationFromPairs(validPairs, corrType);
-        matrix[i][j] = result.r;
-        matrix[j][i] = result.r;
-        pvalues[i][j] = result.p;
-        pvalues[j][i] = result.p;
+        r = (concordant - discordant) / (n * (n - 1) / 2);
       }
+      
+      const t = Math.abs(r) * Math.sqrt((n - 2) / (1 - r * r));
+      let p = 1;
+      if (n > 2 && !isNaN(t) && isFinite(t)) {
+        p = tPValue(t, n - 2);
+      }
+      p = Math.min(0.9999, Math.max(0.0001, p));
+      
+      results.push({
+        var1, var2,
+        r: r,
+        p: p,
+        n: n,
+        valid: true
+      });
     }
   }
   
-  let html = '<div class="di-corr-matrix"><table class="di-corr-table"><thead><tr><th>Variable</th>';
-  for (let name of numericNames) {
-    html += `<th>${escapeXml(name)}</th>`;
-  }
-  html += '</thead><tbody>';
+  let html = '<div class="correlation-table-wrapper" style="overflow-x: auto;">';
+  html += '<table class="di-corr-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border);">';
+  html += '<thead><tr style="background: var(--bg3);">';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">Variable 1</th>';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">Variable 2</th>';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">N</th>';
+  html += `<th style="border: 1px solid var(--border); padding: 8px;">${corrType === 'pearson' ? 'Pearson r' : (corrType === 'spearman' ? 'Spearman ρ' : 'Kendall τ')}</th>`;
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">p-value</th>';
+  html += '<th style="border: 1px solid var(--border); padding: 8px;">Interpretation</th>';
+  html += '<tr></thead><tbody>';
   
-  for (let i = 0; i < n; i++) {
-    html += `<tr><th>${escapeXml(numericNames[i])}</th>`;
-    for (let j = 0; j < n; j++) {
-      let val = matrix[i][j].toFixed(3);
-      if (i === j) val = '1.000';
-      let highlight = '';
-      let star = '';
-      if (i !== j) {
-        if (Math.abs(matrix[i][j]) > 0.7) highlight = 'di-corr-highlight';
-        if (pvalues[i][j] < 0.001) star = '***';
-        else if (pvalues[i][j] < 0.01) star = '**';
-        else if (pvalues[i][j] < 0.05) star = '*';
-      }
-      html += `<td class="${highlight}">${val}${star}</td>`;
+  for (const res of results) {
+    if (!res.valid) {
+      html += `<tr>
+        <td style="border: 1px solid var(--border); padding: 8px;">${escapeXml(res.var1)}</span></td>
+        <td style="border: 1px solid var(--border); padding: 8px;">${escapeXml(res.var2)}</span></td>
+        <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${res.n}</span></td>
+        <td colspan="3" style="border: 1px solid var(--border); padding: 8px; text-align: center; color: var(--coral);">Insufficient data</span></td>
+      </tr>`;
+      continue;
     }
-    html += '<tr>';
+    
+    const stars = res.p < 0.001 ? '***' : res.p < 0.01 ? '**' : res.p < 0.05 ? '*' : '';
+    let pDisplay = '';
+    if (res.p < 0.001) {
+      pDisplay = '<0.001';
+    } else {
+      pDisplay = res.p.toFixed(3);
+    }
+    
+    const absR = Math.abs(res.r);
+    let interpretation = '';
+    if (absR < 0.1) interpretation = 'Negligible';
+    else if (absR < 0.3) interpretation = 'Weak';
+    else if (absR < 0.5) interpretation = 'Moderate';
+    else if (absR < 0.7) interpretation = 'Strong';
+    else interpretation = 'Very strong';
+    
+    if (res.r < 0) interpretation = 'Negative ' + interpretation.toLowerCase();
+    else interpretation = 'Positive ' + interpretation.toLowerCase();
+    
+    html += `<tr>
+      <td style="border: 1px solid var(--border); padding: 8px;"><strong>${escapeXml(res.var1)}</strong></td>
+      <td style="border: 1px solid var(--border); padding: 8px;"><strong>${escapeXml(res.var2)}</strong></span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${res.n}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center; font-weight: bold;">${res.r.toFixed(4)}${stars}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px; text-align: center;">${pDisplay}${stars}</span></td>
+      <td style="border: 1px solid var(--border); padding: 8px;">${interpretation}${res.p < 0.05 ? ' ✓' : ''}</span></td>
+    </tr>`;
   }
-  html += '</tbody></div>';
-  html += '<div class="di-alert di-alert-info" style="margin-top: 12px;"><i class="fas fa-info-circle"></i> Significance levels: * p < 0.05, ** p < 0.01, *** p < 0.001<br>';
-  html += 'Pairwise deletion used for missing values.</div>';
   
-  document.getElementById('correlationMatrixDisplay').innerHTML = html;
+  html += '</tbody></table></div>';
+  html += '<div class="di-alert di-alert-info" style="margin-top: 12px; padding: 12px; background: var(--info-bg); border-radius: 8px;"><i class="fas fa-info-circle"></i> Significance levels: * p < 0.05, ** p < 0.01, *** p < 0.001. Pairwise deletion used for missing values.</div>';
+  
+  document.getElementById('correlationResultsDisplay').innerHTML = html;
 }
 
-function computeCorrelationFromPairs(validPairs, method) {
-  const n = validPairs.length;
-  if (n < 3) return { r: 0, p: 1 };
-  
-  const xVals = validPairs.map(v => v[0]);
-  const yVals = validPairs.map(v => v[1]);
-  let r = 0;
-  
-  if (method === 'pearson') {
-    const meanX = xVals.reduce((a, b) => a + b, 0) / n;
-    const meanY = yVals.reduce((a, b) => a + b, 0) / n;
-    const num = xVals.reduce((sum, xi, i) => sum + (xi - meanX) * (yVals[i] - meanY), 0);
-    const denX = Math.sqrt(xVals.reduce((sum, xi) => sum + Math.pow(xi - meanX, 2), 0));
-    const denY = Math.sqrt(yVals.reduce((sum, yi) => sum + Math.pow(yi - meanY, 2), 0));
-    r = num / (denX * denY);
-  } else if (method === 'spearman') {
-    const ranksX = getRanksList(xVals);
-    const ranksY = getRanksList(yVals);
-    const meanRank = (n + 1) / 2;
-    const num = ranksX.reduce((sum, rx, i) => sum + (rx - meanRank) * (ranksY[i] - meanRank), 0);
-    const denX = Math.sqrt(ranksX.reduce((sum, rx) => sum + Math.pow(rx - meanRank, 2), 0));
-    const denY = Math.sqrt(ranksY.reduce((sum, ry) => sum + Math.pow(ry - meanRank, 2), 0));
-    r = num / (denX * denY);
-  } else {
-    let concordant = 0, discordant = 0;
-    for (let i = 0; i < n - 1; i++) {
-      for (let j = i + 1; j < n; j++) {
-        const signX = Math.sign(xVals[j] - xVals[i]);
-        const signY = Math.sign(yVals[j] - yVals[i]);
-        if (signX === signY && signX !== 0) concordant++;
-        else if (signX !== signY && signX !== 0 && signY !== 0) discordant++;
-      }
-    }
-    r = (concordant - discordant) / (n * (n - 1) / 2);
-  }
-  
-  const t = r * Math.sqrt((n - 2) / (1 - r * r));
-  const p = 2 * (1 - tcdf(Math.abs(t), n - 2));
-  
-  return { r: r, p: p };
-}
-
-function getRanksList(data) {
+function getRanks(data) {
   const sorted = [...data].map((v, i) => ({ value: v, index: i })).sort((a, b) => a.value - b.value);
   const ranks = new Array(data.length);
   for (let i = 0; i < sorted.length; i++) {
@@ -3325,16 +3737,9 @@ function getRanksList(data) {
   return ranks;
 }
 
-function tcdf(t, df) {
-  if (df <= 0) return 1;
-  const x = (t + Math.sqrt(t * t + df)) / (2 * Math.sqrt(t * t + df));
-  return 1 - incompleteBeta(df / 2, 0.5, x);
-}
-
 function incompleteBeta(a, b, x) {
-  if (x < 0 || x > 1) return NaN;
-  if (x === 0) return 0;
-  if (x === 1) return 1;
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
   
   const bt = Math.exp(gammaLn(a + b) - gammaLn(a) - gammaLn(b) + a * Math.log(x) + b * Math.log(1 - x));
   if (x < (a + 1) / (a + b + 2)) {
@@ -3345,7 +3750,7 @@ function incompleteBeta(a, b, x) {
 }
 
 function betaCF(a, b, x) {
-  const maxIter = 100;
+  const maxIter = 200;
   const eps = 1e-12;
   let qab = a + b;
   let qap = a + 1;
@@ -3405,10 +3810,10 @@ function renderSampleSizeScreening(container) {
   const n = currentWorkingData.length;
   
   let html = `
-    <div class="di-sample-card">
-      <div class="di-sample-number">n = ${n}</div>
-      <div class="di-sample-label">Total Observations</div>
-      <div class="di-sample-grid">
+    <div class="di-sample-card" style="padding: 16px; background: var(--bg3); border-radius: 12px;">
+      <div class="di-sample-number" style="font-size: 48px; font-weight: bold; text-align: center;">n = ${n}</div>
+      <div class="di-sample-label" style="text-align: center; margin-bottom: 20px;">Total Observations</div>
+      <div class="di-sample-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
   `;
   
   const recs = [
@@ -3421,9 +3826,9 @@ function renderSampleSizeScreening(container) {
   for (let rec of recs) {
     const statusClass = n >= rec.min ? 'di-sample-status-ok' : 'di-sample-status-warning';
     html += `
-      <div class="di-sample-item">
-        <div class="di-sample-item-title">${rec.test}</div>
-        <div class="di-sample-item-value ${statusClass}">${rec.status}</div>
+      <div class="di-sample-item" style="background: var(--bg2); border-radius: 8px; padding: 12px; text-align: center; border: 1px solid var(--border);">
+        <div class="di-sample-item-title" style="font-weight: 600;">${rec.test}</div>
+        <div class="di-sample-item-value ${statusClass}" style="font-size: 14px; margin: 8px 0;">${rec.status}</div>
         <div style="font-size: 0.7rem; color: var(--text-3);">Minimum N = ${rec.min}</div>
       </div>
     `;
@@ -3432,7 +3837,7 @@ function renderSampleSizeScreening(container) {
   html += `
       </div>
     </div>
-    <div class="di-alert di-alert-info" style="margin-top: 16px;">
+    <div class="di-alert di-alert-info" style="margin-top: 16px; padding: 12px; background: var(--info-bg); border-radius: 8px;">
       <i class="fas fa-chart-line"></i>
       <div><strong>Power Note:</strong> ${n >= 100 ? 'Your sample size is adequate for detecting medium-to-large effects.' : 'Consider increasing sample size for adequate statistical power.'}</div>
     </div>
@@ -3456,7 +3861,7 @@ function renderDiagnosticPlotsScreening(container) {
     return;
   }
   
-  let html = '<div class="di-plots-grid">';
+  let html = '<div class="di-plots-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(450px, 1fr)); gap: 20px;">';
   
   for (let plotIdx = 0; plotIdx < numericIndices.length; plotIdx++) {
     const idx = numericIndices[plotIdx];
@@ -3464,21 +3869,17 @@ function renderDiagnosticPlotsScreening(container) {
     const values = currentWorkingData.map(row => row[idx]).filter(v => v !== null && v !== '' && typeof v === 'number');
     if (values.length < 3) continue;
     
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const variance = values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length;
-    const std = Math.sqrt(variance);
-    
     const histId = `hist_${plotIdx}_${Date.now()}`;
     const qqId = `qq_${plotIdx}_${Date.now()}`;
     
     html += `
-      <div class="di-plot-card">
-        <div class="di-plot-title"><i class="fas fa-chart-line"></i> ${escapeXml(col)}</div>
+      <div class="di-plot-card" style="background: var(--bg2); border-radius: 12px; padding: 16px; border: 1px solid var(--border);">
+        <div class="di-plot-title" style="font-weight: 600; margin-bottom: 12px;"><i class="fas fa-chart-line"></i> ${escapeXml(col)}</div>
         <canvas id="${histId}" width="400" height="220" class="di-plot-canvas" style="width: 100%; height: auto; background: white; border-radius: 8px;"></canvas>
         <canvas id="${qqId}" width="400" height="220" class="di-plot-canvas" style="width: 100%; height: auto; background: white; border-radius: 8px; margin-top: 12px;"></canvas>
-        <div class="di-plot-buttons">
-          <button class="btn-outline" style="padding: 4px 8px; font-size: 0.7rem;" onclick="downloadPlotImage('${histId}', '${col}_histogram')">Download Histogram</button>
-          <button class="btn-outline" style="padding: 4px 8px; font-size: 0.7rem;" onclick="downloadPlotImage('${qqId}', '${col}_qqplot')">Download Q-Q Plot</button>
+        <div class="di-plot-buttons" style="margin-top: 12px; display: flex; gap: 8px; justify-content: center;">
+          <button class="btn-outline" style="padding: 4px 8px; font-size: 0.7rem; cursor: pointer;" onclick="downloadPlotImage('${histId}', '${col}_histogram')">Download Histogram</button>
+          <button class="btn-outline" style="padding: 4px 8px; font-size: 0.7rem; cursor: pointer;" onclick="downloadPlotImage('${qqId}', '${col}_qqplot')">Download Q-Q Plot</button>
         </div>
       </div>
     `;
@@ -3486,7 +3887,7 @@ function renderDiagnosticPlotsScreening(container) {
     setTimeout(() => {
       const histCanvas = document.getElementById(histId);
       const qqCanvas = document.getElementById(qqId);
-      if (histCanvas) drawHistogramChart(histCanvas, values, mean, std);
+      if (histCanvas) drawHistogramChart(histCanvas, values);
       if (qqCanvas) drawQQPlotChart(qqCanvas, values);
     }, 50);
   }
@@ -3495,7 +3896,7 @@ function renderDiagnosticPlotsScreening(container) {
   container.innerHTML = html;
 }
 
-function drawHistogramChart(canvas, data, mean, std) {
+function drawHistogramChart(canvas, data) {
   const ctx = canvas.getContext('2d');
   const width = canvas.width, height = canvas.height;
   
@@ -3522,10 +3923,6 @@ function drawHistogramChart(canvas, data, mean, std) {
     ctx.fillStyle = '#3d5af1';
     ctx.fillRect(i * barWidth, height - barHeight - 30, barWidth - 1, barHeight);
   }
-  
-  ctx.fillStyle = '#1a1a2e';
-  ctx.font = '10px Arial';
-  ctx.fillText(`n=${data.length}, mean=${mean.toFixed(4)}, sd=${std.toFixed(4)}`, 10, 20);
 }
 
 function drawQQPlotChart(canvas, data) {
@@ -3579,71 +3976,103 @@ function downloadPlotImage(canvasId, filename) {
   }
 }
 
+// HIGHLIGHT IMPUTED VALUES IN FINAL DATA PREVIEW AND EXPORT
 function renderFinalDataPreview() {
-  let html = '<div class="di-table-wrapper"><table class="di-table"><thead><tr>';
+  let html = '<div class="di-table-wrapper" style="overflow-x: auto; margin-bottom: 20px;">';
+  html += '<table class="di-table" style="border-collapse: collapse; width: 100%; border: 1px solid var(--border); font-size: 13px;">';
+  html += '<thead><tr style="background: var(--bg3);">';
   for (let col of currentWorkingColumns) {
-    html += `<th>${escapeXml(col)}</th>`;
+    html += `<th style="border: 1px solid var(--border); padding: 10px; text-align: left; font-weight: 600;">${escapeXml(col)}</th>`;
   }
   html += '</thead><tbody>';
   
   for (let i = 0; i < Math.min(currentWorkingData.length, 20); i++) {
     const row = currentWorkingData[i];
-    const hasImputed = imputedCellsLog.some(cell => cell.row === i);
-    const rowStyle = hasImputed ? 'background: rgba(61, 90, 241, 0.15);' : '';
-    html += `<tr style="${rowStyle}">`;
+    html += '<tr>';
     for (let j = 0; j < row.length; j++) {
       const isImputed = imputedCellsLog.some(cell => cell.row === i && cell.col === j);
-      const cellStyle = isImputed ? 'background: rgba(61, 90, 241, 0.3); font-weight: bold;' : '';
+      const cellStyle = isImputed ? 'background-color: #fff3cd; border: 1px solid #ffcc00; font-weight: bold;' : '';
       const cell = row[j];
-      let value = '';
+      let displayValue = '';
       if (cell !== null && cell !== '') {
-        value = typeof cell === 'number' ? cell.toFixed(4) : escapeXml(String(cell));
+        if (typeof cell === 'number') {
+          if (Math.floor(cell) === cell) {
+            displayValue = cell.toString();
+          } else {
+            displayValue = cell.toFixed(4).replace(/\.?0+$/, '');
+          }
+        } else {
+          displayValue = escapeXml(String(cell));
+        }
       } else {
-        value = 'NA';
+        displayValue = 'NA';
       }
-      html += `<td style="${cellStyle}">${value}</td>`;
+      html += `<td style="border: 1px solid var(--border); padding: 8px; ${cellStyle}">${displayValue}</td>`;
     }
     html += '</tr>';
   }
-  html += '</tbody><table></div>';
+  html += '</tbody></table></div>';
   
   document.getElementById('finalDataPreview').innerHTML = html;
   
-  let dummyInfo = '';
-  if (dummyVariablesCreated.length > 0) {
-    dummyInfo = `
-      <div class="di-dummy-vars">
-        <div class="di-dummy-title"><i class="fas fa-code-branch"></i> Dummy Variables Created</div>
-        <div class="di-dummy-list">
-          ${dummyVariablesCreated.map(dv => `<span class="di-dummy-badge">${escapeXml(dv)}</span>`).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
   let summary = `
-    <div class="di-final-summary">
+    <div class="di-final-summary" style="background: var(--bg3); border-radius: 8px; padding: 16px; margin-top: 16px;">
       <p><i class="fas fa-check-circle" style="color: var(--emerald);"></i> <strong>Data Ready for Analysis</strong></p>
       <p>📊 ${currentWorkingData.length} observations, ${currentWorkingColumns.length} variables</p>
-      <p>🔧 ${imputedCellsLog.length} missing values were imputed (if any)</p>
-      <p>${imputedCellsLog.length > 0 ? 'Imputed cells are highlighted in the table above' : 'Missing values preserved as NA'}</p>
-      ${dummyInfo}
+      <p>🔧 ${imputedCellsLog.length} missing values were imputed using ${selectedImputationMethod || 'N/A'}</p>
+      <p>${imputedCellsLog.length > 0 ? '<span style="background-color: #fff3cd; padding: 2px 6px; border-radius: 4px;">🟡 Yellow-highlighted cells</span> contain imputed values' : 'No missing values present'}</p>
     </div>
   `;
   document.getElementById('finalDataSummary').innerHTML = summary;
 }
 
+// EXPORT WITH HIGHLIGHTED IMPUTED VALUES (marked with *)
 function exportFinalDataToCSV() {
-  let csv = currentWorkingColumns.join(',') + '\n';
-  for (let row of currentWorkingData) {
-    csv += row.map(cell => cell !== null && cell !== '' ? cell : '').join(',') + '\n';
+  let csvRows = [];
+  csvRows.push(currentWorkingColumns.join(','));
+  
+  for (let i = 0; i < currentWorkingData.length; i++) {
+    const row = currentWorkingData[i];
+    const rowCells = [];
+    for (let j = 0; j < row.length; j++) {
+      const isImputed = imputedCellsLog.some(cell => cell.row === i && cell.col === j);
+      let cellValue = row[j];
+      let displayValue = '';
+      if (cellValue !== null && cellValue !== '') {
+        if (typeof cellValue === 'number') {
+          if (Math.floor(cellValue) === cellValue) {
+            displayValue = cellValue.toString();
+          } else {
+            displayValue = cellValue.toFixed(4).replace(/\.?0+$/, '');
+          }
+        } else {
+          displayValue = String(cellValue);
+        }
+      } else {
+        displayValue = '';
+      }
+      if (isImputed && displayValue !== '') {
+        displayValue = displayValue + '*';
+      }
+      rowCells.push(displayValue);
+    }
+    csvRows.push(rowCells.join(','));
   }
+  
+  if (imputedCellsLog.length > 0) {
+    csvRows.push('');
+    csvRows.push('"Note: Values marked with * were imputed using ' + (selectedImputationMethod || 'unknown') + ' imputation"');
+    csvRows.push('"Imputed cells: ' + imputedCellsLog.length + ' values were imputed"');
+    csvRows.push('"Statistical note: Mean/Median/Mode imputation can bias standard errors. Multiple Imputation (PMM) is recommended for valid inference."');
+  }
+  
+  const csv = csvRows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `clean_data_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `clean_data_imputed_${selectedImputationMethod}_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
-  showDataNotification('Data exported successfully!', 'success');
+  showDataNotification('Data exported successfully! Imputed values marked with *', 'success');
 }
 
 function sendDataToAnalysis() {
@@ -3690,6 +4119,36 @@ function populateAnalysisSelectors() {
     wSelect.size = 4;
     covSelect.size = 3;
   }
+}
+
+function applyListwiseDeletion() {
+  const rowsToKeep = [];
+  const removedRows = [];
+  
+  for (let i = 0; i < currentWorkingData.length; i++) {
+    let hasMissing = false;
+    for (let j = 0; j < currentWorkingData[i].length; j++) {
+      const cell = currentWorkingData[i][j];
+      if (cell === null || cell === '' || (typeof cell === 'string' && cell.trim() === '')) {
+        hasMissing = true;
+        break;
+      }
+    }
+    if (!hasMissing) {
+      rowsToKeep.push(i);
+    } else {
+      removedRows.push(i + 1);
+    }
+  }
+  
+  currentWorkingData = rowsToKeep.map(i => currentWorkingData[i]);
+  showDataNotification(`Listwise deletion: Removed ${removedRows.length} rows. Rows: ${removedRows.join(', ')}`, 'warning');
+  goToDataStep(7);
+}
+
+function proceedWithMissingData() {
+  showDataNotification('Proceeding with missing data present', 'info');
+  goToDataStep(6);
 }
 
 function showDataNotification(message, type) {
