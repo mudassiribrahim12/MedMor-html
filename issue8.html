@@ -994,28 +994,64 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
         color: var(--emerald);
       }
       
-      /* Upload Zone */
-      .di-upload-zone {
-        border: 2px dashed var(--border-med);
-        border-radius: var(--r-xl);
-        padding: 48px 32px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        background: var(--surface-2);
-      }
-      
-      .di-upload-zone:hover {
-        border-color: var(--brand);
-        background: var(--brand-bg);
-        transform: translateY(-2px);
-      }
-      
-      .di-upload-icon { font-size: 56px; color: var(--brand); margin-bottom: 16px; }
-      .di-upload-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; color: var(--text-1); }
-      .di-upload-subtitle { font-size: 0.85rem; color: var(--text-3); margin-bottom: 20px; }
-      
-      .di-file-info {
+ /* Upload Zone - REDUCED SIZE */
+.di-upload-zone {
+  border: 2px dashed var(--border-med);
+  border-radius: var(--r-lg);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--surface-2);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.di-upload-zone:hover {
+  border-color: var(--brand);
+  background: var(--brand-bg);
+  transform: translateY(-2px);
+}
+
+.di-upload-icon { 
+  font-size: 40px; 
+  color: var(--brand); 
+  margin-bottom: 10px; 
+}
+
+.di-upload-title { 
+  font-size: 1rem; 
+  font-weight: 700; 
+  margin-bottom: 6px; 
+  color: var(--text-1); 
+}
+
+.di-upload-subtitle { 
+  font-size: 0.75rem; 
+  color: var(--text-3); 
+  margin-bottom: 16px; 
+}
+
+/* Offline notice badge */
+.offline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--brand-bg);
+  border: 1px solid var(--brand);
+  border-radius: 99px;
+  padding: 4px 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--brand);
+  margin-top: 12px;
+}
+
+.offline-badge i {
+  font-size: 0.65rem;
+}      
+
+.di-file-info {
         margin-top: 16px;
         padding: 14px 18px;
         background: var(--emerald-bg);
@@ -2595,23 +2631,27 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
         </div>
       </div>
       
-      <!-- STEP 1: Upload -->
+       <!-- STEP 1: Upload -->
       <div class="panel" id="step1Panel">
         <div class="panel-header"><div class="panel-title"><i class="fas fa-cloud-upload-alt"></i> Step 1: Upload Data File</div></div>
         <div class="panel-body">
           <div class="di-upload-zone" id="dropZone">
-            <i class="fas fa-file-csv di-upload-icon"></i>
-            <div class="di-upload-title">Drag and drop your file here</div>
-<div class="di-upload-subtitle">Supports CSV, Excel (xlsx, xls), SPSS (.sav), and TXT files</div>
-            <button class="btn-outline" onclick="document.getElementById('fileInput').click()">
-              <i class="fas fa-folder-open"></i> Browse Files
+            <i class="fas fa-file-alt di-upload-icon"></i>
+            <div class="di-upload-title">Drag & Drop or Click to Browse</div>
+            <div class="di-upload-subtitle">Supports CSV and Excel files (.csv, .xlsx, .xls)</div>
+            <button class="btn-outline" onclick="document.getElementById('fileInput').click()" style="padding: 8px 20px; font-size: 0.8rem;">
+              <i class="fas fa-folder-open"></i> Select File
             </button>
-<input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.txt,.sav" style="display: none;">
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" style="display: none;">
+            <div class="offline-badge">
+              <i class="fas fa-wifi"></i> <i class="fas fa-slash"></i>
+              <span>CSV works offline · Excel requires internet</span>
+            </div>
           </div>
-          <div id="uploadFileInfo" style="margin-top: 16px;"></div>
+          <div id="uploadFileInfo" style="margin-top: 12px;"></div>
           <div class="di-nav">
             <div></div>
-            <button class="btn-primary" id="nextToVarsBtn" onclick="goToDataStep(2)" style="display: none;">
+            <button class="btn-primary" id="nextToVarsBtn" onclick="goToDataStep(2)" style="display: none; padding: 10px 24px;">
               <i class="fas fa-arrow-right"></i> Next: Select Variables
             </button>
           </div>
