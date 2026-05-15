@@ -4331,9 +4331,28 @@ function toggleAnalysisOptions() {
   const centerRow = document.getElementById('centerOptionRow');
   const stageRow = document.getElementById('modStageRow');
   
-  if (centerRow) centerRow.style.display = (analysisType === 'moderation' || analysisType === 'modmed') ? 'flex' : 'none';
-  if (stageRow) stageRow.style.display = analysisType === 'modmed' ? 'flex' : 'none';
+  // Mean centering options: Show ONLY for moderation AND modmed
+  if (centerRow) {
+    if (analysisType === 'moderation' || analysisType === 'modmed') {
+      centerRow.style.display = 'flex';
+    } else {
+      centerRow.style.display = 'none';
+    }
+  }
+  
+  // Moderation stage options: Show ONLY for modmed
+  if (stageRow) {
+    if (analysisType === 'modmed') {
+      stageRow.style.display = 'flex';
+    } else {
+      stageRow.style.display = 'none';
+    }
+  }
 }
+
+let allGeneratedResults = [];
+let currentResultIndex = 0;
+let currentDisplayMode = 'single';
 
 function runAnalysisFromSelections() {
   const analysisType = document.getElementById('analysisTypeSelect').value;
@@ -4381,64 +4400,264 @@ function runAnalysisFromSelections() {
   
   setTimeout(() => {
     try {
-      let allResultsHtml = '';
+      allGeneratedResults = [];
+      let counter = 1;
+      let analysisLabel = '';
       
       if (analysisType === 'simple') {
+        analysisLabel = 'Simple Mediation';
         for (let x of selectedXVars) {
           for (let m of selectedMVars) {
             for (let y of selectedYVars) {
-              allResultsHtml += runSimpleMed({
+              const resultHtml = runSimpleMed({
                 x: getColumnData(x), m: getColumnData(m), y: getColumnData(y),
                 xname: x, mname: m, yname: y
               }, covArrays, covNames, cl, nBoot);
+              allGeneratedResults.push({
+                id: counter,
+                type: analysisLabel,
+                title: `${analysisLabel}: X=${x}, M=${m}, Y=${y}`,
+                html: resultHtml
+              });
+              counter++;
             }
           }
         }
       } else if (analysisType === 'serial') {
+        analysisLabel = 'Serial Mediation';
         for (let x of selectedXVars) {
           for (let m1 of selectedMVars) {
             for (let m2 of selectedM2Vars) {
               for (let y of selectedYVars) {
-                allResultsHtml += runSerialMed({
+                const resultHtml = runSerialMed({
                   x: getColumnData(x), m1: getColumnData(m1), m2: getColumnData(m2), y: getColumnData(y),
                   xname: x, m1name: m1, m2name: m2, yname: y
                 }, covArrays, covNames, cl, nBoot);
+                allGeneratedResults.push({
+                  id: counter,
+                  type: analysisLabel,
+                  title: `${analysisLabel}: X=${x}, M1=${m1}, M2=${m2}, Y=${y}`,
+                  html: resultHtml
+                });
+                counter++;
               }
             }
           }
         }
       } else if (analysisType === 'moderation') {
+        analysisLabel = 'Moderation';
         for (let x of selectedXVars) {
           for (let w of selectedWVars) {
             for (let y of selectedYVars) {
-              allResultsHtml += runModeration({
+              const resultHtml = runModeration({
                 x: getColumnData(x), w: getColumnData(w), y: getColumnData(y),
                 xname: x, wname: w, yname: y
               }, covArrays, covNames, cl, centerOption, nBoot);
+              allGeneratedResults.push({
+                id: counter,
+                type: analysisLabel,
+                title: `${analysisLabel}: X=${x}, W=${w}, Y=${y}`,
+                html: resultHtml
+              });
+              counter++;
             }
           }
         }
       } else if (analysisType === 'modmed') {
+        analysisLabel = 'Moderated Mediation';
         for (let x of selectedXVars) {
           for (let m of selectedMVars) {
             for (let w of selectedWVars) {
               for (let y of selectedYVars) {
-                allResultsHtml += runModMed({
+                const resultHtml = runModMed({
                   x: getColumnData(x), m: getColumnData(m), w: getColumnData(w), y: getColumnData(y),
                   xname: x, mname: m, wname: w, yname: y
                 }, covArrays, covNames, cl, nBoot, centerOption, modStage);
+                allGeneratedResults.push({
+                  id: counter,
+                  type: analysisLabel,
+                  title: `${analysisLabel}: X=${x}, M=${m}, W=${w}, Y=${y}`,
+                  html: resultHtml
+                });
+                counter++;
               }
             }
           }
         }
       }
       
-      container.innerHTML = allResultsHtml || '<div class="alert alert-warn">No results generated.</div>';
+      if (allGeneratedResults.length === 0) {
+        container.innerHTML = '<div class="alert alert-warn">No results generated.</div>';
+        return;
+      }
+      
+      // Display results with navigation
+      if (allGeneratedResults.length === 1) {
+        // Single result - show directly with export buttons
+        displaySingleResultWithExport(allGeneratedResults[0]);
+      } else {
+        // Multiple results - show with navigation
+        displayResultsWithNavigation();
+      }
+      
     } catch(e) {
       container.innerHTML = `<div class="alert alert-err">Error: ${e.message}</div>`;
       console.error(e);
     }
   }, 100);
+}
+
+function displaySingleResultWithExport(result) {
+  const container = document.getElementById('analysisResultsContainer');
+  
+  // Add export buttons for single result
+  const exportBar = `
+    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 15px; padding: 10px; background: var(--surface-2); border-radius: var(--r-md);">
+      <button class="exp-btn" onclick="copySingleResult(${result.id})">Copy This Result</button>
+      <button class="exp-btn" onclick="exportSingleResultToWord(${result.id})">Export to Word</button>
+    </div>
+    <div id="singleResultContent">${result.html}</div>
+  `;
+  container.innerHTML = exportBar;
+}
+
+function displayResultsWithNavigation() {
+  const container = document.getElementById('analysisResultsContainer');
+  currentResultIndex = 0;
+  
+  function renderCurrentResult() {
+    const result = allGeneratedResults[currentResultIndex];
+    const navHtml = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
+        <div style="font-weight: 700;">
+          Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
+          <span style="color: var(--brand);">${result.title}</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-outline" onclick="navigateResult(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
+          <button class="btn-outline" onclick="navigateResult(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
+          <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
+          <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+        </div>
+      </div>
+      <div id="currentResultContent">${result.html}</div>
+    `;
+    container.innerHTML = navHtml;
+  }
+  
+  window.navigateResult = function(direction) {
+    const newIndex = currentResultIndex + direction;
+    if (newIndex >= 0 && newIndex < allGeneratedResults.length) {
+      currentResultIndex = newIndex;
+      renderCurrentResult();
+    }
+  };
+  
+  window.showAllResultsAccumulated = function() {
+    let allResultsHtml = `
+      <div style="margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div style="font-weight: 700;">All Results (${allGeneratedResults.length} combinations)</div>
+        <div style="display: flex; gap: 10px;">
+          <button class="btn-outline" onclick="displayResultsWithNavigation()">← Back to Navigation</button>
+          <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+        </div>
+      </div>
+    `;
+    for (let i = 0; i < allGeneratedResults.length; i++) {
+      allResultsHtml += `
+        <div style="margin-bottom: 40px; border-top: 3px solid var(--brand); padding-top: 20px;">
+          <div style="font-weight: 800; font-size: 1rem; margin-bottom: 15px; color: var(--brand);">
+            Result ${i + 1}: ${allGeneratedResults[i].title}
+          </div>
+          ${allGeneratedResults[i].html}
+        </div>
+      `;
+    }
+    container.innerHTML = allResultsHtml;
+  };
+  
+  renderCurrentResult();
+}
+
+window.copySingleResult = function(resultId) {
+  const result = allGeneratedResults.find(r => r.id === resultId);
+  if (result) {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = result.html;
+    const text = tempDiv.innerText || tempDiv.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      showNotification('Result copied to clipboard!', 'success');
+    });
+  }
+};
+
+window.exportSingleResultToWord = function(resultId) {
+  const result = allGeneratedResults.find(r => r.id === resultId);
+  if (result) {
+    exportToWord(result.html, `MedModr_${result.type}_${result.id}`);
+  }
+};
+
+window.exportAllResultsToWord = function() {
+  let combinedHtml = '';
+  for (let i = 0; i < allGeneratedResults.length; i++) {
+    combinedHtml += `
+      <div style="margin-bottom: 50px; page-break-after: always;">
+        <h2 style="color: var(--brand);">Result ${i + 1}: ${allGeneratedResults[i].title}</h2>
+        ${allGeneratedResults[i].html}
+      </div>
+    `;
+  }
+  exportToWord(combinedHtml, 'MedModr_All_Results');
+};
+
+function exportToWord(htmlContent, filename) {
+  const yr = new Date().getFullYear();
+  const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MedModr Results</title>
+<style>
+  body{font-family:Calibri,sans-serif;margin:50px;color:#111;font-size:11.5pt;line-height:1.7}
+  h1{font-size:18pt;color:#3d5af1;margin-bottom:4px}
+  h2{font-size:14pt;color:#3d5af1;margin-top:20px;}
+  .app-meta{font-size:10pt;color:#555;border-bottom:2px solid #3d5af1;padding-bottom:12px;margin-bottom:22px}
+  table{border-collapse:collapse;width:100%;margin:12px 0}
+  th,td{border:1px solid #ccc;padding:7px 12px;font-size:10.5pt}
+  th{background:#eef2ff;font-weight:bold}
+  .footer{margin-top:40px;font-size:9.5pt;color:#888;border-top:1px solid #ddd;padding-top:12px}
+</style>
+</head>
+<body>
+<h1>MedModr — Analysis Results</h1>
+<div class="app-meta">
+  <strong>MedModr: Mediation & Moderation Tool</strong> (Version 2.0)<br>
+  Developer: <strong>Mudasir Mohammed Ibrahim</strong><br>
+  App Website: https://shinyhealthtools.github.io/medmodr/<br>
+  Generated: ${new Date().toLocaleString()}
+</div>
+${htmlContent}
+<div class="footer">
+  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 2.0) [Software].
+</div>
+</body>
+</html>`;
+  
+  const blob = new Blob([fullHtml], { type: 'application/msword' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.doc`;
+  a.click();
+  URL.revokeObjectURL(blob);
+}
+
+function showNotification(message, type) {
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--brand); color: white; padding: 12px 20px; border-radius: 12px; font-weight: 600; z-index: 10000;';
+  toast.innerHTML = message;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 function getColumnData(varName) {
