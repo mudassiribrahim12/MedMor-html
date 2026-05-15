@@ -1891,22 +1891,24 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   box-shadow: 0 4px 12px rgba(5,150,105,0.3) !important;
 }
 
-/* Results Navigation Buttons - Same Size as Run Button */
+/* Results Navigation Buttons - Professionally Consistent with Run Analysis Button */
 .results-nav-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 12px 20px;
+  padding: 16px 24px;
   background: linear-gradient(135deg, var(--surface-2), var(--surface));
-  border-radius: 40px;
-  margin-bottom: 20px;
+  border-radius: 60px;
+  margin-bottom: 24px;
   border: 1px solid var(--border);
+  box-shadow: var(--s-sm);
 }
 
+/* ALL navigation buttons now match Run Analysis button dimensions exactly */
 .nav-btn {
-  padding: 10px 24px !important;
+  padding: 12px 28px !important;
   background: var(--brand) !important;
   color: white !important;
   border: none !important;
@@ -1914,19 +1916,22 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   font-size: 0.85rem !important;
   font-weight: 700 !important;
   cursor: pointer !important;
-  transition: all 0.2s !important;
+  transition: all 0.25s ease !important;
   font-family: var(--font) !important;
-  min-width: 130px !important;
+  min-width: 150px !important;
   height: auto !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  gap: 6px !important;
+  gap: 8px !important;
+  line-height: 1.2 !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .nav-btn:hover {
   background: var(--brand-dark) !important;
-  transform: translateY(-1px) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: var(--s-brand) !important;
 }
 
 .nav-btn-showall {
@@ -1945,16 +1950,47 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   background: #b45309 !important;
 }
 
+/* Disabled state for previous/next buttons */
+.nav-btn:disabled {
+  opacity: 0.5 !important;
+  transform: none !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
 .result-counter {
   font-weight: 700 !important;
   font-size: 0.85rem !important;
   color: var(--text-1) !important;
   background: var(--surface) !important;
-  padding: 10px 18px !important;
+  padding: 12px 20px !important;
   border-radius: 40px !important;
-  border: 1px solid var(--border) !important;
-  min-width: 120px !important;
+  border: 1.5px solid var(--border) !important;
+  min-width: 130px !important;
   text-align: center !important;
+  font-family: var(--mono) !important;
+  letter-spacing: 0.02em;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 640px) {
+  .results-nav-container {
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 40px;
+  }
+  
+  .nav-btn {
+    padding: 10px 20px !important;
+    min-width: 120px !important;
+    font-size: 0.75rem !important;
+  }
+  
+  .result-counter {
+    padding: 10px 14px !important;
+    min-width: 100px !important;
+    font-size: 0.75rem !important;
+  }
 }
 
 /* Results Container */
@@ -5564,8 +5600,9 @@ function displayResultsWithNavigation() {
     if (exportSingleBtn && allGeneratedResults.length === 1) exportSingleBtn.style.display = 'inline-flex';
   }
   
- function renderCurrentResult() {
+function renderCurrentResult() {
     const result = allGeneratedResults[currentResultIndex];
+    const container = document.getElementById('analysisResultsContainer');
     const counterSpan = document.getElementById('resultCounter');
     if (counterSpan) {
         counterSpan.textContent = `Result ${currentResultIndex + 1} of ${allGeneratedResults.length}`;
@@ -5575,16 +5612,24 @@ function displayResultsWithNavigation() {
     
     if (allGeneratedResults.length > 1) {
         resultsHtml += `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
-                <div style="font-weight: 700;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: var(--surface-2); border-radius: 60px; flex-wrap: wrap; gap: 12px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; font-size: 0.9rem;">
                     Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
-                    <span style="color: var(--brand);">${result.title}</span>
+                    <span style="color: var(--brand);">${escapeXml(result.title)}</span>
                 </div>
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn-outline" onclick="navigateResults(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
-                    <button class="btn-outline" onclick="navigateResults(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
-                    <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
-                    <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="nav-btn" onclick="navigateResults(-1)" ${currentResultIndex === 0 ? 'disabled' : ''} style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 130px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; opacity: ${currentResultIndex === 0 ? '0.5' : '1'};">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                    <button class="nav-btn" onclick="navigateResults(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled' : ''} style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 130px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; opacity: ${currentResultIndex === allGeneratedResults.length - 1 ? '0.5' : '1'};">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="nav-btn-showall" onclick="showAllResultsAccumulated()" style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 150px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;">
+                        <i class="fas fa-list"></i> Show All Results
+                    </button>
+                    <button class="nav-btn-export" onclick="exportAllResultsToWord()" style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 150px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;">
+                        <i class="fas fa-file-word"></i> Export All to Word
+                    </button>
                 </div>
             </div>
         `;
@@ -5630,11 +5675,15 @@ window.navigateResults = function(direction) {
   
 window.showAllResultsAccumulated = function() {
     let allResultsHtml = `
-        <div style="margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div style="font-weight: 700;">All Results (${allGeneratedResults.length} combinations)</div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-outline" onclick="displayResultsWithNavigation()">← Back to Navigation</button>
-                <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+        <div style="margin-bottom: 20px; padding: 15px 20px; background: var(--surface-2); border-radius: 60px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid var(--border);">
+            <div style="font-weight: 700; font-size: 0.9rem;">All Results (${allGeneratedResults.length} combinations)</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button onclick="displayResultsWithNavigation()" style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 150px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;">
+                    <i class="fas fa-arrow-left"></i> Back to Navigation
+                </button>
+                <button onclick="exportAllResultsToWord()" style="padding: 12px 28px !important; font-size: 0.85rem !important; font-weight: 700 !important; border-radius: 40px !important; min-width: 150px !important; background: var(--brand) !important; color: white !important; border: none !important; cursor: pointer !important; display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important;">
+                    <i class="fas fa-download"></i> Export All to Word
+                </button>
             </div>
         </div>
     `;
@@ -5648,11 +5697,13 @@ window.showAllResultsAccumulated = function() {
             </div>
         `;
     }
+    const container = document.getElementById('analysisResultsContainer');
+    const navDiv = document.getElementById('resultsNavigation');
+    const exportSingleBtn = document.getElementById('exportSingleWordBtn');
     container.innerHTML = allResultsHtml;
     if (navDiv) navDiv.style.display = 'none';
     if (exportSingleBtn) exportSingleBtn.style.display = 'none';
     
-    // FIXED: Draw all slopes plots after they are added to DOM
     setTimeout(() => {
         document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
             const wrapDiv = canvas.closest('.slopes-wrap');
