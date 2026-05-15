@@ -2566,11 +2566,11 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
           <div class="di-upload-zone" id="dropZone">
             <i class="fas fa-file-csv di-upload-icon"></i>
             <div class="di-upload-title">Drag and drop your file here</div>
-            <div class="di-upload-subtitle">Supports CSV, Excel (xlsx, xls), and TXT files</div>
+<div class="di-upload-subtitle">Supports CSV, Excel (xlsx, xls), SPSS (.sav), and TXT files</div>
             <button class="btn-outline" onclick="document.getElementById('fileInput').click()">
               <i class="fas fa-folder-open"></i> Browse Files
             </button>
-            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.txt" style="display: none;">
+<input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.txt,.sav" style="display: none;">
           </div>
           <div id="uploadFileInfo" style="margin-top: 16px;"></div>
           <div class="di-nav">
@@ -2859,18 +2859,6 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   <button class="clear-btn-secondary" id="clearResultsBtn">🗑 Clear Results</button>
   <button class="export-btn-single" id="exportSingleWordBtn" onclick="exportCurrentSingleResult()" style="display: none;">📄 Export to Word</button>
 </div>
-          
-          <!-- Results Navigation (appears when multiple results) -->
-          <div id="resultsNavigation" style="display: none;">
-            <div class="results-nav-container">
-              <button class="nav-btn" onclick="navigateResults(-1)">← Previous</button>
-              <span id="resultCounter" class="result-counter"></span>
-              <button class="nav-btn" onclick="navigateResults(1)">Next →</button>
-              <button class="nav-btn nav-btn-showall" onclick="showAllResultsAccumulated()">Show All Results</button>
-              <button class="nav-btn nav-btn-export" onclick="exportAllResultsToWord()">📄 Export All to Word</button>
-            </div>
-          </div>
-          
           <div id="analysisResultsContainer" class="results-container"></div>
           
         </div>
@@ -3268,12 +3256,14 @@ function processUploadedFile(file) {
       parseCSVDataFile(e.target.result);
     } else if (ext === 'xlsx' || ext === 'xls') {
       parseExcelDataFile(e.target.result);
+    } else if (ext === 'sav') {
+      parseSPSSDataFile(e.target.result);
     } else {
-      showDataNotification('Unsupported file type. Please use CSV or Excel.', 'error');
+      showDataNotification('Unsupported file type. Please use CSV, Excel, or SPSS (.sav) files.', 'error');
     }
   };
   
-  if (ext === 'xlsx' || ext === 'xls') {
+  if (ext === 'xlsx' || ext === 'xls' || ext === 'sav') {
     reader.readAsArrayBuffer(file);
   } else {
     reader.readAsText(file);
@@ -3409,6 +3399,70 @@ function parseExcelDataFile(arrayBuffer) {
   }
 }
 
+function parseSPSSDataFile(arrayBuffer) {
+  // Create a helpful modal with conversion instructions
+  const modalHtml = `
+    <div id="spssHelpModal" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--surface); border: 2px solid var(--brand); border-radius: 16px; padding: 24px; max-width: 500px; z-index: 10001; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+      <div style="margin-bottom: 16px;">
+        <h3 style="color: var(--brand); margin: 0;">SPSS (.sav) File Support</h3>
+      </div>
+      <p style="margin-bottom: 16px;">Direct SPSS file reading is not supported. Please convert your file to CSV using one of these methods:</p>
+      
+      <div style="margin-bottom: 16px;">
+        <div style="background: var(--surface-2); padding: 12px; border-radius: 8px; margin-bottom: 12px;">
+          <strong>Method 1: Using SPSS Software</strong>
+          <p style="margin-top: 6px; font-size: 0.85rem; margin-bottom: 0;">File → Save As → Select "CSV (*.csv)" → Save</p>
+        </div>
+        
+        <div style="text-align: center; margin: 8px 0;">OR</div>
+        
+        <div style="background: var(--surface-2); padding: 12px; border-radius: 8px;">
+          <strong>Method 2: Use Data2SPSS Web App</strong>
+          <p style="margin-top: 6px; font-size: 0.85rem; margin-bottom: 0;">
+            <a href="https://newappstesting.shinyapps.io/Data2SPSS/" target="_blank" rel="noopener noreferrer" style="color: var(--brand); text-decoration: none;">https://newappstesting.shinyapps.io/Data2SPSS/</a>
+          </p>
+        </div>
+      </div>
+      
+      <p style="font-size: 0.8rem; color: var(--text-4); margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+        After converting to CSV, please upload the CSV file.
+      </p>
+      
+      <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+        <button onclick="closeSpssModal()" class="btn-primary" style="padding: 8px 20px; cursor: pointer;">Close</button>
+      </div>
+    </div>
+    <div id="spssHelpOverlay" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000;"></div>
+  `;
+  
+  function closeSpssModal() {
+    const modal = document.getElementById('spssHelpModal');
+    const overlay = document.getElementById('spssHelpOverlay');
+    if (modal) modal.remove();
+    if (overlay) overlay.remove();
+  }
+  
+  // Make closeSpssModal globally accessible
+  window.closeSpssModal = closeSpssModal;
+  
+  // Remove any existing modal
+  const existingModal = document.getElementById('spssHelpModal');
+  if (existingModal) existingModal.remove();
+  const existingOverlay = document.getElementById('spssHelpOverlay');
+  if (existingOverlay) existingOverlay.remove();
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // Add click event to overlay
+  const overlay = document.getElementById('spssHelpOverlay');
+  if (overlay) {
+    overlay.onclick = function() {
+      closeSpssModal();
+    };
+  }
+  
+  showDataNotification('SPSS files need to be converted to CSV first. See instructions.', 'info');
+}
 function detectVariableTypes() {
   originalDataTypes = {};
   categoricalVariables = [];
@@ -5510,68 +5564,107 @@ function displayResultsWithNavigation() {
     if (exportSingleBtn && allGeneratedResults.length === 1) exportSingleBtn.style.display = 'inline-flex';
   }
   
-  function renderCurrentResult() {
+ function renderCurrentResult() {
     const result = allGeneratedResults[currentResultIndex];
     const counterSpan = document.getElementById('resultCounter');
     if (counterSpan) {
-      counterSpan.textContent = `Result ${currentResultIndex + 1} of ${allGeneratedResults.length}`;
+        counterSpan.textContent = `Result ${currentResultIndex + 1} of ${allGeneratedResults.length}`;
     }
     
     let resultsHtml = '';
     
     if (allGeneratedResults.length > 1) {
-      resultsHtml += `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
-          <div style="font-weight: 700;">
-            Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
-            <span style="color: var(--brand);">${result.title}</span>
-          </div>
-          <div style="display: flex; gap: 10px;">
-            <button class="btn-outline" onclick="navigateResults(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
-            <button class="btn-outline" onclick="navigateResults(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
-            <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
-            <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
-          </div>
-        </div>
-      `;
+        resultsHtml += `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
+                <div style="font-weight: 700;">
+                    Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
+                    <span style="color: var(--brand);">${result.title}</span>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-outline" onclick="navigateResults(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
+                    <button class="btn-outline" onclick="navigateResults(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
+                    <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
+                    <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+                </div>
+            </div>
+        `;
     }
     
     resultsHtml += `<div id="currentResultContent">${result.html}</div>`;
     container.innerHTML = resultsHtml;
-  }
+    
+    // FIXED: Re-initialize slopes plots after content is inserted
+    setTimeout(() => {
+        document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+            const wrapDiv = canvas.closest('.slopes-wrap');
+            if (wrapDiv) {
+                const plotId = wrapDiv.getAttribute('data-plot-id');
+                if (plotId && window._slopesPlotCache && window._slopesPlotCache[plotId]) {
+                    drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+                }
+            }
+        });
+    }, 100);
+}
   
-  window.navigateResults = function(direction) {
+window.navigateResults = function(direction) {
     const newIndex = currentResultIndex + direction;
     if (newIndex >= 0 && newIndex < allGeneratedResults.length) {
-      currentResultIndex = newIndex;
-      renderCurrentResult();
+        currentResultIndex = newIndex;
+        renderCurrentResult();
+        
+        // FIXED: Draw slopes after navigation
+        setTimeout(() => {
+            document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+                const wrapDiv = canvas.closest('.slopes-wrap');
+                if (wrapDiv) {
+                    const plotId = wrapDiv.getAttribute('data-plot-id');
+                    if (plotId && window._slopesPlotCache && window._slopesPlotCache[plotId]) {
+                        drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+                    }
+                }
+            });
+        }, 100);
     }
-  };
+};
   
-  window.showAllResultsAccumulated = function() {
+window.showAllResultsAccumulated = function() {
     let allResultsHtml = `
-      <div style="margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-        <div style="font-weight: 700;">All Results (${allGeneratedResults.length} combinations)</div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn-outline" onclick="displayResultsWithNavigation()">← Back to Navigation</button>
-          <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="font-weight: 700;">All Results (${allGeneratedResults.length} combinations)</div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-outline" onclick="displayResultsWithNavigation()">← Back to Navigation</button>
+                <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+            </div>
         </div>
-      </div>
     `;
     for (let i = 0; i < allGeneratedResults.length; i++) {
-      allResultsHtml += `
-        <div style="margin-bottom: 40px; border-top: 3px solid var(--brand); padding-top: 20px;">
-          <div style="font-weight: 800; font-size: 1rem; margin-bottom: 15px; color: var(--brand);">
-            Result ${i + 1}: ${allGeneratedResults[i].title}
-          </div>
-          ${allGeneratedResults[i].html}
-        </div>
-      `;
+        allResultsHtml += `
+            <div style="margin-bottom: 40px; border-top: 3px solid var(--brand); padding-top: 20px;">
+                <div style="font-weight: 800; font-size: 1rem; margin-bottom: 15px; color: var(--brand);">
+                    Result ${i + 1}: ${allGeneratedResults[i].title}
+                </div>
+                ${allGeneratedResults[i].html}
+            </div>
+        `;
     }
     container.innerHTML = allResultsHtml;
     if (navDiv) navDiv.style.display = 'none';
     if (exportSingleBtn) exportSingleBtn.style.display = 'none';
-  };
+    
+    // FIXED: Draw all slopes plots after they are added to DOM
+    setTimeout(() => {
+        document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+            const wrapDiv = canvas.closest('.slopes-wrap');
+            if (wrapDiv) {
+                const plotId = wrapDiv.getAttribute('data-plot-id');
+                if (plotId && window._slopesPlotCache && window._slopesPlotCache[plotId]) {
+                    drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+                }
+            }
+        });
+    }, 150);
+};
   
   window.exportCurrentSingleResult = function() {
     if (allGeneratedResults.length === 1) {
@@ -6120,6 +6213,7 @@ const SLOPE_DASHES = [[6,3],[],[3,3]];
 const SLOPE_LABELS_BASE = ['Low (−1SD)','Mean','High (+1SD)'];
 
 // drawSlopes FUNCTION
+// drawSlopes FUNCTION - FIXED for multiple X variables
 function drawSlopes(canvas, data, showAnnot) {
     if (!data) return;
     const { xn, wn, yn, b_intercept, b_x, b_xw, mX, mW, sW, sdX, wLevelVals, slopes, slopeSEs, slopePvals } = data;
@@ -6127,314 +6221,346 @@ function drawSlopes(canvas, data, showAnnot) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, W, H);
     
-    // --- Publication Ready Style Logic ---
+    // Helper function for p-value stars
+    function pStar(p) {
+        if (p === undefined || p === null || isNaN(p)) return '';
+        if (p < 0.001) return '***';
+        if (p < 0.01) return '**';
+        if (p < 0.05) return '*';
+        return '';
+    }
+    
+    // Get settings
     const isPubStyle = window._publicationStyleActive || false;
+    const showPValues = window._showPValues !== false;
+    const annotationDisplayMode = window._annotationDisplayMode || 'legend';
+    
+    // Colors
     const bgColor = isPubStyle ? '#FFFFFF' : '#F8FAFF';
-    const gridColor = isPubStyle ? '#E0E0E0' : 'rgba(180, 196, 220, 0.4)';
     const textColor = isPubStyle ? '#000000' : '#1E2745';
     const axisColor = isPubStyle ? '#000000' : '#B8C4DC';
-    const zeroLineColor = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, 0.20)';
-    const errorFillAlpha = isPubStyle ? '15' : '20';
+    const lineColors = ['#e05252', '#3d5af1', '#0ca678'];
     
-    // --- Display Modes ---
-    const annotationDisplayMode = window._annotationDisplayMode || 'legend';
-    // Use window._showLabels (global state) instead of showAnnot parameter
-    const showPValues = window._showPValues !== false;
+    // Fill background
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
     
-    // Increased left padding for Y-axis label
-    const pad = { top: 60, right: 56, bottom: 72, left: 95 };
+    // Padding
+    const pad = { top: 60, right: 56, bottom: 72, left: 85 };
     const pw = W - pad.left - pad.right;
     const ph = H - pad.top - pad.bottom;
     
-    // Background
-    ctx.fillStyle = bgColor;
-    roundRect(ctx, 0, 0, W, H, 12);
-    ctx.fill();
-    
-    // Grid background dots (only for non-pub style)
-    if (!isPubStyle) {
-        ctx.fillStyle = 'rgba(61, 90, 241, .05)';
-        for (let gx = 52; gx < W - 20; gx += 30) {
-            for (let gy = 40; gy < H - 28; gy += 30) {
-                ctx.beginPath();
-                ctx.arc(gx, gy, 1.4, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-    }
-
-    const xLo = -2.2 * sdX, xHi = 2.2 * sdX;
+    // Calculate x range - FIXED: Use correct sdX (standard deviation of X)
+    const safeSdX = (sdX !== undefined && sdX > 0) ? sdX : 1;
+    const xLo = mX - 2.2 * safeSdX;
+    const xHi = mX + 2.2 * safeSdX;
     const nPts = 90;
     
+    // Calculate y range from data - FIXED: Use correct formula
     let allY = [];
-    wLevelVals.forEach((wc) => {
+    for (let wi = 0; wi < wLevelVals.length; wi++) {
+        const wc = wLevelVals[wi];
         for (let i = 0; i <= nPts; i++) {
-            const xc = xLo + (xHi - xLo) * i / nPts;
-            allY.push(b_intercept + b_x * xc + b_xw * xc * wc);
+            const xVal = xLo + (xHi - xLo) * i / nPts;
+            // FIXED: Use centered X values (xVal - mX) for the interaction term
+            const xCentered = xVal - mX;
+            // FIXED: Use correct b_intercept (already includes the constant)
+            const y = b_intercept + b_x * xCentered + b_xw * xCentered * wc;
+            allY.push(y);
         }
-    });
-    const yMin = Math.min(...allY), yMax = Math.max(...allY);
-    const yPad = (yMax - yMin) * .14 || 1;
-    const yLo = yMin - yPad, yHi = yMax + yPad;
+    }
     
-    function cx(xc) { return pad.left + (xc - xLo) / (xHi - xLo) * pw; }
+    const yMin = Math.min(...allY);
+    const yMax = Math.max(...allY);
+    const yPad = (yMax - yMin) * 0.14 || 1;
+    const yLo = yMin - yPad;
+    const yHi = yMax + yPad;
+    
+    // Mapping functions - FIXED: x mapping uses raw x values
+    function cx(xVal) { return pad.left + (xVal - xLo) / (xHi - xLo) * pw; }
     function cy(y) { return pad.top + ph - (y - yLo) / (yHi - yLo) * ph; }
     
-    // Horizontal Grid Lines
+    // Draw axes
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + ph);
+    ctx.strokeStyle = axisColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + ph);
+    ctx.lineTo(pad.left + pw, pad.top + ph);
+    ctx.stroke();
+    
+    // Y-axis ticks
     const nGY = 5;
     for (let i = 0; i <= nGY; i++) {
         const yv = yLo + (yHi - yLo) * i / nGY;
         const cyv = cy(yv);
-        ctx.beginPath();
-        ctx.moveTo(pad.left, cyv);
-        ctx.lineTo(pad.left + pw, cyv);
-        ctx.strokeStyle = gridColor;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = textColor;
-        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
-        ctx.textAlign = 'right';
-        ctx.fillText(yv.toFixed(2), pad.left - 9, cyv + 4);
-    }
-    
-    // Vertical Grid Lines
-    const nGX = 4;
-    for (let i = 0; i <= nGX; i++) {
-        const xc = xLo + (xHi - xLo) * i / nGX;
-        const cxv = cx(xc);
-        ctx.beginPath();
-        ctx.moveTo(cxv, pad.top);
-        ctx.lineTo(cxv, pad.top + ph);
-        ctx.strokeStyle = gridColor;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = textColor;
-        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillText((xc + mX).toFixed(2), cxv, pad.top + ph + 20);
-    }
-    
-    // Zero Line
-    const y0 = cy(0);
-    if (y0 > pad.top && y0 < pad.top + ph) {
-        ctx.beginPath();
-        ctx.moveTo(pad.left, y0);
-        ctx.lineTo(pad.left + pw, y0);
-        ctx.strokeStyle = zeroLineColor;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([3, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-    
-    // Axes
-    ctx.beginPath();
-    ctx.moveTo(pad.left, pad.top);
-    ctx.lineTo(pad.left, pad.top + ph);
-    ctx.lineTo(pad.left + pw, pad.top + ph);
-    ctx.strokeStyle = axisColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    
-    // Draw tick marks
-    for (let i = 0; i <= nGX; i++) {
-        const xc = xLo + (xHi - xLo) * i / nGX;
-        const cxv = cx(xc);
-        ctx.beginPath();
-        ctx.moveTo(cxv, pad.top + ph);
-        ctx.lineTo(cxv, pad.top + ph + 5);
-        ctx.strokeStyle = axisColor;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    }
-    for (let i = 0; i <= nGY; i++) {
-        const yv = yLo + (yHi - yLo) * i / nGY;
-        const cyv = cy(yv);
+        
         ctx.beginPath();
         ctx.moveTo(pad.left - 5, cyv);
         ctx.lineTo(pad.left, cyv);
         ctx.strokeStyle = axisColor;
         ctx.lineWidth = 1;
         ctx.stroke();
+        
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.fillText(yv.toFixed(2), pad.left - 9, cyv + 4);
+        
+        if (!isPubStyle) {
+            ctx.beginPath();
+            ctx.moveTo(pad.left, cyv);
+            ctx.lineTo(pad.left + pw, cyv);
+            ctx.strokeStyle = 'rgba(180, 196, 220, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
     }
     
-    // --- Draw Lines and Confidence Bands ---
-    const lineEndpoints = [];
-    
-    wLevelVals.forEach((wc, wi) => {
-        const pts = [];
-        for (let i = 0; i <= nPts; i++) {
-            const xc = xLo + (xHi - xLo) * i / nPts;
-            pts.push({ x: cx(xc), y: cy(b_intercept + b_x * xc + b_xw * xc * wc) });
-        }
-        const seSl = slopeSEs[wi];
-        const sePixH = ph * (seSl / (yHi - yLo)) * 40;
+    // X-axis ticks - FIXED: Show raw X values
+    const nGX = 5;
+    for (let i = 0; i <= nGX; i++) {
+        const xVal = xLo + (xHi - xLo) * i / nGX;
+        const cxv = cx(xVal);
         
-        // Confidence Band
         ctx.beginPath();
-        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y - sePixH) : ctx.lineTo(p.x, p.y - sePixH));
-        [...pts].reverse().forEach(p => ctx.lineTo(p.x, p.y + sePixH));
-        ctx.closePath();
-        ctx.fillStyle = SLOPE_COLORS[wi] + errorFillAlpha;
-        ctx.fill();
-        
-        // Main Line
-        ctx.beginPath();
-        pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-        ctx.strokeStyle = SLOPE_COLORS[wi];
-        ctx.lineWidth = 2.5;
-        ctx.lineJoin = 'round';
-        ctx.setLineDash(SLOPE_DASHES[wi]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        
-        // End Marker
-        const ep = pts[pts.length - 1];
-        ctx.beginPath();
-        ctx.arc(ep.x, ep.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = SLOPE_COLORS[wi];
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        lineEndpoints.push({ x: ep.x, y: ep.y, color: SLOPE_COLORS[wi], wi: wi });
-    });
-    
-    // --- Display EITHER line annotations OR legend (respecting showLabels and showPValues) ---
-  // (always show annotations/legend, no showLabels check)
-if (annotationDisplayMode === 'lines') {
-    // Draw annotations on the lines
-    lineEndpoints.forEach((ep, idx) => {
-        const slope = slopes[ep.wi];
-        const pval = slopePvals[ep.wi];
-        const star = pStar(pval);
-        
-        let labelText;
-        if (showPValues) {
-            const pStr = pval < .001 ? '<.001' : pval.toFixed(3);
-            labelText = `b = ${slope.toFixed(3)}${star}, p ${pStr}`;
-        } else {
-            labelText = `b = ${slope.toFixed(3)}${star}`;
-        }
-        
-        ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
-        const textWidth = ctx.measureText(labelText).width;
-        
-        const paddingX = 6;
-        const paddingY = 3;
-        const boxWidth = textWidth + paddingX * 2;
-        const boxHeight = 16;
-        
-        let labelX = ep.x + 12;
-        let labelY = ep.y - 10;
-        
-        if (labelX + boxWidth > W - 10) labelX = ep.x - boxWidth - 12;
-        if (labelY - boxHeight < 10) labelY = ep.y + 15;
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowBlur = 0;
-        roundRect(ctx, labelX, labelY - boxHeight + 3, boxWidth, boxHeight, 8);
-        ctx.fill();
-        ctx.strokeStyle = ep.color;
+        ctx.moveTo(cxv, pad.top + ph);
+        ctx.lineTo(cxv, pad.top + ph + 5);
+        ctx.strokeStyle = axisColor;
         ctx.lineWidth = 1;
         ctx.stroke();
         
-        ctx.fillStyle = '#1E2745';
-        ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.fillText(labelText, labelX + paddingX, labelY);
-    });
-} else if (annotationDisplayMode === 'legend') {
-    // Draw legend in top-right corner
-    const lfs = Math.round(W / 70);
-    const lh = lfs * 1.4;
-    
-    const legEntries = SLOPE_LABELS_BASE.map((lbl, i) => {
-        const slope = slopes[i];
-        const pval = slopePvals[i];
-        const star = pStar(pval);
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(xVal.toFixed(2), cxv, pad.top + ph + 20);
         
-        if (showPValues) {
-            const pStr = pval < .001 ? '<.001' : pval.toFixed(3);
-            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}, p ${pStr}`];
-        } else {
-            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}`];
+        if (!isPubStyle) {
+            ctx.beginPath();
+            ctx.moveTo(cxv, pad.top);
+            ctx.lineTo(cxv, pad.top + ph);
+            ctx.strokeStyle = 'rgba(180, 196, 220, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
         }
-    });
+    }
     
-    ctx.font = `500 ${lfs}px Sora, sans-serif`;
-    let maxLegW = 0;
-    legEntries.forEach(lines => lines.forEach(line => {
-        const m = ctx.measureText(line).width;
-        if (m > maxLegW) maxLegW = m;
-    }));
-    
-    const legLineStroke = 20;
-    const legW = legLineStroke + 6 + maxLegW + 8 * 2;
-    const rowsPerEntry = legEntries[0].length;
-    const legItemH = rowsPerEntry * lh + 5;
-    const legH = legEntries.length * legItemH + 6 * 2;
-    
-    const legX = pad.left + pw - 6 - legW;
-    const legY = pad.top + 6;
-    
-    ctx.save();
-    ctx.shadowColor = 'rgba(61, 90, 241, .08)';
-    ctx.shadowBlur = 8;
-    ctx.fillStyle = isPubStyle ? '#FFFFFF' : 'rgba(255, 255, 255, .95)';
-    ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(180, 196, 220, .6)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, legX, legY, legW, legH, 6);
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-    
-    legEntries.forEach((lines, i) => {
-        const col = SLOPE_COLORS[i];
-        const entryY = legY + 6 + legItemH * i;
-        const midY = entryY + legItemH / 2;
-        
+    // Zero line
+    const y0 = cy(0);
+    if (y0 > pad.top && y0 < pad.top + ph) {
         ctx.beginPath();
-        ctx.moveTo(legX + 8, midY);
-        ctx.lineTo(legX + 8 + legLineStroke, midY);
-        ctx.strokeStyle = col;
-        ctx.lineWidth = 2;
-        ctx.setLineDash(SLOPE_DASHES[i]);
+        ctx.moveTo(pad.left, y0);
+        ctx.lineTo(pad.left + pw, y0);
+        ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(61, 90, 241, 0.20)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.arc(legX + 8 + legLineStroke / 2, midY, 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = col;
-        ctx.fill();
-        
-        lines.forEach((line, j) => {
-            const isFirstLine = j === 0;
-            ctx.fillStyle = isFirstLine ? textColor : (isPubStyle ? '#666666' : '#6878a8');
-            ctx.font = `${isFirstLine ? '600' : '500'} ${lfs}px Sora, sans-serif`;
-            ctx.textAlign = 'left';
-            const textY = entryY + 6 + (j + 0.7) * lh;
-            ctx.fillText(line, legX + 8 + legLineStroke + 6, textY);
-        });
-    });
-}
+    }
     
-    // X Axis Label
+    // Draw the three slope lines
+    const lineEndpoints = [];
+    
+    for (let wi = 0; wi < wLevelVals.length; wi++) {
+        const wc = wLevelVals[wi];
+        const pts = [];
+        
+        for (let i = 0; i <= nPts; i++) {
+            const xVal = xLo + (xHi - xLo) * i / nPts;
+            const xCentered = xVal - mX;
+            const y = b_intercept + b_x * xCentered + b_xw * xCentered * wc;
+            pts.push({ x: cx(xVal), y: cy(y) });
+        }
+        
+        ctx.beginPath();
+        pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        
+        ctx.strokeStyle = lineColors[wi];
+        ctx.lineWidth = 2.5;
+        
+        if (isPubStyle) {
+            if (wi === 0) ctx.setLineDash([8, 4]);
+            else if (wi === 1) ctx.setLineDash([]);
+            else ctx.setLineDash([2, 4]);
+        } else {
+            const dashes = [[6, 3], [], [3, 3]];
+            ctx.setLineDash(dashes[wi]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        const ep = pts[pts.length - 1];
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = lineColors[wi];
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        lineEndpoints.push({ x: ep.x, y: ep.y, color: lineColors[wi], wi: wi });
+    }
+    
+    // Legend
+    if (annotationDisplayMode === 'legend') {
+        const lfs = Math.round(W / 70);
+        const lh = lfs * 1.4;
+        
+        const labels = ['Low (−1SD)', 'Mean', 'High (+1SD)'];
+        const legEntries = labels.map((lbl, i) => {
+            const slope = slopes[i];
+            const pval = slopePvals[i];
+            const star = pStar(pval);
+            if (showPValues) {
+                const pStr = pval < 0.001 ? '<.001' : pval.toFixed(3);
+                return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}, p ${pStr}`];
+            }
+            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}`];
+        });
+        
+        ctx.font = `500 ${lfs}px Sora, sans-serif`;
+        let maxLegW = 0;
+        for (let ei = 0; ei < legEntries.length; ei++) {
+            for (let li = 0; li < legEntries[ei].length; li++) {
+                const m = ctx.measureText(legEntries[ei][li]).width;
+                if (m > maxLegW) maxLegW = m;
+            }
+        }
+        
+        const legLineStroke = 20;
+        const legW = legLineStroke + 6 + maxLegW + 16;
+        const rowsPerEntry = legEntries[0].length;
+        const legItemH = rowsPerEntry * lh + 5;
+        const legH = legEntries.length * legItemH + 12;
+        
+        const legX = pad.left + pw - legW - 6;
+        const legY = pad.top + 6;
+        
+        ctx.fillStyle = isPubStyle ? '#FFFFFF' : 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(180, 196, 220, 0.6)';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.moveTo(legX + 6, legY);
+        ctx.lineTo(legX + legW - 6, legY);
+        ctx.quadraticCurveTo(legX + legW, legY, legX + legW, legY + 6);
+        ctx.lineTo(legX + legW, legY + legH - 6);
+        ctx.quadraticCurveTo(legX + legW, legY + legH, legX + legW - 6, legY + legH);
+        ctx.lineTo(legX + 6, legY + legH);
+        ctx.quadraticCurveTo(legX, legY + legH, legX, legY + legH - 6);
+        ctx.lineTo(legX, legY + 6);
+        ctx.quadraticCurveTo(legX, legY, legX + 6, legY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        for (let i = 0; i < legEntries.length; i++) {
+            const col = lineColors[i];
+            const entryY = legY + 6 + legItemH * i;
+            const midY = entryY + legItemH / 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(legX + 8, midY);
+            ctx.lineTo(legX + 8 + legLineStroke, midY);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2;
+            if (isPubStyle) {
+                if (i === 0) ctx.setLineDash([8, 4]);
+                else if (i === 1) ctx.setLineDash([]);
+                else ctx.setLineDash([2, 4]);
+            } else {
+                const dashes = [[6, 3], [], [3, 3]];
+                ctx.setLineDash(dashes[i]);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.beginPath();
+            ctx.arc(legX + 8 + legLineStroke / 2, midY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = isPubStyle ? '#FFFFFF' : '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            for (let j = 0; j < legEntries[i].length; j++) {
+                ctx.fillStyle = isPubStyle && j > 0 ? '#666666' : textColor;
+                ctx.font = `${j === 0 ? '600' : '500'} ${lfs}px Sora, sans-serif`;
+                ctx.textAlign = 'left';
+                const textY = entryY + 6 + (j + 0.7) * lh;
+                ctx.fillText(legEntries[i][j], legX + 8 + legLineStroke + 6, textY);
+            }
+        }
+    } else if (annotationDisplayMode === 'lines') {
+        for (let i = 0; i < lineEndpoints.length; i++) {
+            const ep = lineEndpoints[i];
+            const slope = slopes[ep.wi];
+            const pval = slopePvals[ep.wi];
+            const star = pStar(pval);
+            
+            let labelText;
+            if (showPValues) {
+                const pStr = pval < 0.001 ? '<.001' : pval.toFixed(3);
+                labelText = `b = ${slope.toFixed(3)}${star}, p ${pStr}`;
+            } else {
+                labelText = `b = ${slope.toFixed(3)}${star}`;
+            }
+            
+            ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+            const textWidth = ctx.measureText(labelText).width;
+            const padding = 6;
+            const boxWidth = textWidth + padding * 2;
+            const boxHeight = 16;
+            
+            let labelX = ep.x + 10;
+            let labelY = ep.y - 8;
+            
+            if (labelX + boxWidth > W - 10) labelX = ep.x - boxWidth - 10;
+            if (labelY - boxHeight < 10) labelY = ep.y + 15;
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.moveTo(labelX + 4, labelY - boxHeight + 3);
+            ctx.lineTo(labelX + boxWidth - 4, labelY - boxHeight + 3);
+            ctx.quadraticCurveTo(labelX + boxWidth, labelY - boxHeight + 3, labelX + boxWidth, labelY - boxHeight + 3 + 4);
+            ctx.lineTo(labelX + boxWidth, labelY);
+            ctx.quadraticCurveTo(labelX + boxWidth, labelY + 4, labelX + boxWidth - 4, labelY + 4);
+            ctx.lineTo(labelX + 4, labelY + 4);
+            ctx.quadraticCurveTo(labelX, labelY + 4, labelX, labelY);
+            ctx.lineTo(labelX, labelY - boxHeight + 3 + 4);
+            ctx.quadraticCurveTo(labelX, labelY - boxHeight + 3, labelX + 4, labelY - boxHeight + 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = isPubStyle ? '#000000' : ep.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.fillStyle = textColor;
+            ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.fillText(labelText, labelX + padding, labelY);
+        }
+    }
+    
+    // X-axis label
     const axisFontSize = Math.round(W / 58);
     ctx.fillStyle = textColor;
     ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
     ctx.textAlign = 'center';
     ctx.fillText(xn, pad.left + pw / 2, H - 12);
     
-    // Y Axis Label
+    // Y-axis label
     ctx.save();
-    const yLabelX = 22;
-    const yLabelY = pad.top + ph / 2;
-    ctx.translate(yLabelX, yLabelY);
+    ctx.translate(22, pad.top + ph / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillStyle = textColor;
     ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
@@ -6550,11 +6676,21 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 // buildSlopesHTML 
+// buildSlopesHTML - FIXED to properly store and retrieve plot data per result
 function buildSlopesHTML(data, xn, wn, yn) {
-    _slopesData = { ...data, xn, wn, yn };
-    const uid = 'slc_' + Date.now();
+    // Store the plot data with a unique ID for this specific result
+    const plotId = 'plot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
+    
+    // Store globally with unique reference
+    if (!window._slopesPlotCache) window._slopesPlotCache = {};
+    window._slopesPlotCache[plotId] = { ...data, xn, wn, yn };
+    
+    const uid = 'slc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
     const titleStr = `Simple Slopes: ${xn} → ${yn} at Three Levels of ${wn}`;
-    document.getElementById('slopesModalTitle').textContent = titleStr;
+    
+    // Store mapping from this canvas ID to plot ID for later redraws
+    if (!window._canvasPlotMap) window._canvasPlotMap = {};
+    window._canvasPlotMap[uid] = plotId;
 
     // Initialize settings if not set
     if (window._annotationDisplayMode === undefined) window._annotationDisplayMode = 'legend';
@@ -6563,50 +6699,623 @@ function buildSlopesHTML(data, xn, wn, yn) {
 
     const colorPickerIds = SLOPE_COLORS.map((_, idx) => `colorPicker_${uid}_${idx}`);
 
-// Toolbar div (no Hide/Show Labels button)
-const html = `
-<div class="slopes-wrap">
-    <div class="slopes-toolbar">
-        <div class="slopes-toolbar-title"><i class="fas fa-chart-line"></i>${titleStr}</div>
-        <button class="slopes-toggle-btn ${window._annotationDisplayMode === 'lines' ? 'active' : ''}" id="annotationDisplayBtn" onclick="toggleAnnotationDisplayMode()"><i class="fas fa-arrow-up-right-from-square"></i> ${window._annotationDisplayMode === 'legend' ? 'Legend (Top-Right)' : 'Annotations on Lines'}</button>
-        <button class="slopes-toggle-btn ${window._showPValues ? 'active' : ''}" id="togglePValueBtn" onclick="togglePValues()"><i class="fas fa-chart-simple"></i> ${window._showPValues ? 'Show p-values' : 'Hide p-values'}</button>
-        <button class="slopes-toggle-btn ${window._publicationStyleActive ? 'active' : ''}" id="publicationStyleBtn" onclick="togglePublicationStyle()"><i class="fas fa-file-alt"></i> ${window._publicationStyleActive ? 'Default Style' : 'Publication Ready'}</button>
-    </div>
-    <div class="slopes-canvas-wrap"><canvas id="${uid}" width="700" height="430"></canvas></div>
-    <div class="slopes-btn-row">
-        <div style="display: flex; gap: 8px; align-items: center; margin-right: auto; padding-left: 5px;">
-            ${SLOPE_LABELS_BASE.map((label, idx) => `
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <label style="font-size: 0.7rem; font-weight: 600;">${label}:</label>
-                    <input type="color" id="${colorPickerIds[idx]}" value="${SLOPE_COLORS[idx]}" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer;">
-                </div>
-            `).join('')}
+    const html = `
+    <div class="slopes-wrap" data-plot-id="${plotId}">
+        <div class="slopes-toolbar">
+            <div class="slopes-toolbar-title"><i class="fas fa-chart-line"></i>${titleStr}</div>
+            <button class="slopes-toggle-btn ${window._annotationDisplayMode === 'lines' ? 'active' : ''}" onclick="toggleAnnotationDisplayModeGlobal()"><i class="fas fa-arrow-up-right-from-square"></i> ${window._annotationDisplayMode === 'legend' ? 'Legend (Top-Right)' : 'Annotations on Lines'}</button>
+            <button class="slopes-toggle-btn ${window._showPValues ? 'active' : ''}" onclick="togglePValuesGlobal()"><i class="fas fa-chart-simple"></i> ${window._showPValues ? 'Show p-values' : 'Hide p-values'}</button>
+            <button class="slopes-toggle-btn ${window._publicationStyleActive ? 'active' : ''}" onclick="togglePublicationStyleGlobal()"><i class="fas fa-file-alt"></i> ${window._publicationStyleActive ? 'Default Style' : 'Publication Ready'}</button>
         </div>
-        <button class="slopes-expand-btn" onclick="openSlopesModal()"><i class="fas fa-expand"></i> Full Screen</button>
-        <button class="slopes-dl-btn" onclick="dlSlopesInline('${uid}')"><i class="fas fa-download"></i> Download PNG</button>
-    </div>
-</div>`;
+        <div class="slopes-canvas-wrap"><canvas id="${uid}" width="700" height="430"></canvas></div>
+        <div class="slopes-btn-row">
+            <div style="display: flex; gap: 8px; align-items: center; margin-right: auto; padding-left: 5px;">
+                ${SLOPE_LABELS_BASE.map((label, idx) => `
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <label style="font-size: 0.7rem; font-weight: 600;">${label}:</label>
+                        <input type="color" id="${colorPickerIds[idx]}" value="${SLOPE_COLORS[idx]}" style="width: 28px; height: 28px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer;">
+                    </div>
+                `).join('')}
+            </div>
+            <button class="slopes-expand-btn" onclick="openSlopesModalWithData('${plotId}')"><i class="fas fa-expand"></i> Full Screen</button>
+            <button class="slopes-dl-btn" onclick="dlSlopesInline('${uid}', '${plotId}')"><i class="fas fa-download"></i> Download PNG</button>
+        </div>
+    </div>`;
 
     setTimeout(() => {
         const canvas = document.getElementById(uid);
         if (canvas) {
-            drawSlopes(canvas, _slopesData, window._showLabels);
+            drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
             
             colorPickerIds.forEach((pickerId, idx) => {
                 const picker = document.getElementById(pickerId);
                 if (picker) {
                     picker.addEventListener('input', (event) => {
                         SLOPE_COLORS[idx] = event.target.value;
-                        redrawAllSlopes();
+                        const existingCanvas = document.getElementById(uid);
+                        if (existingCanvas && window._slopesPlotCache[plotId]) {
+                            drawSlopesWithData(existingCanvas, window._slopesPlotCache[plotId], window._showLabels);
+                        }
                     });
                 }
             });
         }
-        const modalCanvas = document.getElementById('slopesModalCanvas');
-        if (modalCanvas) drawSlopes(modalCanvas, _slopesData, window._showLabels);
     }, 50);
 
     return html;
+}
+
+// Global toggle functions that work with all plots
+function toggleAnnotationDisplayModeGlobal() {
+    if (window._annotationDisplayMode === 'legend') {
+        window._annotationDisplayMode = 'lines';
+    } else {
+        window._annotationDisplayMode = 'legend';
+    }
+    
+    // Update all annotation buttons
+    const btns = document.querySelectorAll('.slopes-toggle-btn');
+    btns.forEach(btn => {
+        if (btn.innerHTML.includes('Legend') || btn.innerHTML.includes('Annotations')) {
+            btn.innerHTML = window._annotationDisplayMode === 'legend' ? '<i class="fas fa-arrow-up-right-from-square"></i> Legend (Top-Right)' : '<i class="fas fa-chart-line"></i> Annotations on Lines';
+            btn.classList.toggle('active', window._annotationDisplayMode === 'lines');
+        }
+    });
+    
+    // Redraw all visible slope plots
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const wrapDiv = canvas.closest('.slopes-wrap');
+        if (wrapDiv) {
+            const plotId = wrapDiv.getAttribute('data-plot-id');
+            if (plotId && window._slopesPlotCache[plotId]) {
+                drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+            }
+        }
+    });
+}
+
+function togglePValuesGlobal() {
+    window._showPValues = !window._showPValues;
+    
+    // Update all p-value buttons
+    const btns = document.querySelectorAll('.slopes-toggle-btn');
+    btns.forEach(btn => {
+        if (btn.innerHTML.includes('p-value')) {
+            btn.classList.toggle('active', window._showPValues);
+            btn.innerHTML = window._showPValues ? '<i class="fas fa-chart-simple"></i> Show p-values' : '<i class="fas fa-chart-line"></i> Hide p-values';
+        }
+    });
+    
+    // Redraw all visible slope plots
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const wrapDiv = canvas.closest('.slopes-wrap');
+        if (wrapDiv) {
+            const plotId = wrapDiv.getAttribute('data-plot-id');
+            if (plotId && window._slopesPlotCache[plotId]) {
+                drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+            }
+        }
+    });
+}
+
+function togglePublicationStyleGlobal() {
+    window._publicationStyleActive = !window._publicationStyleActive;
+    
+    // Update all publication style buttons
+    const btns = document.querySelectorAll('.slopes-toggle-btn');
+    btns.forEach(btn => {
+        if (btn.innerHTML.includes('Default') || btn.innerHTML.includes('Publication')) {
+            btn.classList.toggle('active', window._publicationStyleActive);
+            btn.innerHTML = window._publicationStyleActive ? '<i class="fas fa-chalkboard-user"></i> Default Style' : '<i class="fas fa-file-alt"></i> Publication Ready';
+        }
+    });
+    
+    // Redraw all visible slope plots
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const wrapDiv = canvas.closest('.slopes-wrap');
+        if (wrapDiv) {
+            const plotId = wrapDiv.getAttribute('data-plot-id');
+            if (plotId && window._slopesPlotCache[plotId]) {
+                drawSlopesWithData(canvas, window._slopesPlotCache[plotId], window._showLabels);
+            }
+        }
+    });
+}
+
+// Update dlSlopesInline function
+function dlSlopesInline(canvasId, plotId) {
+    const data = window._slopesPlotCache[plotId];
+    if (data) {
+        const hi = document.createElement('canvas');
+        hi.width = 1800;
+        hi.height = 1080;
+        drawSlopesWithData(hi, data, window._showLabels);
+        const a = document.createElement('a');
+        a.href = hi.toDataURL('image/png', 1);
+        a.download = `MedModr-SimpleSlopes-${data.xn}-${new Date().toISOString().slice(0,10)}.png`;
+        a.click();
+    }
+}
+
+// Open slopes modal with specific data
+function openSlopesModalWithData(plotId) {
+    const data = window._slopesPlotCache[plotId];
+    if (data) {
+        const canvas = document.getElementById('slopesModalCanvas');
+        if (canvas) {
+            drawSlopesWithData(canvas, data, window._showLabels);
+        }
+        // Update modal title
+        const titleSpan = document.getElementById('slopesModalTitle');
+        if (titleSpan) {
+            titleSpan.textContent = `Simple Slopes: ${data.xn} → ${data.yn} by ${data.wn}`;
+        }
+        document.getElementById('slopesModal').classList.add('open');
+    }
+}
+
+// Helper to draw slopes with specific data
+function drawSlopesWithData(canvas, data, showAnnot) {
+    if (!data) return;
+    const { xn, wn, yn, b_intercept, b_x, b_xw, mX, mW, sW, sdX, wLevelVals, slopes, slopeSEs, slopePvals } = data;
+    const W = canvas.width, H = canvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+    
+    function pStar(p) {
+        if (p === undefined || p === null || isNaN(p)) return '';
+        if (p < 0.001) return '***';
+        if (p < 0.01) return '**';
+        if (p < 0.05) return '*';
+        return '';
+    }
+    
+    const isPubStyle = window._publicationStyleActive || false;
+    const showPValues = window._showPValues !== false;
+    const annotationDisplayMode = window._annotationDisplayMode || 'legend';
+    
+    const bgColor = isPubStyle ? '#FFFFFF' : '#F8FAFF';
+    const textColor = isPubStyle ? '#000000' : '#1E2745';
+    const axisColor = isPubStyle ? '#000000' : '#B8C4DC';
+    const lineColors = ['#e05252', '#3d5af1', '#0ca678'];
+    
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, W, H);
+    
+    const pad = { top: 60, right: 56, bottom: 72, left: 85 };
+    const pw = W - pad.left - pad.right;
+    const ph = H - pad.top - pad.bottom;
+    
+    const safeSdX = (sdX !== undefined && sdX > 0) ? sdX : 1;
+    const xLo = mX - 2.2 * safeSdX;
+    const xHi = mX + 2.2 * safeSdX;
+    const nPts = 90;
+    
+    let allY = [];
+    for (let wi = 0; wi < wLevelVals.length; wi++) {
+        const wc = wLevelVals[wi];
+        for (let i = 0; i <= nPts; i++) {
+            const xVal = xLo + (xHi - xLo) * i / nPts;
+            const xCentered = xVal - mX;
+            const y = b_intercept + b_x * xCentered + b_xw * xCentered * wc;
+            allY.push(y);
+        }
+    }
+    
+    const yMin = Math.min(...allY);
+    const yMax = Math.max(...allY);
+    const yPad = (yMax - yMin) * 0.14 || 1;
+    const yLo = yMin - yPad;
+    const yHi = yMax + yPad;
+    
+    function cx(xVal) { return pad.left + (xVal - xLo) / (xHi - xLo) * pw; }
+    function cy(y) { return pad.top + ph - (y - yLo) / (yHi - yLo) * ph; }
+    
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top);
+    ctx.lineTo(pad.left, pad.top + ph);
+    ctx.strokeStyle = axisColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.moveTo(pad.left, pad.top + ph);
+    ctx.lineTo(pad.left + pw, pad.top + ph);
+    ctx.stroke();
+    
+    const nGY = 5;
+    for (let i = 0; i <= nGY; i++) {
+        const yv = yLo + (yHi - yLo) * i / nGY;
+        const cyv = cy(yv);
+        
+        ctx.beginPath();
+        ctx.moveTo(pad.left - 5, cyv);
+        ctx.lineTo(pad.left, cyv);
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.fillText(yv.toFixed(2), pad.left - 9, cyv + 4);
+        
+        if (!isPubStyle) {
+            ctx.beginPath();
+            ctx.moveTo(pad.left, cyv);
+            ctx.lineTo(pad.left + pw, cyv);
+            ctx.strokeStyle = 'rgba(180, 196, 220, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    const nGX = 5;
+    for (let i = 0; i <= nGX; i++) {
+        const xVal = xLo + (xHi - xLo) * i / nGX;
+        const cxv = cx(xVal);
+        
+        ctx.beginPath();
+        ctx.moveTo(cxv, pad.top + ph);
+        ctx.lineTo(cxv, pad.top + ph + 5);
+        ctx.strokeStyle = axisColor;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        ctx.fillStyle = textColor;
+        ctx.font = `400 ${Math.round(W / 70)}px Sora, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText(xVal.toFixed(2), cxv, pad.top + ph + 20);
+        
+        if (!isPubStyle) {
+            ctx.beginPath();
+            ctx.moveTo(cxv, pad.top);
+            ctx.lineTo(cxv, pad.top + ph);
+            ctx.strokeStyle = 'rgba(180, 196, 220, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    }
+    
+    const y0 = cy(0);
+    if (y0 > pad.top && y0 < pad.top + ph) {
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y0);
+        ctx.lineTo(pad.left + pw, y0);
+        ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(61, 90, 241, 0.20)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    const lineEndpoints = [];
+    
+    for (let wi = 0; wi < wLevelVals.length; wi++) {
+        const wc = wLevelVals[wi];
+        const pts = [];
+        
+        for (let i = 0; i <= nPts; i++) {
+            const xVal = xLo + (xHi - xLo) * i / nPts;
+            const xCentered = xVal - mX;
+            const y = b_intercept + b_x * xCentered + b_xw * xCentered * wc;
+            pts.push({ x: cx(xVal), y: cy(y) });
+        }
+        
+        ctx.beginPath();
+        pts.forEach((p, idx) => idx === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        
+        ctx.strokeStyle = lineColors[wi];
+        ctx.lineWidth = 2.5;
+        
+        if (isPubStyle) {
+            if (wi === 0) ctx.setLineDash([8, 4]);
+            else if (wi === 1) ctx.setLineDash([]);
+            else ctx.setLineDash([2, 4]);
+        } else {
+            const dashes = [[6, 3], [], [3, 3]];
+            ctx.setLineDash(dashes[wi]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        const ep = pts[pts.length - 1];
+        ctx.beginPath();
+        ctx.arc(ep.x, ep.y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = lineColors[wi];
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        lineEndpoints.push({ x: ep.x, y: ep.y, color: lineColors[wi], wi: wi });
+    }
+    
+    if (annotationDisplayMode === 'legend') {
+        const lfs = Math.round(W / 70);
+        const lh = lfs * 1.4;
+        
+        const labels = ['Low (−1SD)', 'Mean', 'High (+1SD)'];
+        const legEntries = labels.map((lbl, i) => {
+            const slope = slopes[i];
+            const pval = slopePvals[i];
+            const star = pStar(pval);
+            if (showPValues) {
+                const pStr = pval < 0.001 ? '<.001' : pval.toFixed(3);
+                return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}, p ${pStr}`];
+            }
+            return [`${wn} = ${lbl}`, `b = ${slope.toFixed(3)}${star}`];
+        });
+        
+        ctx.font = `500 ${lfs}px Sora, sans-serif`;
+        let maxLegW = 0;
+        for (let ei = 0; ei < legEntries.length; ei++) {
+            for (let li = 0; li < legEntries[ei].length; li++) {
+                const m = ctx.measureText(legEntries[ei][li]).width;
+                if (m > maxLegW) maxLegW = m;
+            }
+        }
+        
+        const legLineStroke = 20;
+        const legW = legLineStroke + 6 + maxLegW + 16;
+        const rowsPerEntry = legEntries[0].length;
+        const legItemH = rowsPerEntry * lh + 5;
+        const legH = legEntries.length * legItemH + 12;
+        
+        const legX = pad.left + pw - legW - 6;
+        const legY = pad.top + 6;
+        
+        ctx.fillStyle = isPubStyle ? '#FFFFFF' : 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = isPubStyle ? '#CCCCCC' : 'rgba(180, 196, 220, 0.6)';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.moveTo(legX + 6, legY);
+        ctx.lineTo(legX + legW - 6, legY);
+        ctx.quadraticCurveTo(legX + legW, legY, legX + legW, legY + 6);
+        ctx.lineTo(legX + legW, legY + legH - 6);
+        ctx.quadraticCurveTo(legX + legW, legY + legH, legX + legW - 6, legY + legH);
+        ctx.lineTo(legX + 6, legY + legH);
+        ctx.quadraticCurveTo(legX, legY + legH, legX, legY + legH - 6);
+        ctx.lineTo(legX, legY + 6);
+        ctx.quadraticCurveTo(legX, legY, legX + 6, legY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        
+        for (let i = 0; i < legEntries.length; i++) {
+            const col = lineColors[i];
+            const entryY = legY + 6 + legItemH * i;
+            const midY = entryY + legItemH / 2;
+            
+            ctx.beginPath();
+            ctx.moveTo(legX + 8, midY);
+            ctx.lineTo(legX + 8 + legLineStroke, midY);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2;
+            if (isPubStyle) {
+                if (i === 0) ctx.setLineDash([8, 4]);
+                else if (i === 1) ctx.setLineDash([]);
+                else ctx.setLineDash([2, 4]);
+            } else {
+                const dashes = [[6, 3], [], [3, 3]];
+                ctx.setLineDash(dashes[i]);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            ctx.beginPath();
+            ctx.arc(legX + 8 + legLineStroke / 2, midY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = col;
+            ctx.fill();
+            ctx.strokeStyle = isPubStyle ? '#FFFFFF' : '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            
+            for (let j = 0; j < legEntries[i].length; j++) {
+                ctx.fillStyle = isPubStyle && j > 0 ? '#666666' : textColor;
+                ctx.font = `${j === 0 ? '600' : '500'} ${lfs}px Sora, sans-serif`;
+                ctx.textAlign = 'left';
+                const textY = entryY + 6 + (j + 0.7) * lh;
+                ctx.fillText(legEntries[i][j], legX + 8 + legLineStroke + 6, textY);
+            }
+        }
+    } else if (annotationDisplayMode === 'lines') {
+        for (let i = 0; i < lineEndpoints.length; i++) {
+            const ep = lineEndpoints[i];
+            const slope = slopes[ep.wi];
+            const pval = slopePvals[ep.wi];
+            const star = pStar(pval);
+            
+            let labelText;
+            if (showPValues) {
+                const pStr = pval < 0.001 ? '<.001' : pval.toFixed(3);
+                labelText = `b = ${slope.toFixed(3)}${star}, p ${pStr}`;
+            } else {
+                labelText = `b = ${slope.toFixed(3)}${star}`;
+            }
+            
+            ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+            const textWidth = ctx.measureText(labelText).width;
+            const padding = 6;
+            const boxWidth = textWidth + padding * 2;
+            const boxHeight = 16;
+            
+            let labelX = ep.x + 10;
+            let labelY = ep.y - 8;
+            
+            if (labelX + boxWidth > W - 10) labelX = ep.x - boxWidth - 10;
+            if (labelY - boxHeight < 10) labelY = ep.y + 15;
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.moveTo(labelX + 4, labelY - boxHeight + 3);
+            ctx.lineTo(labelX + boxWidth - 4, labelY - boxHeight + 3);
+            ctx.quadraticCurveTo(labelX + boxWidth, labelY - boxHeight + 3, labelX + boxWidth, labelY - boxHeight + 3 + 4);
+            ctx.lineTo(labelX + boxWidth, labelY);
+            ctx.quadraticCurveTo(labelX + boxWidth, labelY + 4, labelX + boxWidth - 4, labelY + 4);
+            ctx.lineTo(labelX + 4, labelY + 4);
+            ctx.quadraticCurveTo(labelX, labelY + 4, labelX, labelY);
+            ctx.lineTo(labelX, labelY - boxHeight + 3 + 4);
+            ctx.quadraticCurveTo(labelX, labelY - boxHeight + 3, labelX + 4, labelY - boxHeight + 3);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = isPubStyle ? '#000000' : ep.color;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            ctx.fillStyle = textColor;
+            ctx.font = `500 ${Math.round(W / 100)}px Sora, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.fillText(labelText, labelX + padding, labelY);
+        }
+    }
+    
+    const axisFontSize = Math.round(W / 58);
+    ctx.fillStyle = textColor;
+    ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(xn, pad.left + pw / 2, H - 12);
+    
+    ctx.save();
+    ctx.translate(22, pad.top + ph / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = textColor;
+    ctx.font = `600 ${axisFontSize}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(yn, 0, 0);
+    ctx.restore();
+    
+    ctx.fillStyle = textColor;
+    ctx.font = `700 ${Math.round(W / 48)}px Sora, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`Simple Slopes: ${xn} → ${yn} by ${wn}`, W / 2, 28);
+    
+    ctx.fillStyle = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, .28)';
+    ctx.font = `400 ${Math.round(W / 80)}px Sora, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText('MedModr v2.0', W - 8, H - 6);
+}
+
+// Open slopes modal with specific data
+function openSlopesModalWithData(plotId) {
+    const data = window._slopesPlotCache[plotId];
+    if (data) {
+        const canvas = document.getElementById('slopesModalCanvas');
+        if (canvas) {
+            drawSlopesWithData(canvas, data, window._showLabels);
+        }
+        document.getElementById('slopesModal').classList.add('open');
+    }
+}
+
+// Global toggle functions that work with all plots
+function toggleAnnotationDisplayModeGlobal() {
+    if (window._annotationDisplayMode === 'legend') {
+        window._annotationDisplayMode = 'lines';
+    } else {
+        window._annotationDisplayMode = 'legend';
+    }
+    
+    const btns = document.querySelectorAll('#annotationDisplayBtn');
+    btns.forEach(btn => {
+        if (btn) {
+            btn.innerHTML = window._annotationDisplayMode === 'legend' ? '<i class="fas fa-arrow-up-right-from-square"></i> Legend (Top-Right)' : '<i class="fas fa-chart-line"></i> Annotations on Lines';
+            btn.classList.toggle('active', window._annotationDisplayMode === 'lines');
+        }
+    });
+    
+    // Redraw all visible slope plots
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const container = canvas.closest('.slopes-wrap');
+        if (container) {
+            const titleDiv = container.querySelector('.slopes-toolbar-title');
+            if (titleDiv && titleDiv.textContent) {
+                // Find matching data and redraw
+                for (let id in window._slopesPlotCache) {
+                    const data = window._slopesPlotCache[id];
+                    if (data && titleDiv.textContent.includes(data.xn)) {
+                        drawSlopesWithData(canvas, data, window._showLabels);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function togglePValuesGlobal() {
+    window._showPValues = !window._showPValues;
+    const btns = document.querySelectorAll('#togglePValueBtn');
+    btns.forEach(btn => {
+        if (btn) {
+            btn.classList.toggle('active', window._showPValues);
+            btn.innerHTML = window._showPValues ? '<i class="fas fa-chart-simple"></i> Show p-values' : '<i class="fas fa-chart-line"></i> Hide p-values';
+        }
+    });
+    
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const container = canvas.closest('.slopes-wrap');
+        if (container) {
+            const titleDiv = container.querySelector('.slopes-toolbar-title');
+            if (titleDiv && titleDiv.textContent) {
+                for (let id in window._slopesPlotCache) {
+                    const data = window._slopesPlotCache[id];
+                    if (data && titleDiv.textContent.includes(data.xn)) {
+                        drawSlopesWithData(canvas, data, window._showLabels);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+
+function togglePublicationStyleGlobal() {
+    window._publicationStyleActive = !window._publicationStyleActive;
+    const btns = document.querySelectorAll('#publicationStyleBtn');
+    btns.forEach(btn => {
+        if (btn) {
+            btn.classList.toggle('active', window._publicationStyleActive);
+            btn.innerHTML = window._publicationStyleActive ? '<i class="fas fa-chalkboard-user"></i> Default Style' : '<i class="fas fa-file-alt"></i> Publication Ready';
+        }
+    });
+    
+    document.querySelectorAll('.slopes-canvas-wrap canvas').forEach(canvas => {
+        const container = canvas.closest('.slopes-wrap');
+        if (container) {
+            const titleDiv = container.querySelector('.slopes-toolbar-title');
+            if (titleDiv && titleDiv.textContent) {
+                for (let id in window._slopesPlotCache) {
+                    const data = window._slopesPlotCache[id];
+                    if (data && titleDiv.textContent.includes(data.xn)) {
+                        drawSlopesWithData(canvas, data, window._showLabels);
+                        break;
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Update dlSlopesInline function
+function dlSlopesInline(canvasId, plotId) {
+    const data = window._slopesPlotCache[plotId];
+    if (data) {
+        const hi = document.createElement('canvas');
+        hi.width = 1800;
+        hi.height = 1080;
+        drawSlopesWithData(hi, data, window._showLabels);
+        const a = document.createElement('a');
+        a.href = hi.toDataURL('image/png', 1);
+        a.download = `MedModr-SimpleSlopes-${data.xn}-${new Date().toISOString().slice(0,10)}.png`;
+        a.click();
+    }
 }
 
 function redrawAllSlopes(){
@@ -6627,22 +7336,55 @@ window.toggleSlopesAnnot=function(){
   if(mb){mb.classList.toggle('active',_slopesShowAnnot);}
   redrawAllSlopes();
 };
-window.openSlopesModal=function(){
-  drawSlopes(document.getElementById('slopesModalCanvas'),_slopesData,_slopesShowAnnot);
-  document.getElementById('slopesModal').classList.add('open');
+window.openSlopesModal = function() {
+    // Find the currently visible slopes canvas
+    const visibleCanvas = document.querySelector('.slopes-canvas-wrap canvas');
+    if (visibleCanvas) {
+        const container = visibleCanvas.closest('.slopes-wrap');
+        if (container) {
+            const titleDiv = container.querySelector('.slopes-toolbar-title');
+            if (titleDiv && titleDiv.textContent) {
+                for (let id in window._slopesPlotCache) {
+                    const data = window._slopesPlotCache[id];
+                    if (data && titleDiv.textContent.includes(data.xn)) {
+                        const modalCanvas = document.getElementById('slopesModalCanvas');
+                        if (modalCanvas) {
+                            drawSlopesWithData(modalCanvas, data, window._showLabels);
+                        }
+                        document.getElementById('slopesModal').classList.add('open');
+                        break;
+                    }
+                }
+            }
+        }
+    }
 };
-window.closeSlopesModal=function(){document.getElementById('slopesModal').classList.remove('open');};
-window.dlSlopesInline=function(uid){
-  const hi=document.createElement('canvas');hi.width=1800;hi.height=1080;
-  drawSlopes(hi,_slopesData,_slopesShowAnnot);
-  const a=document.createElement('a');a.href=hi.toDataURL('image/png',1);
-  a.download=`MedModr-SimpleSlopes-${new Date().toISOString().slice(0,10)}.png`;a.click();
-};
-window.downloadSlopesHiRes=function(){
-  const hi=document.createElement('canvas');hi.width=1800;hi.height=1080;
-  drawSlopes(hi,_slopesData,_slopesShowAnnot);
-  const a=document.createElement('a');a.href=hi.toDataURL('image/png',1);
-  a.download=`MedModr-SimpleSlopes-HiRes-${new Date().toISOString().slice(0,10)}.png`;a.click();
+
+// Update downloadSlopesHiRes
+window.downloadSlopesHiRes = function() {
+    const visibleCanvas = document.querySelector('.slopes-canvas-wrap canvas');
+    if (visibleCanvas) {
+        const container = visibleCanvas.closest('.slopes-wrap');
+        if (container) {
+            const titleDiv = container.querySelector('.slopes-toolbar-title');
+            if (titleDiv && titleDiv.textContent) {
+                for (let id in window._slopesPlotCache) {
+                    const data = window._slopesPlotCache[id];
+                    if (data && titleDiv.textContent.includes(data.xn)) {
+                        const hi = document.createElement('canvas');
+                        hi.width = 1800;
+                        hi.height = 1080;
+                        drawSlopesWithData(hi, data, window._showLabels);
+                        const a = document.createElement('a');
+                        a.href = hi.toDataURL('image/png', 1);
+                        a.download = `MedModr-SimpleSlopes-HiRes-${data.xn}-${new Date().toISOString().slice(0,10)}.png`;
+                        a.click();
+                        break;
+                    }
+                }
+            }
+        }
+    }
 };
 
 // ══════════════════════════════════════════════════════
