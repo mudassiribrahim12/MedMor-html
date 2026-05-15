@@ -1573,6 +1573,423 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
         font-family: var(--mono);
         color: var(--brand);
       }
+      
+      /* ============================================
+   PROFESSIONAL ANALYSIS INTERFACE CSS
+   ============================================ */
+
+/* Available Variables Container */
+.vars-available-container {
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.vars-available-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--brand);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-1);
+}
+
+.vars-hint {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-4);
+}
+
+.vars-available-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 80px;
+  max-height: 130px;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  margin-bottom: 15px;
+}
+
+.variable-chip {
+  display: inline-flex;
+  padding: 6px 16px;
+  border-radius: 30px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-1);
+}
+
+.variable-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(61,90,241,0.15);
+}
+
+.variable-chip.selected {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: white;
+  box-shadow: 0 2px 8px rgba(61,90,241,0.3);
+}
+
+/* Action Buttons Group */
+.action-buttons-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.action-btn {
+  padding: 8px 18px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  color: white;
+}
+
+.action-btn-x { background: linear-gradient(135deg, #3d5af1, #2a44d6); }
+.action-btn-m { background: linear-gradient(135deg, #7c3aed, #6d28d9); }
+.action-btn-m2 { background: linear-gradient(135deg, #a855f7, #9333ea); }
+.action-btn-y { background: linear-gradient(135deg, #0891b2, #0e7490); }
+.action-btn-w { background: linear-gradient(135deg, #059669, #047857); }
+.action-btn-cov { background: linear-gradient(135deg, #d97706, #b45309); }
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Role Cards Grid */
+.roles-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.role-card {
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.role-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.role-card-x { border: 1.5px solid #3d5af1; }
+.role-card-m { border: 1.5px solid #7c3aed; }
+.role-card-m2 { border: 1.5px solid #a855f7; }
+.role-card-y { border: 1.5px solid #0891b2; }
+.role-card-w { border: 1.5px solid #059669; }
+.role-card-cov { border: 1.5px solid #d97706; }
+
+.role-card-header {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.role-card-x .role-card-header { background: rgba(61,90,241,0.1); }
+.role-card-m .role-card-header { background: rgba(124,58,237,0.1); }
+.role-card-m2 .role-card-header { background: rgba(168,85,247,0.1); }
+.role-card-y .role-card-header { background: rgba(8,145,178,0.1); }
+.role-card-w .role-card-header { background: rgba(5,150,105,0.1); }
+.role-card-cov .role-card-header { background: rgba(217,119,6,0.1); }
+
+.role-icon { font-size: 1rem; }
+.role-title { flex: 1; margin-left: 6px; }
+
+.role-clear-btn {
+  background: none;
+  border: none;
+  color: var(--rose);
+  cursor: pointer;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.role-clear-btn:hover {
+  background: var(--rose);
+  color: white;
+}
+
+.role-vars-list {
+  padding: 10px;
+  min-height: 110px;
+  max-height: 140px;
+  overflow-y: auto;
+  background: var(--surface);
+  font-size: 0.7rem;
+}
+
+.empty-role {
+  color: var(--text-4);
+  text-align: center;
+  padding: 15px;
+  font-size: 0.7rem;
+}
+
+.role-var-tag {
+  display: inline-block;
+  background: var(--brand-bg);
+  border-radius: 16px;
+  padding: 4px 10px;
+  margin: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.role-var-tag:hover {
+  background: var(--brand);
+  color: white;
+}
+
+.role-var-tag button {
+  background: none;
+  border: none;
+  color: var(--rose);
+  cursor: pointer;
+  margin-left: 6px;
+  font-size: 0.65rem;
+}
+
+.role-var-tag button:hover {
+  color: white;
+}
+
+/* Analysis Options Panel */
+.analysis-options-panel {
+  background: var(--surface-2);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin: 20px 0;
+  border: 1px solid var(--border);
+}
+
+.options-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.options-row:last-child {
+  margin-bottom: 0;
+}
+
+.opt-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.opt-select {
+  background: var(--surface);
+  border: 1.5px solid var(--border-med);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-1);
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.opt-select:hover {
+  border-color: var(--brand);
+}
+
+/* Main Action Buttons */
+.action-buttons-main {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 20px 0 24px;
+}
+
+.run-btn-primary {
+  background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+  color: white;
+  border: none;
+  border-radius: 40px;
+  padding: 14px 40px;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(61,90,241,0.3);
+}
+
+.run-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(61,90,241,0.4);
+}
+
+.clear-btn-secondary {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1.5px solid var(--border-med);
+  border-radius: 40px;
+  padding: 14px 30px;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-btn-secondary:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+  border-color: var(--brand);
+}
+
+/* Results Navigation */
+.results-nav-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, var(--surface-2), var(--surface));
+  border-radius: 60px;
+  margin-bottom: 25px;
+  border: 1px solid var(--border);
+}
+
+.nav-btn {
+  padding: 8px 20px;
+  background: var(--brand);
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-btn:hover {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+}
+
+.nav-btn-showall {
+  background: var(--emerald);
+}
+
+.nav-btn-showall:hover {
+  background: #056a46;
+}
+
+.nav-btn-export {
+  background: var(--amber);
+}
+
+.nav-btn-export:hover {
+  background: #92400e;
+}
+
+.result-counter {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-1);
+  background: var(--surface);
+  padding: 6px 16px;
+  border-radius: 30px;
+  border: 1px solid var(--border);
+}
+
+/* Results Container */
+.results-container {
+  margin-top: 20px;
+}
+
+.result-block {
+  margin-bottom: 40px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.result-header {
+  background: linear-gradient(135deg, var(--brand-bg), var(--surface-2));
+  padding: 14px 20px;
+  border-bottom: 2px solid var(--brand);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.result-title {
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--brand);
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.result-export-btn {
+  padding: 5px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.result-export-btn:hover {
+  background: var(--brand);
+  color: white;
+  border-color: var(--brand);
+}
+
+.result-content {
+  padding: 20px;
+}
+      
     </style>
     
     <div class="di-container">
@@ -1775,7 +2192,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   <div class="page-section" id="section-analysis">
     <div class="section-header">
       <h2 class="section-title">Mediation & Moderation Analysis</h2>
-      <p class="section-desc">Click on variables to select them, then use action buttons to assign to roles.</p>
+      <p class="section-desc">Select variables, assign to roles, and run comprehensive analysis.</p>
     </div>
     <div class="content" style="padding-top:0">
       
@@ -1784,138 +2201,156 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
         <div class="panel-body">
           
           <!-- Available Variables Pool -->
-          <div style="margin-bottom: 24px; background: var(--surface-2); border-radius: var(--r-lg); padding: 20px; border: 2px solid var(--brand);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-              <div style="font-weight: 800; font-size: 1rem;">
-                Available Variables
-              </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="action-assign-btn" data-role="x" style="padding: 6px 14px; font-size: 0.75rem; background: var(--brand); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To X</button>
-                <button class="action-assign-btn" data-role="m" style="padding: 6px 14px; font-size: 0.75rem; background: var(--brand); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To M</button>
-                <button class="action-assign-btn" data-role="m2" style="padding: 6px 14px; font-size: 0.75rem; background: var(--brand); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To M2</button>
-                <button class="action-assign-btn" data-role="y" style="padding: 6px 14px; font-size: 0.75rem; background: var(--brand); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To Y</button>
-                <button class="action-assign-btn" data-role="w" style="padding: 6px 14px; font-size: 0.75rem; background: var(--brand); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To W</button>
-                <button class="action-assign-btn" data-role="cov" style="padding: 6px 14px; font-size: 0.75rem; background: var(--emerald); color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: 600;">To Cov</button>
-              </div>
+          <div class="vars-available-container">
+            <div class="vars-available-header">
+              <span><i class="fas fa-database"></i> Available Variables</span>
+              <span class="vars-hint">Click to select, then use buttons below</span>
             </div>
-            <div id="availableAnalysisVars" style="display: flex; flex-wrap: wrap; gap: 10px; min-height: 100px; max-height: 140px; overflow-y: auto; padding: 12px; background: var(--surface); border-radius: var(--r-md); border: 1px solid var(--border);">
-              <!-- Variables will appear here -->
-            </div>
-            <div style="font-size: 0.7rem; color: var(--text-4); margin-top: 10px; text-align: center;">
-              Click any variable to select it (highlighted), then click action buttons above to assign
+            <div id="availableAnalysisVars" class="vars-available-list"></div>
+            <div class="action-buttons-group">
+              <button class="action-btn action-btn-x" onclick="assignSelectedToX()">→ Assign to X</button>
+              <button class="action-btn action-btn-m" onclick="assignSelectedToM()">→ Assign to M</button>
+              <button class="action-btn action-btn-m2" onclick="assignSelectedToM2()">→ Assign to M2</button>
+              <button class="action-btn action-btn-y" onclick="assignSelectedToY()">→ Assign to Y</button>
+              <button class="action-btn action-btn-w" onclick="assignSelectedToW()">→ Assign to W</button>
+              <button class="action-btn action-btn-cov" onclick="assignSelectedToCov()">→ Assign to Cov</button>
             </div>
           </div>
           
           <!-- Role Selection Boxes -->
-          <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 20px;">
+          <div class="roles-grid">
             
             <!-- X Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--brand-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                <span>X (Independent)</span>
-                <button class="clear-role-btn" data-role="x" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-x">
+              <div class="role-card-header">
+                <span class="role-title">Independent (X)</span>
+                <button class="role-clear-btn" onclick="clearRole('x')">Clear</button>
               </div>
-              <div id="xVarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">No variables</div>
+              <div id="xVarsList" class="role-vars-list">
+                <div class="empty-role">No variables assigned</div>
               </div>
             </div>
             
             <!-- M Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--brand-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-                <span>M (Mediator)</span>
-                <button class="clear-role-btn" data-role="m" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-m">
+              <div class="role-card-header">
+                <span class="role-title">Mediator (M)</span>
+                <button class="role-clear-btn" onclick="clearRole('m')">Clear</button>
               </div>
-              <div id="mVarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">No variables</div>
+              <div id="mVarsList" class="role-vars-list">
+                <div class="empty-role">No variables assigned</div>
               </div>
             </div>
             
             <!-- M2 Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--brand-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-                <span>M2 (2nd Mediator)</span>
-                <button class="clear-role-btn" data-role="m2" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-m2">
+              <div class="role-card-header">
+                <span class="role-title">Mediator (M2)</span>
+                <button class="role-clear-btn" onclick="clearRole('m2')">Clear</button>
               </div>
-              <div id="m2VarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">For serial mediation</div>
+              <div id="m2VarsList" class="role-vars-list">
+                <div class="empty-role">For serial mediation</div>
               </div>
             </div>
             
             <!-- Y Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--brand-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-                <span>Y (Outcome)</span>
-                <button class="clear-role-btn" data-role="y" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-y">
+              <div class="role-card-header">
+                <span class="role-title">Outcome (Y)</span>
+                <button class="role-clear-btn" onclick="clearRole('y')">Clear</button>
               </div>
-              <div id="yVarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">No variables</div>
+              <div id="yVarsList" class="role-vars-list">
+                <div class="empty-role">No variables assigned</div>
               </div>
             </div>
             
             <!-- W Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--brand-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-                <span>W (Moderator)</span>
-                <button class="clear-role-btn" data-role="w" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-w">
+              <div class="role-card-header">
+                <span class="role-title">Moderator (W)</span>
+                <button class="role-clear-btn" onclick="clearRole('w')">Clear</button>
               </div>
-              <div id="wVarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">For moderation/modmed</div>
+              <div id="wVarsList" class="role-vars-list">
+                <div class="empty-role">For moderation/modmed</div>
               </div>
             </div>
             
             <!-- Covariates Box -->
-            <div style="border: 2px solid var(--border); border-radius: var(--r-lg); overflow: hidden;">
-              <div style="background: var(--emerald-bg); padding: 10px 12px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;">
-                <span>Covariates</span>
-                <button class="clear-role-btn" data-role="cov" style="background: none; border: none; color: var(--rose); cursor: pointer; font-size: 0.7rem;">Clear</button>
+            <div class="role-card role-card-cov">
+              <div class="role-card-header">
+                <span class="role-title">Covariates</span>
+                <button class="role-clear-btn" onclick="clearRole('cov')">Clear</button>
               </div>
-              <div id="covVarsList" style="padding: 10px; min-height: 140px; max-height: 180px; overflow-y: auto; background: var(--surface); font-size: 0.75rem;">
-                <div style="color: var(--text-4); text-align: center; padding: 20px;">No variables</div>
+              <div id="covVarsList" class="role-vars-list">
+                <div class="empty-role">No variables assigned</div>
               </div>
             </div>
           </div>
           
           <!-- Analysis Options -->
-          <div class="options-row" style="margin-top: 20px; flex-wrap: wrap;">
-            <span class="opt-label">Analysis Type:</span>
-            <select class="opt-select" id="analysisTypeSelect" onchange="toggleAnalysisOptions()">
-              <option value="simple">Simple Mediation (X → M → Y)</option>
-              <option value="serial">Serial Mediation (X → M1 → M2 → Y)</option>
-              <option value="moderation">Moderation (X × W → Y)</option>
-              <option value="modmed">Moderated Mediation</option>
-            </select>
-            <span class="opt-label">Confidence level:</span>
-            <select class="opt-select" id="confLevel"><option value="0.95">95%</option><option value="0.99">99%</option><option value="0.90">90%</option></select>
-            <span class="opt-label">Bootstrap samples:</span>
-            <select class="opt-select" id="bootSamples"><option value="0">None (Sobel only)</option><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select>
+          <div class="analysis-options-panel">
+            <div class="options-row">
+              <span class="opt-label">Analysis Type:</span>
+              <select class="opt-select" id="analysisTypeSelect" onchange="toggleAnalysisOptions()">
+                <option value="simple">Simple Mediation (X → M → Y)</option>
+                <option value="serial">Serial Mediation (X → M1 → M2 → Y)</option>
+                <option value="moderation">Moderation (X × W → Y)</option>
+                <option value="modmed">Moderated Mediation</option>
+              </select>
+              <span class="opt-label">Confidence level:</span>
+              <select class="opt-select" id="confLevel">
+                <option value="0.90">90%</option>
+                <option value="0.95" selected>95%</option>
+                <option value="0.99">99%</option>
+              </select>
+              <span class="opt-label">Bootstrap samples:</span>
+              <select class="opt-select" id="bootSamples">
+                <option value="0">None (Sobel only)</option>
+                <option value="1000">1,000</option>
+                <option value="5000" selected>5,000</option>
+                <option value="10000">10,000</option>
+              </select>
+            </div>
+            
+            <div class="options-row" id="centerOptionRow" style="display: none;">
+              <span class="opt-label">Centering:</span>
+              <select class="opt-select" id="centerOption">
+                <option value="all">All variables centered</option>
+                <option value="continuous" selected>Continuous-only centered</option>
+                <option value="none">No centering</option>
+              </select>
+            </div>
+            
+            <div class="options-row" id="modStageRow" style="display: none;">
+              <span class="opt-label">Moderation Stage:</span>
+              <select class="opt-select" id="modStageOption">
+                <option value="first">First Stage (X×W → M)</option>
+                <option value="second">Second Stage (M×W → Y)</option>
+                <option value="both">Both Stages</option>
+              </select>
+            </div>
           </div>
           
-          <div class="options-row" style="margin-top: 8px; display: none;" id="centerOptionRow">
-            <span class="opt-label">Centering:</span>
-            <select class="opt-select" id="centerOption">
-              <option value="all">All variables centered</option>
-              <option value="continuous" selected>Continuous-only centered</option>
-              <option value="none">No centering</option>
-            </select>
+          <div class="action-buttons-main">
+            <button class="run-btn-primary" id="runAnalysisBtn">▶ Run Analysis</button>
+            <button class="clear-btn-secondary" id="clearResultsBtn">🗑 Clear Results</button>
           </div>
           
-          <div class="options-row" style="margin-top: 8px; display: none;" id="modStageRow">
-            <span class="opt-label">Moderation Stage:</span>
-            <select class="opt-select" id="modStageOption">
-              <option value="first">First Stage (X×W → M)</option>
-              <option value="second">Second Stage (M×W → Y)</option>
-              <option value="both">Both Stages</option>
-            </select>
+          <!-- Results Navigation (appears when multiple results) -->
+          <div id="resultsNavigation" style="display: none;">
+            <div class="results-nav-container">
+              <button class="nav-btn" id="prevResultBtn" onclick="navigateResults(-1)">← Previous</button>
+              <span id="resultCounter" class="result-counter"></span>
+              <button class="nav-btn" id="nextResultBtn" onclick="navigateResults(1)">Next →</button>
+              <button class="nav-btn nav-btn-showall" id="showAllResultsBtn" onclick="showAllResultsAccumulated()">Show All Results</button>
+              <button class="nav-btn nav-btn-export" id="exportAllResultsBtn" onclick="exportAllResultsToWord()">📄 Export All to Word</button>
+            </div>
           </div>
+          
+          <div id="analysisResultsContainer" class="results-container"></div>
+          
         </div>
       </div>
-      
-      <div class="action-bar">
-        <button class="run-btn" id="runAnalysisBtn">Run Analysis</button>
-        <button class="clear-btn" id="clearResultsBtn">Clear Results</button>
-      </div>
-      <div id="analysisResultsContainer"></div>
       
     </div>
   </div>
@@ -4200,6 +4635,9 @@ function sendDataToAnalysis() {
 // ============================================
 // ANALYSIS PAGE VARIABLE SELECTION
 // ============================================
+// ============================================
+// ANALYSIS PAGE - COMPLETE WORKING CODE
+// ============================================
 
 let selectedXVars = [];
 let selectedMVars = [];
@@ -4208,6 +4646,8 @@ let selectedYVars = [];
 let selectedWVars = [];
 let selectedCovVars = [];
 let tempSelectedVars = [];
+let allGeneratedResults = [];
+let currentResultIndex = 0;
 
 function populateAnalysisSelectors() {
   if (!window.analysisColumns) return;
@@ -4215,31 +4655,21 @@ function populateAnalysisSelectors() {
   renderAvailableVariables();
   renderAllRoleBoxes();
   
-  // Setup action buttons
-  document.querySelectorAll('.action-assign-btn').forEach(btn => {
-    btn.onclick = () => {
-      const role = btn.getAttribute('data-role');
-      assignSelectedToRole(role);
-    };
-  });
-  
-  // Setup clear buttons
-  document.querySelectorAll('.clear-role-btn').forEach(btn => {
-    btn.onclick = () => {
-      const role = btn.getAttribute('data-role');
-      clearRole(role);
-    };
-  });
-  
   // Setup run button
   const runBtn = document.getElementById('runAnalysisBtn');
-  if (runBtn) runBtn.onclick = () => runAnalysisFromSelections();
+  if (runBtn) {
+    runBtn.onclick = function() { runAnalysisFromSelections(); };
+  }
   
-  // Setup clear results button
+  // Setup clear button
   const clearBtn = document.getElementById('clearResultsBtn');
-  if (clearBtn) clearBtn.onclick = () => {
-    document.getElementById('analysisResultsContainer').innerHTML = '';
-  };
+  if (clearBtn) {
+    clearBtn.onclick = function() { 
+      document.getElementById('analysisResultsContainer').innerHTML = '';
+      const navDiv = document.getElementById('resultsNavigation');
+      if (navDiv) navDiv.style.display = 'none';
+    };
+  }
 }
 
 function renderAvailableVariables() {
@@ -4266,15 +4696,43 @@ function toggleVariableSelection(varName) {
   renderAvailableVariables();
 }
 
-function assignSelectedToRole(role) {
-  tempSelectedVars.forEach(v => {
-    if (role === 'x' && !selectedXVars.includes(v)) selectedXVars.push(v);
-    else if (role === 'm' && !selectedMVars.includes(v)) selectedMVars.push(v);
-    else if (role === 'm2' && !selectedM2Vars.includes(v)) selectedM2Vars.push(v);
-    else if (role === 'y' && !selectedYVars.includes(v)) selectedYVars.push(v);
-    else if (role === 'w' && !selectedWVars.includes(v)) selectedWVars.push(v);
-    else if (role === 'cov' && !selectedCovVars.includes(v)) selectedCovVars.push(v);
-  });
+function assignSelectedToX() {
+  tempSelectedVars.forEach(v => { if (!selectedXVars.includes(v)) selectedXVars.push(v); });
+  tempSelectedVars = [];
+  renderAvailableVariables();
+  renderAllRoleBoxes();
+}
+
+function assignSelectedToM() {
+  tempSelectedVars.forEach(v => { if (!selectedMVars.includes(v)) selectedMVars.push(v); });
+  tempSelectedVars = [];
+  renderAvailableVariables();
+  renderAllRoleBoxes();
+}
+
+function assignSelectedToM2() {
+  tempSelectedVars.forEach(v => { if (!selectedM2Vars.includes(v)) selectedM2Vars.push(v); });
+  tempSelectedVars = [];
+  renderAvailableVariables();
+  renderAllRoleBoxes();
+}
+
+function assignSelectedToY() {
+  tempSelectedVars.forEach(v => { if (!selectedYVars.includes(v)) selectedYVars.push(v); });
+  tempSelectedVars = [];
+  renderAvailableVariables();
+  renderAllRoleBoxes();
+}
+
+function assignSelectedToW() {
+  tempSelectedVars.forEach(v => { if (!selectedWVars.includes(v)) selectedWVars.push(v); });
+  tempSelectedVars = [];
+  renderAvailableVariables();
+  renderAllRoleBoxes();
+}
+
+function assignSelectedToCov() {
+  tempSelectedVars.forEach(v => { if (!selectedCovVars.includes(v)) selectedCovVars.push(v); });
   tempSelectedVars = [];
   renderAvailableVariables();
   renderAllRoleBoxes();
@@ -4301,28 +4759,46 @@ function removeFromRole(varName, role) {
 }
 
 function renderAllRoleBoxes() {
-  const roles = ['x', 'm', 'm2', 'y', 'w', 'cov'];
-  const roleNames = { x: 'xVarsList', m: 'mVarsList', m2: 'm2VarsList', y: 'yVarsList', w: 'wVarsList', cov: 'covVarsList' };
-  const roleData = { x: selectedXVars, m: selectedMVars, m2: selectedM2Vars, y: selectedYVars, w: selectedWVars, cov: selectedCovVars };
-  const emptyMessages = {
-    x: 'No variables', m: 'No variables', m2: 'For serial mediation',
-    y: 'No variables', w: 'For moderation/modmed', cov: 'No variables'
-  };
+  // X Box
+  const xDiv = document.getElementById('xVarsList');
+  if (xDiv) {
+    if (selectedXVars.length === 0) xDiv.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">No variables</div>';
+    else xDiv.innerHTML = selectedXVars.map(v => `<div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'x')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
+  }
   
-  for (let role of roles) {
-    const container = document.getElementById(roleNames[role]);
-    if (!container) continue;
-    const vars = roleData[role];
-    if (vars.length === 0) {
-      container.innerHTML = `<div style="color: var(--text-4); text-align: center; padding: 20px;">${emptyMessages[role]}</div>`;
-    } else {
-      container.innerHTML = vars.map(v => `
-        <div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;">
-          <span>${escapeXml(v)}</span>
-          <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', '${role}')" style="background:none; border:none; color: var(--rose); cursor: pointer; margin-left: 5px;">✕</button>
-        </div>
-      `).join('');
-    }
+  // M Box
+  const mDiv = document.getElementById('mVarsList');
+  if (mDiv) {
+    if (selectedMVars.length === 0) mDiv.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">No variables</div>';
+    else mDiv.innerHTML = selectedMVars.map(v => `<div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'm')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
+  }
+  
+  // M2 Box
+  const m2Div = document.getElementById('m2VarsList');
+  if (m2Div) {
+    if (selectedM2Vars.length === 0) m2Div.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">For serial mediation</div>';
+    else m2Div.innerHTML = selectedM2Vars.map(v => `<div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'm2')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
+  }
+  
+  // Y Box
+  const yDiv = document.getElementById('yVarsList');
+  if (yDiv) {
+    if (selectedYVars.length === 0) yDiv.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">No variables</div>';
+    else yDiv.innerHTML = selectedYVars.map(v => `<div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'y')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
+  }
+  
+  // W Box
+  const wDiv = document.getElementById('wVarsList');
+  if (wDiv) {
+    if (selectedWVars.length === 0) wDiv.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">For moderation/modmed</div>';
+    else wDiv.innerHTML = selectedWVars.map(v => `<div style="display: inline-block; background: var(--brand-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'w')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
+  }
+  
+  // Covariates Box
+  const covDiv = document.getElementById('covVarsList');
+  if (covDiv) {
+    if (selectedCovVars.length === 0) covDiv.innerHTML = '<div style="color: var(--text-4); text-align: center; padding: 15px;">No variables</div>';
+    else covDiv.innerHTML = selectedCovVars.map(v => `<div style="display: inline-block; background: var(--emerald-bg); border-radius: 16px; padding: 4px 10px; margin: 3px;"><span>${escapeXml(v)}</span> <button onclick="removeFromRole('${v.replace(/'/g, "\\'")}', 'cov')" style="background:none;border:none;color:var(--rose);cursor:pointer;margin-left:5px;">✕</button></div>`).join('');
   }
 }
 
@@ -4331,28 +4807,13 @@ function toggleAnalysisOptions() {
   const centerRow = document.getElementById('centerOptionRow');
   const stageRow = document.getElementById('modStageRow');
   
-  // Mean centering options: Show ONLY for moderation AND modmed
   if (centerRow) {
-    if (analysisType === 'moderation' || analysisType === 'modmed') {
-      centerRow.style.display = 'flex';
-    } else {
-      centerRow.style.display = 'none';
-    }
+    centerRow.style.display = (analysisType === 'moderation' || analysisType === 'modmed') ? 'flex' : 'none';
   }
-  
-  // Moderation stage options: Show ONLY for modmed
   if (stageRow) {
-    if (analysisType === 'modmed') {
-      stageRow.style.display = 'flex';
-    } else {
-      stageRow.style.display = 'none';
-    }
+    stageRow.style.display = analysisType === 'modmed' ? 'flex' : 'none';
   }
 }
-
-let allGeneratedResults = [];
-let currentResultIndex = 0;
-let currentDisplayMode = 'single';
 
 function runAnalysisFromSelections() {
   const analysisType = document.getElementById('analysisTypeSelect').value;
@@ -4388,7 +4849,7 @@ function runAnalysisFromSelections() {
   }
   
   const cl = parseFloat(document.getElementById('confLevel').value) || 0.95;
-  const nBoot = parseInt(document.getElementById('bootSamples').value) || 0;
+  const nBoot = parseInt(document.getElementById('bootSamples').value) || 5000;
   const centerOption = document.getElementById('centerOption')?.value || 'continuous';
   const modStage = document.getElementById('modStageOption')?.value || 'first';
   
@@ -4396,16 +4857,14 @@ function runAnalysisFromSelections() {
   _currentModMedStage = modStage;
   
   const container = document.getElementById('analysisResultsContainer');
-  container.innerHTML = '<div class="alert alert-info">Running analysis...</div>';
+  container.innerHTML = '<div class="alert alert-info"><i class="fas fa-spinner fa-spin"></i> Running analysis...</div>';
   
   setTimeout(() => {
     try {
       allGeneratedResults = [];
       let counter = 1;
-      let analysisLabel = '';
       
       if (analysisType === 'simple') {
-        analysisLabel = 'Simple Mediation';
         for (let x of selectedXVars) {
           for (let m of selectedMVars) {
             for (let y of selectedYVars) {
@@ -4415,8 +4874,8 @@ function runAnalysisFromSelections() {
               }, covArrays, covNames, cl, nBoot);
               allGeneratedResults.push({
                 id: counter,
-                type: analysisLabel,
-                title: `${analysisLabel}: X=${x}, M=${m}, Y=${y}`,
+                type: 'Simple Mediation',
+                title: `Simple Mediation: ${x} → ${m} → ${y}`,
                 html: resultHtml
               });
               counter++;
@@ -4424,7 +4883,6 @@ function runAnalysisFromSelections() {
           }
         }
       } else if (analysisType === 'serial') {
-        analysisLabel = 'Serial Mediation';
         for (let x of selectedXVars) {
           for (let m1 of selectedMVars) {
             for (let m2 of selectedM2Vars) {
@@ -4435,8 +4893,8 @@ function runAnalysisFromSelections() {
                 }, covArrays, covNames, cl, nBoot);
                 allGeneratedResults.push({
                   id: counter,
-                  type: analysisLabel,
-                  title: `${analysisLabel}: X=${x}, M1=${m1}, M2=${m2}, Y=${y}`,
+                  type: 'Serial Mediation',
+                  title: `Serial Mediation: ${x} → ${m1} → ${m2} → ${y}`,
                   html: resultHtml
                 });
                 counter++;
@@ -4445,7 +4903,6 @@ function runAnalysisFromSelections() {
           }
         }
       } else if (analysisType === 'moderation') {
-        analysisLabel = 'Moderation';
         for (let x of selectedXVars) {
           for (let w of selectedWVars) {
             for (let y of selectedYVars) {
@@ -4455,8 +4912,8 @@ function runAnalysisFromSelections() {
               }, covArrays, covNames, cl, centerOption, nBoot);
               allGeneratedResults.push({
                 id: counter,
-                type: analysisLabel,
-                title: `${analysisLabel}: X=${x}, W=${w}, Y=${y}`,
+                type: 'Moderation',
+                title: `Moderation: ${x} × ${w} → ${y}`,
                 html: resultHtml
               });
               counter++;
@@ -4464,7 +4921,6 @@ function runAnalysisFromSelections() {
           }
         }
       } else if (analysisType === 'modmed') {
-        analysisLabel = 'Moderated Mediation';
         for (let x of selectedXVars) {
           for (let m of selectedMVars) {
             for (let w of selectedWVars) {
@@ -4475,8 +4931,8 @@ function runAnalysisFromSelections() {
                 }, covArrays, covNames, cl, nBoot, centerOption, modStage);
                 allGeneratedResults.push({
                   id: counter,
-                  type: analysisLabel,
-                  title: `${analysisLabel}: X=${x}, M=${m}, W=${w}, Y=${y}`,
+                  type: 'Moderated Mediation',
+                  title: `Moderated Mediation: ${x} → ${m} → ${y} (W=${w})`,
                   html: resultHtml
                 });
                 counter++;
@@ -4487,18 +4943,12 @@ function runAnalysisFromSelections() {
       }
       
       if (allGeneratedResults.length === 0) {
-        container.innerHTML = '<div class="alert alert-warn">No results generated.</div>';
+        container.innerHTML = '<div class="alert alert-warn">No results generated. Check your selections.</div>';
         return;
       }
       
       // Display results with navigation
-      if (allGeneratedResults.length === 1) {
-        // Single result - show directly with export buttons
-        displaySingleResultWithExport(allGeneratedResults[0]);
-      } else {
-        // Multiple results - show with navigation
-        displayResultsWithNavigation();
-      }
+      displayResultsWithNavigation();
       
     } catch(e) {
       container.innerHTML = `<div class="alert alert-err">Error: ${e.message}</div>`;
@@ -4507,45 +4957,61 @@ function runAnalysisFromSelections() {
   }, 100);
 }
 
-function displaySingleResultWithExport(result) {
-  const container = document.getElementById('analysisResultsContainer');
-  
-  // Add export buttons for single result
-  const exportBar = `
-    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 15px; padding: 10px; background: var(--surface-2); border-radius: var(--r-md);">
-      <button class="exp-btn" onclick="copySingleResult(${result.id})">Copy This Result</button>
-      <button class="exp-btn" onclick="exportSingleResultToWord(${result.id})">Export to Word</button>
-    </div>
-    <div id="singleResultContent">${result.html}</div>
-  `;
-  container.innerHTML = exportBar;
-}
-
 function displayResultsWithNavigation() {
   const container = document.getElementById('analysisResultsContainer');
+  const navDiv = document.getElementById('resultsNavigation');
+  
+  // Create navigation HTML if it doesn't exist
+  if (navDiv) {
+    navDiv.style.display = allGeneratedResults.length > 1 ? 'block' : 'none';
+  }
+  
   currentResultIndex = 0;
   
   function renderCurrentResult() {
     const result = allGeneratedResults[currentResultIndex];
-    const navHtml = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
-        <div style="font-weight: 700;">
-          Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
-          <span style="color: var(--brand);">${result.title}</span>
+    
+    // Update counter if exists
+    const counterSpan = document.getElementById('resultCounter');
+    if (counterSpan) {
+      counterSpan.textContent = `Result ${currentResultIndex + 1} of ${allGeneratedResults.length}`;
+    }
+    
+    // Build the results HTML in the original style
+    let resultsHtml = '';
+    
+    // Add navigation controls at the top if multiple results
+    if (allGeneratedResults.length > 1) {
+      resultsHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: var(--surface-2); border-radius: var(--r-lg); flex-wrap: wrap; gap: 10px;">
+          <div style="font-weight: 700;">
+            Result ${currentResultIndex + 1} of ${allGeneratedResults.length}: 
+            <span style="color: var(--brand);">${result.title}</span>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn-outline" onclick="navigateResults(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
+            <button class="btn-outline" onclick="navigateResults(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
+            <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
+            <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+          </div>
         </div>
-        <div style="display: flex; gap: 10px;">
-          <button class="btn-outline" onclick="navigateResult(-1)" ${currentResultIndex === 0 ? 'disabled style="opacity:0.5;"' : ''}>← Previous</button>
-          <button class="btn-outline" onclick="navigateResult(1)" ${currentResultIndex === allGeneratedResults.length - 1 ? 'disabled style="opacity:0.5;"' : ''}>Next →</button>
-          <button class="btn-primary" onclick="showAllResultsAccumulated()">Show All Results</button>
-          <button class="exp-btn" onclick="exportAllResultsToWord()">Export All to Word</button>
+      `;
+    } else {
+      // Single result - just show export buttons
+      resultsHtml += `
+        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-bottom: 15px;">
+          <button class="exp-btn" onclick="copySingleResult(${result.id})">Copy This Result</button>
+          <button class="exp-btn" onclick="exportSingleResultToWord(${result.id})">Export to Word</button>
         </div>
-      </div>
-      <div id="currentResultContent">${result.html}</div>
-    `;
-    container.innerHTML = navHtml;
+      `;
+    }
+    
+    // Add the actual result content
+    resultsHtml += `<div id="currentResultContent">${result.html}</div>`;
+    container.innerHTML = resultsHtml;
   }
   
-  window.navigateResult = function(direction) {
+  window.navigateResults = function(direction) {
     const newIndex = currentResultIndex + direction;
     if (newIndex >= 0 && newIndex < allGeneratedResults.length) {
       currentResultIndex = newIndex;
@@ -4574,46 +5040,45 @@ function displayResultsWithNavigation() {
       `;
     }
     container.innerHTML = allResultsHtml;
+    const navDiv2 = document.getElementById('resultsNavigation');
+    if (navDiv2) navDiv2.style.display = 'none';
   };
   
-  renderCurrentResult();
-}
-
-window.copySingleResult = function(resultId) {
-  const result = allGeneratedResults.find(r => r.id === resultId);
-  if (result) {
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = result.html;
-    const text = tempDiv.innerText || tempDiv.textContent;
-    navigator.clipboard.writeText(text).then(() => {
-      showNotification('Result copied to clipboard!', 'success');
-    });
-  }
-};
-
-window.exportSingleResultToWord = function(resultId) {
-  const result = allGeneratedResults.find(r => r.id === resultId);
-  if (result) {
-    exportToWord(result.html, `MedModr_${result.type}_${result.id}`);
-  }
-};
-
-window.exportAllResultsToWord = function() {
-  let combinedHtml = '';
-  for (let i = 0; i < allGeneratedResults.length; i++) {
-    combinedHtml += `
-      <div style="margin-bottom: 50px; page-break-after: always;">
-        <h2 style="color: var(--brand);">Result ${i + 1}: ${allGeneratedResults[i].title}</h2>
-        ${allGeneratedResults[i].html}
-      </div>
-    `;
-  }
-  exportToWord(combinedHtml, 'MedModr_All_Results');
-};
-
-function exportToWord(htmlContent, filename) {
-  const yr = new Date().getFullYear();
-  const fullHtml = `<!DOCTYPE html>
+  window.copySingleResult = function(resultId) {
+    const result = allGeneratedResults.find(r => r.id === resultId);
+    if (result) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = result.html;
+      const text = tempDiv.innerText || tempDiv.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('Result copied to clipboard!');
+      });
+    }
+  };
+  
+  window.exportSingleResultToWord = function(resultId) {
+    const result = allGeneratedResults.find(r => r.id === resultId);
+    if (result) {
+      exportToWordDocument(result.html, `MedModr_${result.type.replace(/\s/g, '_')}_${result.id}`);
+    }
+  };
+  
+  window.exportAllResultsToWord = function() {
+    let combinedHtml = '';
+    for (let i = 0; i < allGeneratedResults.length; i++) {
+      combinedHtml += `
+        <div style="margin-bottom: 50px; page-break-after: always;">
+          <h2 style="color: #3d5af1;">Result ${i + 1}: ${allGeneratedResults[i].title}</h2>
+          ${allGeneratedResults[i].html}
+        </div>
+      `;
+    }
+    exportToWordDocument(combinedHtml, 'MedModr_All_Results');
+  };
+  
+  function exportToWordDocument(htmlContent, filename) {
+    const yr = new Date().getFullYear();
+    const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
@@ -4634,7 +5099,6 @@ function exportToWord(htmlContent, filename) {
 <div class="app-meta">
   <strong>MedModr: Mediation & Moderation Tool</strong> (Version 2.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong><br>
-  App Website: https://shinyhealthtools.github.io/medmodr/<br>
   Generated: ${new Date().toLocaleString()}
 </div>
 ${htmlContent}
@@ -4643,27 +5107,29 @@ ${htmlContent}
 </div>
 </body>
 </html>`;
+    const blob = new Blob([fullHtml], { type: 'application/msword' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.doc`;
+    a.click();
+    URL.revokeObjectURL(blob);
+  }
   
-  const blob = new Blob([fullHtml], { type: 'application/msword' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.doc`;
-  a.click();
-  URL.revokeObjectURL(blob);
+  function showToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: #059669; color: white; padding: 10px 18px; border-radius: 8px; font-weight: 600; z-index: 10000; animation: fadeInOut 2s ease;';
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+  }
+  
+  renderCurrentResult();
 }
-
-function showNotification(message, type) {
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position: fixed; bottom: 20px; right: 20px; background: var(--brand); color: white; padding: 12px 20px; border-radius: 12px; font-weight: 600; z-index: 10000;';
-  toast.innerHTML = message;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
 function getColumnData(varName) {
   const colIndex = window.analysisColumns.indexOf(varName);
   return colIndex !== -1 ? window.analysisData.map(row => row[colIndex]) : [];
 }
+
 
 function applyListwiseDeletion() {
   const rowsToKeep = [];
