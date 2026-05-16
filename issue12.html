@@ -775,6 +775,250 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   50% { transform: scale(1.05); }
 }
 
+/* ============================================ */
+/* DIALOG CLOSE FUNCTIONALITY - CLICK OUTSIDE   */
+/* ============================================ */
+
+/* Make modal overlays clickable for closing */
+.diagram-modal[data-dialog="true"],
+.slopes-modal[data-dialog="true"],
+.cat-modal[data-dialog="true"] {
+  cursor: pointer;
+}
+
+/* But prevent cursor pointer on inner content */
+.diagram-modal-inner,
+.slopes-modal-inner,
+.cat-modal-content {
+  cursor: default;
+}
+
+/* Animation for dialog closing */
+.diagram-modal,
+.slopes-modal,
+.cat-modal {
+  transition: opacity 0.2s ease;
+}
+
+/* Simple Dialog Overlay - keep for compatibility */
+.simple-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.simple-dialog {
+  background: var(--surface);
+  border-radius: 24px;
+  max-width: 420px;
+  width: 90%;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  animation: dialogSlideIn 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.simple-dialog-header {
+  padding: 20px 24px 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.simple-dialog-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.simple-dialog-icon i {
+  font-size: 20px;
+}
+
+.simple-dialog-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-1);
+  margin: 0;
+}
+
+.simple-dialog-body {
+  padding: 16px 24px;
+}
+
+.simple-dialog-message {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+
+.simple-dialog-message strong {
+  color: var(--text-1);
+  font-weight: 800;
+}
+
+.simple-dialog-footer {
+  padding: 0 24px 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.simple-dialog-btn {
+  padding: 10px 28px;
+  border-radius: 40px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: var(--font);
+  background: var(--brand);
+  color: white;
+}
+
+.simple-dialog-btn:hover {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(61, 90, 241, 0.3);
+}
+
+/* Custom Confirmation Dialog */
+.custom-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-confirm-box {
+  background: var(--surface);
+  border-radius: 20px;
+  max-width: 450px;
+  width: 90%;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
+  animation: confirmFadeIn 0.2s ease;
+}
+
+@keyframes confirmFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.custom-confirm-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--amber-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.custom-confirm-icon i {
+  font-size: 24px;
+  color: var(--amber);
+}
+
+.custom-confirm-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-1);
+  margin-bottom: 8px;
+}
+
+.custom-confirm-message {
+  font-size: 0.9rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.custom-confirm-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.custom-confirm-btn {
+  padding: 10px 24px;
+  border-radius: 40px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  font-family: var(--font);
+}
+
+.custom-confirm-btn-cancel {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border: 1.5px solid var(--border-med);
+}
+
+.custom-confirm-btn-cancel:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+  border-color: var(--brand);
+}
+
+.custom-confirm-btn-confirm {
+  background: var(--rose);
+  color: white;
+}
+
+.custom-confirm-btn-confirm:hover {
+  background: #be123c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(190, 18, 60, 0.3);
+}
+
 /* ============================================
    MODERATED MEDIATION ONLY 
    ============================================ */
@@ -890,37 +1134,34 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   </div>
 </div>
 
+<!-- ============================================ -->
+<!-- UNIFIED DIALOG SYSTEM - ALL MODALS           -->
+<!-- ============================================ -->
+
 <!-- PATH DIAGRAM MODAL -->
-<div class="diagram-modal" id="diagramModal">
+<div class="diagram-modal" id="diagramModal" data-dialog="true">
   <div class="diagram-modal-inner">
     <button class="diagram-modal-close" onclick="closeDiagramModal()"><i class="fas fa-times"></i></button>
- <div class="diagram-toolbar">
-  <span class="diagram-toolbar-title"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:8px"></i>Path Diagram</span>
-<button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
-<button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
-
-<!-- Line Length Adjustment Buttons -->
-<button class="dt-btn" id="diagLineLengthBtn" onclick="adjustLineLength(-0.1)"><i class="fas fa-arrows-alt-h"></i> Shorter Lines</button>
-<button class="dt-btn" onclick="adjustLineLength(0.1)"><i class="fas fa-arrows-alt-h"></i> Longer Lines</button>
-
-<!-- Toggle Card Box Button -->
-<button class="dt-btn active" id="toggleCardBoxBtn" onclick="toggleCardBox()"><i class="fas fa-square"></i> Card Box ON</button>
-
-<!-- Toggle Coefficients Button -->
-<button class="dt-btn active" id="toggleCoefsBtn" onclick="toggleCoefs()"><i class="fas fa-chart-line"></i> Show Coefs ON</button>
-
-<button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
-<button class="dt-btn" id="toggleBwBtn" onclick="toggleBlackAndWhite()"><i class="fas fa-paint-roller"></i> Black & White</button>
-<button class="dt-btn active" id="toggleIndirectBtn" onclick="toggleIndirectDisplay()"><i class="fas fa-chart-simple"></i> Show 95% CI</button>
-<button class="dt-btn active" id="toggleLineStyleBtn" onclick="toggleDirectLineStyle()"><i class="fas fa-chart-line"></i> Dotted Direct Effect</button>
-<button class="dt-btn" onclick="downloadDiagramPNG()"><i class="fas fa-download"></i> Download PNG</button>
-</div>
+    <div class="diagram-toolbar">
+      <span class="diagram-toolbar-title"><i class="fas fa-project-diagram" style="color:var(--brand);margin-right:8px"></i>Path Diagram</span>
+      <button class="dt-btn active" id="btnUnstd" onclick="setCoefMode('unstd')"><i class="fas fa-ruler"></i> Unstandardized</button>
+      <button class="dt-btn" id="btnStd" onclick="setCoefMode('std')"><i class="fas fa-percentage"></i> Standardized</button>
+      <button class="dt-btn" id="diagLineLengthBtn" onclick="adjustLineLength(-0.1)"><i class="fas fa-arrows-alt-h"></i> Shorter Lines</button>
+      <button class="dt-btn" onclick="adjustLineLength(0.1)"><i class="fas fa-arrows-alt-h"></i> Longer Lines</button>
+      <button class="dt-btn active" id="toggleCardBoxBtn" onclick="toggleCardBox()"><i class="fas fa-square"></i> Card Box ON</button>
+      <button class="dt-btn active" id="toggleCoefsBtn" onclick="toggleCoefs()"><i class="fas fa-chart-line"></i> Show Coefs ON</button>
+      <button class="dt-btn active" id="btnPval" onclick="toggleDiagPval()"><i class="fas fa-star-of-david"></i> Hide p-values</button>
+      <button class="dt-btn" id="toggleBwBtn" onclick="toggleBlackAndWhite()"><i class="fas fa-paint-roller"></i> Black & White</button>
+      <button class="dt-btn active" id="toggleIndirectBtn" onclick="toggleIndirectDisplay()"><i class="fas fa-chart-simple"></i> Show 95% CI</button>
+      <button class="dt-btn active" id="toggleLineStyleBtn" onclick="toggleDirectLineStyle()"><i class="fas fa-chart-line"></i> Dotted Direct Effect</button>
+      <button class="dt-btn" onclick="downloadDiagramPNG()"><i class="fas fa-download"></i> Download PNG</button>
+    </div>
     <div id="modalDiagramContainer" style="display:flex;justify-content:center;min-height:300px"></div>
   </div>
 </div>
 
 <!-- SIMPLE SLOPES FULLSCREEN MODAL -->
-<div class="slopes-modal" id="slopesModal">
+<div class="slopes-modal" id="slopesModal" data-dialog="true">
   <div class="slopes-modal-inner">
     <button class="slopes-modal-close" onclick="closeSlopesModal()"><i class="fas fa-times"></i></button>
     <div class="slopes-modal-toolbar">
@@ -935,7 +1176,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
 </div>
 
 <!-- CATEGORICAL VARIABLE MODAL -->
-<div id="catModal" class="cat-modal">
+<div id="catModal" class="cat-modal" data-dialog="true">
   <div class="cat-modal-content">
     <div class="cat-modal-header">
       <h3><i class="fas fa-tags"></i> Categorical Variable Encoding</h3>
@@ -12409,6 +12650,203 @@ function showToast(message, type = 'info', duration = 4000) {
 // Update showDataNotification to use toast
 function showDataNotification(message, type) {
     showToast(message, type, 4000);
+}
+
+// ============================================
+// DIALOG CLOSE FUNCTIONALITY
+// Close any dialog by clicking outside or pressing ESC
+// ============================================
+
+(function initDialogCloseSystem() {
+    
+    // Function to close any modal by clicking outside
+    function setupModalClickOutside(modalElement) {
+        if (!modalElement) return;
+        
+        modalElement.addEventListener('click', function(event) {
+            // If clicking directly on the modal overlay (background)
+            if (event.target === modalElement) {
+                // Find the close button or call close function
+                const closeBtn = modalElement.querySelector('.diagram-modal-close, .slopes-modal-close, .cat-modal-close');
+                if (closeBtn) {
+                    closeBtn.click();
+                } else {
+                    // Fallback: remove open class
+                    modalElement.classList.remove('open');
+                }
+            }
+        });
+    }
+    
+    // Set up all modals that have data-dialog attribute
+    function setupAllModals() {
+        const modals = document.querySelectorAll('[data-dialog="true"]');
+        modals.forEach(modal => {
+            setupModalClickOutside(modal);
+        });
+    }
+    
+    // Initial setup
+    setupAllModals();
+    
+    // Watch for dynamically added modals
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1 && node.matching) {
+                        if (node.matches && node.matches('[data-dialog="true"]')) {
+                            setupModalClickOutside(node);
+                        }
+                        // Also check for modals that get .open class added
+                        if (node.classList && node.classList.contains('open')) {
+                            const modal = node.closest('[data-dialog="true"]');
+                            if (modal) setupModalClickOutside(modal);
+                        }
+                    }
+                });
+            }
+        });
+    });
+    
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Global ESC key handler
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            // Close diagram modal if open
+            const diagramModal = document.getElementById('diagramModal');
+            if (diagramModal && diagramModal.classList.contains('open')) {
+                closeDiagramModal();
+            }
+            
+            // Close slopes modal if open
+            const slopesModal = document.getElementById('slopesModal');
+            if (slopesModal && slopesModal.classList.contains('open')) {
+                closeSlopesModal();
+            }
+            
+            // Close categorical modal if open
+            const catModal = document.getElementById('catModal');
+            if (catModal && catModal.classList.contains('open')) {
+                closeCategoricalModal();
+            }
+            
+            // Close any simple dialogs
+            const simpleDialogs = document.querySelectorAll('.simple-dialog-overlay, .custom-confirm-overlay');
+            simpleDialogs.forEach(dialog => {
+                if (dialog.remove) dialog.remove();
+            });
+        }
+    });
+    
+    // Override the modal open functions to ensure click-outside works
+    const originalOpenDiagram = window.openDiagramModal;
+    if (originalOpenDiagram) {
+        window.openDiagramModal = function(data) {
+            originalOpenDiagram(data);
+            setTimeout(() => {
+                const modal = document.getElementById('diagramModal');
+                if (modal) setupModalClickOutside(modal);
+            }, 100);
+        };
+    }
+    
+    const originalOpenSlopes = window.openSlopesModal;
+    if (originalOpenSlopes) {
+        window.openSlopesModal = function() {
+            if (originalOpenSlopes) originalOpenSlopes();
+            setTimeout(() => {
+                const modal = document.getElementById('slopesModal');
+                if (modal) setupModalClickOutside(modal);
+            }, 100);
+        };
+    }
+    
+    const originalOpenCat = window.openCategoricalModal;
+    if (originalOpenCat) {
+        window.openCategoricalModal = function() {
+            if (originalOpenCat) originalOpenCat();
+            setTimeout(() => {
+                const modal = document.getElementById('catModal');
+                if (modal) setupModalClickOutside(modal);
+            }, 100);
+        };
+    }
+    
+})();
+
+// Fix for showAlertDialog to also close on ESC and outside click
+const originalShowAlertDialog = window.showAlertDialog;
+if (originalShowAlertDialog) {
+    window.showAlertDialog = function(message, title = 'Notice', type = 'info') {
+        return new Promise((resolve) => {
+            const existing = document.querySelector('.simple-dialog-overlay');
+            if (existing) existing.remove();
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'simple-dialog-overlay';
+            
+            const icons = {
+                warning: 'fa-exclamation-triangle',
+                error: 'fa-times-circle',
+                success: 'fa-check-circle',
+                info: 'fa-info-circle'
+            };
+            
+            const colors = {
+                warning: '#f59e0b',
+                error: '#dc2626',
+                success: '#10b981',
+                info: '#3d5af1'
+            };
+            
+            overlay.innerHTML = `
+                <div class="simple-dialog">
+                    <div class="simple-dialog-header">
+                        <div class="simple-dialog-icon" style="background: ${colors[type]}20; color: ${colors[type]};">
+                            <i class="fas ${icons[type]}"></i>
+                        </div>
+                        <h3 class="simple-dialog-title">${escapeXml(title)}</h3>
+                    </div>
+                    <div class="simple-dialog-body">
+                        <div class="simple-dialog-message">${message}</div>
+                    </div>
+                    <div class="simple-dialog-footer">
+                        <button class="simple-dialog-btn" id="dialogOkBtn">OK</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            
+            // Close on ESC
+            const escHandler = function(e) {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
+                    resolve(false);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+            
+            // Close on outside click
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                    document.removeEventListener('keydown', escHandler);
+                    resolve(false);
+                }
+            });
+            
+            const okBtn = document.getElementById('dialogOkBtn');
+            okBtn.onclick = () => {
+                overlay.remove();
+                document.removeEventListener('keydown', escHandler);
+                resolve(true);
+            };
+        });
+    };
 }
 
 </script>
