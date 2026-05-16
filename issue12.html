@@ -4085,8 +4085,13 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
             </select>
             <span class="opt-label">Confidence level:</span>
             <select class="opt-select" id="confLevel"><option value="0.95">95%</option><option value="0.99">99%</option><option value="0.90">90%</option></select>
-            <span class="opt-label">Bootstrap samples:</span>
-            <select class="opt-select" id="bootSamples"><option value="0">None (Sobel only)</option><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select>
+<span class="opt-label">Bootstrap samples:</span>
+<select class="opt-select" id="bootSamples"><option value="0">None (Sobel only)</option><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select>
+<span class="opt-label">Bootstrap method:</span>
+<select class="opt-select" id="bootMethod">
+  <option value="percentile" selected>Percentile (default)</option>
+  <option value="bias-corrected">Bias-Corrected (BC)</option>
+</select>
           </div>
 
 <!-- Categorical Variables Row - ALWAYS VISIBLE -->
@@ -7139,7 +7144,7 @@ function exportToWordDocument(htmlContent, filename) {
 <div class="app-meta">
   <strong>MedModr: Mediation & Moderation Tool</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong><br>
-  <div class="analysis-config">📊 ${analysisConfigText}</div>
+  <div class="analysis-config"><strong>Configuration:</strong> ${analysisConfigText}</div>
   🇬🇭 Built in Ghana | Open-source for the global research community 🇬🇭<br>
   Generated: ${new Date().toLocaleString()}
 </div>
@@ -10324,13 +10329,19 @@ function runSimpleMed(vars,covArrays,covNames,cl,nBoot){
   let bootHtml='',bootRes=null;
   let bootSimple = null;
   
-  if(nBoot>0){
-    bootRes=bootCI_simple(xc,m,y,nBoot,cl,covArrays);
+if(nBoot>0){
+    const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
+    if (bootMethod === 'bias-corrected') {
+        bootRes = bootCI_simple_bc(xc, m, y, nBoot, cl, covArrays);
+    } else {
+        bootRes = bootCI_simple(xc, m, y, nBoot, cl, covArrays);
+    }
     if(bootRes){
       bootSimple = bootRes;
+      const methodLabel = bootMethod === 'bias-corrected' ? 'BC' : 'Percentile';
       bootHtml=bootBlock([
         {path:`${xn}→${mn}→${yn}`,e:bootSimple.effect,se:bootSimple.se,lo:bootSimple.lo,hi:bootSimple.hi,sig:bootSimple.lo>0||bootSimple.hi<0}
-      ],nBoot);
+      ],nBoot, methodLabel);
     }
   }
 
@@ -10506,18 +10517,24 @@ function runSerialMed(vars,covArrays,covNames,cl,nBoot){
   let bootHtml='',bootRes=null;
   let bootSerial = null, bootM1 = null, bootM2 = null;
   
-  if(nBoot>0){
-    bootRes=bootCI_serial(xc,m1,m2,y,nBoot,cl,covArrays);
+ if(nBoot>0){
+    const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
+    if (bootMethod === 'bias-corrected') {
+        bootRes = bootCI_serial_bc(xc, m1, m2, y, nBoot, cl, covArrays);
+    } else {
+        bootRes = bootCI_serial(xc, m1, m2, y, nBoot, cl, covArrays);
+    }
     if(bootRes){
       bootSerial = bootRes.xm1m2y;
       bootM1 = bootRes.xm1y;
       bootM2 = bootRes.xm2y;
+      const methodLabel = bootMethod === 'bias-corrected' ? 'BC' : 'Percentile';
       
       bootHtml=bootBlock([
         {path:`${xn}→${m1n}→${m2n}→${yn}`,e:bootSerial.effect,se:bootSerial.se,lo:bootSerial.lo,hi:bootSerial.hi,sig:bootSerial.lo>0||bootSerial.hi<0},
         {path:`${xn}→${m1n}→${yn}`,e:bootM1.effect,se:bootM1.se,lo:bootM1.lo,hi:bootM1.hi,sig:bootM1.lo>0||bootM1.hi<0},
         {path:`${xn}→${m2n}→${yn}`,e:bootM2.effect,se:bootM2.se,lo:bootM2.lo,hi:bootM2.hi,sig:bootM2.lo>0||bootM2.hi<0},
-      ],nBoot);
+      ],nBoot, methodLabel);
     }
   }
 
@@ -11448,8 +11465,14 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
   let bootRes = null;
   
   if (nBoot > 0 && stage !== 'both') {
-    if (stage === 'first') {
-      bootRes = bootCI_modmed_first(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+if (stage === 'first') {
+      const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
+      if (bootMethod === 'bias-corrected') {
+          bootRes = bootCI_modmed_first_bc(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+      } else {
+          bootRes = bootCI_modmed_first(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+      }
+      
       if (bootRes) {
         bootHtml = `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
           <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap Results (${nBoot.toLocaleString()} samples, percentile method)</div>
@@ -11473,8 +11496,14 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
           <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the Index of Moderated Mediation CI excludes zero.</div>
         </div>`;
       }
-    } else if (stage === 'second') {
-      bootRes = bootCI_modmed_second(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+} else if (stage === 'second') {
+      const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
+      if (bootMethod === 'bias-corrected') {
+          bootRes = bootCI_modmed_second_bc(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+      } else {
+          bootRes = bootCI_modmed_second(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
+      }
+      
       if (bootRes) {
         bootHtml = `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
           <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap Results (${nBoot.toLocaleString()} samples, percentile method)</div>
@@ -11775,10 +11804,10 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
 // ── HELPERS ──
 function err(msg){return `<div class="alert alert-err"><i class="fas fa-times-circle"></i>${msg}</div>`}
 function sigLbl(lo,hi){return lo>0||hi<0?'<span style="color:var(--emerald);font-weight:800">✓ Yes</span>':'<span style="color:var(--text-4)">✗ No</span>'}
-function bootBlock(paths,nBoot){
-  const rows=paths.map(p=>`<tr${p.bold?' class="row-bold"':''}><td>${p.path}</td><td>${fmtv(p.e)}</td><td>${fmtv(p.se)}</td><td>${fmtv(p.lo)}</td><td>${fmtv(p.hi)}</td><td>${sigLbl(p.lo,p.hi)}</td></tr>`).join('');
+function bootBlock(paths, nBoot, method = 'Percentile'){
+  const rows=paths.map(p=>`<tr${p.bold?' class="row-bold"':''}><td>${p.path}</td><td>${fmtv(p.e)}</td><td>${fmtv(p.se)}</td><td>${fmtv(p.lo)}</td><td>${fmtv(p.hi)}</td><td>${sigLbl(p.lo,p.hi)}</td><tr>`).join('');
   return `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
-    <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap CI (${nBoot.toLocaleString()} samples, percentile)</div>
+    <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap ${method} CI (${nBoot.toLocaleString()} samples)</div>
     <div class="res-table-wrap"><table class="res-table"><thead><tr><th>Path</th><th>Effect</th><th>BootSE</th><th>BootLLCI</th><th>BootULCI</th><th>Sig?</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
@@ -12229,6 +12258,240 @@ if (loadingVersionEl && loadingScreen) {
   
   // Prevent scrolling while loading
   document.body.style.overflow = 'hidden';
+}
+
+// Bootstrap with Bias-Corrected (BC) confidence intervals for simple mediation
+function bootCI_simple_bc(x, m, y, nB, cl, covs = []) {
+    const n = x.length;
+    const alpha = 1 - cl;
+    const bootSamples = [];
+    
+    for (let b = 0; b < nB; b++) {
+        const idx = Array.from({ length: n }, () => getRandomInt(n));
+        const bx = idx.map(i => x[i]);
+        const bm = idx.map(i => m[i]);
+        const by = idx.map(i => y[i]);
+        const bc = covs.map(c => idx.map(i => c[i]));
+        
+        const rM = ols(bm, buildMat([bx, ...bc]), ['X', ...bc.map((_, i) => 'C' + i)]);
+        const rY = ols(by, buildMat([bx, bm, ...bc]), ['X', 'M', ...bc.map((_, i) => 'C' + i)]);
+        
+        if (rM && rY) {
+            bootSamples.push(rM.coef[1] * rY.coef[2]);
+        }
+    }
+    
+    if (bootSamples.length < 10) return null;
+    
+    bootSamples.sort((a, b) => a - b);
+    const thetaHat = mean(bootSamples);
+    
+    // Calculate bias correction factor z0
+    const propLess = bootSamples.filter(s => s < thetaHat).length / bootSamples.length;
+    let z0 = invNormApprox(propLess);
+    if (isNaN(z0)) z0 = 0;
+    
+    const zAlpha = invNormApprox(1 - alpha / 2);
+    
+    // BC formula: lower = phi(2*z0 - z_alpha), upper = phi(2*z0 + z_alpha)
+    const zLow = 2 * z0 - zAlpha;   // For lower bound
+    const zHigh = 2 * z0 + zAlpha;  // For upper bound
+    
+    const pLow = normalCDF(zLow);
+    const pHigh = normalCDF(zHigh);
+    
+    const loIdx = Math.max(0, Math.floor(pLow * bootSamples.length));
+    const hiIdx = Math.min(bootSamples.length - 1, Math.floor(pHigh * bootSamples.length));
+    
+    return {
+        effect: mean(bootSamples),
+        se: sd(bootSamples),
+        lo: bootSamples[loIdx],   // This is now correctly the lower bound
+        hi: bootSamples[hiIdx],   // This is now correctly the upper bound
+        method: 'bias-corrected'
+    };
+}
+
+// Bootstrap with Bias-Corrected (BC) for serial mediation
+function bootCI_serial_bc(x, m1, m2, y, nB, cl, covs = []) {
+    const n = x.length;
+    const alpha = 1 - cl;
+    const paths = { xm1m2y: [], xm1y: [], xm2y: [] };
+    
+    for (let b = 0; b < nB; b++) {
+        const idx = Array.from({ length: n }, () => getRandomInt(n));
+        const bx = idx.map(i => x[i]);
+        const bm1 = idx.map(i => m1[i]);
+        const bm2 = idx.map(i => m2[i]);
+        const by = idx.map(i => y[i]);
+        const bc = covs.map(c => idx.map(i => c[i]));
+        
+        const rM1 = ols(bm1, buildMat([bx, ...bc]), ['X']);
+        const rM2 = ols(bm2, buildMat([bx, bm1, ...bc]), ['X', 'M1']);
+        const rY = ols(by, buildMat([bx, bm1, bm2, ...bc]), ['X', 'M1', 'M2']);
+        
+        if (rM1 && rM2 && rY) {
+            const a1 = rM1.coef[1];
+            const d21 = rM2.coef[2];
+            const a2 = rM2.coef[1];
+            const b2 = rY.coef[3];
+            const b1 = rY.coef[2];
+            paths.xm1m2y.push(a1 * d21 * b2);
+            paths.xm1y.push(a1 * b1);
+            paths.xm2y.push(a2 * b2);
+        }
+    }
+    
+    function getBCCi(arr, thetaHat) {
+        if (arr.length < 10) return null;
+        arr.sort((a, b) => a - b);
+        const propLess = arr.filter(s => s < thetaHat).length / arr.length;
+        let z0 = invNormApprox(propLess);
+        if (isNaN(z0)) z0 = 0;
+        const zAlpha = invNormApprox(1 - alpha / 2);
+        
+        // BC formula: lower = phi(2*z0 - z_alpha), upper = phi(2*z0 + z_alpha)
+        const zLow = 2 * z0 - zAlpha;
+        const zHigh = 2 * z0 + zAlpha;
+        
+        const pLow = normalCDF(zLow);
+        const pHigh = normalCDF(zHigh);
+        
+        const loIdx = Math.max(0, Math.floor(pLow * arr.length));
+        const hiIdx = Math.min(arr.length - 1, Math.floor(pHigh * arr.length));
+        return { effect: mean(arr), se: sd(arr), lo: arr[loIdx], hi: arr[hiIdx] };
+    }
+    
+    return {
+        xm1m2y: getBCCi(paths.xm1m2y, mean(paths.xm1m2y)),
+        xm1y: getBCCi(paths.xm1y, mean(paths.xm1y)),
+        xm2y: getBCCi(paths.xm2y, mean(paths.xm2y))
+    };
+}
+
+// Bootstrap with Bias-Corrected (BC) for first stage moderated mediation
+function bootCI_modmed_first_bc(xRaw, mRaw, yRaw, wRaw, nB, cl, covs = []) {
+    const n = xRaw.length;
+    const alpha = 1 - cl;
+    const res = { low: [], mid: [], high: [], index: [] };
+    const sdWo = sd(wRaw);
+    
+    for (let b = 0; b < nB; b++) {
+        const idx = Array.from({ length: n }, () => getRandomInt(n));
+        const bxR = idx.map(i => xRaw[i]);
+        const bwR = idx.map(i => wRaw[i]);
+        const bm = idx.map(i => mRaw[i]);
+        const by = idx.map(i => yRaw[i]);
+        const bc = covs.map(c => idx.map(i => c[i]));
+        
+        const bxC = centre(bxR);
+        const bwC = centre(bwR);
+        const bxw = bxC.map((v, i) => v * bwC[i]);
+        
+        const rM = ols(bm, buildMat([bxR, bwR, bxw, ...bc]), ['X', 'W', 'XW', ...bc.map((_, i) => 'C' + i)]);
+        const rY = ols(by, buildMat([bxR, bm, ...bc]), ['X', 'M', ...bc.map((_, i) => 'C' + i)]);
+        
+        if (rM && rY) {
+            const a1 = rM.coef[1];
+            const a3 = rM.coef[3];
+            const bB = rY.coef[2];
+            res.low.push((a1 + a3 * (-sdWo)) * bB);
+            res.mid.push(a1 * bB);
+            res.high.push((a1 + a3 * sdWo) * bB);
+            res.index.push(a3 * bB);
+        }
+    }
+    
+    function getBCCi(arr) {
+        if (arr.length < 10) return null;
+        arr.sort((a, b) => a - b);
+        const thetaHat = mean(arr);
+        const propLess = arr.filter(s => s < thetaHat).length / arr.length;
+        let z0 = invNormApprox(propLess);
+        if (isNaN(z0)) z0 = 0;
+        const zAlpha = invNormApprox(1 - alpha / 2);
+        
+        const zLow = 2 * z0 - zAlpha;
+        const zHigh = 2 * z0 + zAlpha;
+        
+        const pLow = normalCDF(zLow);
+        const pHigh = normalCDF(zHigh);
+        
+        const loIdx = Math.max(0, Math.floor(pLow * arr.length));
+        const hiIdx = Math.min(arr.length - 1, Math.floor(pHigh * arr.length));
+        return { effect: mean(arr), se: sd(arr), lo: arr[loIdx], hi: arr[hiIdx] };
+    }
+    
+    return {
+        low: getBCCi(res.low),
+        mid: getBCCi(res.mid),
+        high: getBCCi(res.high),
+        index: getBCCi(res.index)
+    };
+}
+
+// Bootstrap with Bias-Corrected (BC) for second stage moderated mediation
+function bootCI_modmed_second_bc(xRaw, mRaw, yRaw, wRaw, nB, cl, covs = []) {
+    const n = xRaw.length;
+    const alpha = 1 - cl;
+    const res = { low: [], mid: [], high: [], index_second: [] };
+    const mW = mean(wRaw);
+    const sW = sd(wRaw);
+    
+    for (let b = 0; b < nB; b++) {
+        const idx = Array.from({ length: n }, () => getRandomInt(n));
+        const bxR = idx.map(i => xRaw[i]);
+        const bwR = idx.map(i => wRaw[i]);
+        const bm = idx.map(i => mRaw[i]);
+        const by = idx.map(i => yRaw[i]);
+        const bc = covs.map(c => idx.map(i => c[i]));
+        
+        const bxC = centre(bxR);
+        const bwC = centre(bwR);
+        const bmC = centre(bm);
+        const bmw = bmC.map((v, i) => v * bwC[i]);
+        
+        const rM = ols(bm, buildMat([bxR, ...bc]), ['X', ...bc.map((_, i) => 'C' + i)]);
+        const rY = ols(by, buildMat([bxR, bm, bwR, bmw, ...bc]), ['X', 'M', 'W', 'MW', ...bc.map((_, i) => 'C' + i)]);
+        
+        if (rM && rY) {
+            const a1 = rM.coef[1];
+            const b1 = rY.coef[2];
+            const b3 = rY.coef[4];
+            const wVals = [mW - sW, mW, mW + sW];
+            res.low.push(a1 * (b1 + b3 * (wVals[0] - mW)));
+            res.mid.push(a1 * (b1 + b3 * (wVals[1] - mW)));
+            res.high.push(a1 * (b1 + b3 * (wVals[2] - mW)));
+            res.index_second.push(a1 * b3);
+        }
+    }
+    
+    function getBCCi(arr) {
+        if (arr.length < 10) return null;
+        arr.sort((a, b) => a - b);
+        const thetaHat = mean(arr);
+        const propLess = arr.filter(s => s < thetaHat).length / arr.length;
+        let z0 = invNormApprox(propLess);
+        if (isNaN(z0)) z0 = 0;
+        const zAlpha = invNormApprox(1 - alpha / 2);
+        
+        const zLow = 2 * z0 - zAlpha;
+        const zHigh = 2 * z0 + zAlpha;
+        
+        const pLow = normalCDF(zLow);
+        const pHigh = normalCDF(zHigh);
+        
+        const loIdx = Math.max(0, Math.floor(pLow * arr.length));
+        const hiIdx = Math.min(arr.length - 1, Math.floor(pHigh * arr.length));
+        return { effect: mean(arr), se: sd(arr), lo: arr[loIdx], hi: arr[hiIdx] };
+    }
+    
+    return {
+        low: getBCCi(res.low),
+        mid: getBCCi(res.mid),
+        high: getBCCi(res.high),
+        index_second: getBCCi(res.index_second)
+    };
 }
 
 // ============================================
