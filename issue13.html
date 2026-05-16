@@ -9520,6 +9520,14 @@ function buildParallelMedSVG(d, mode, showP, W, H) {
     const bh = 50;   // box height
     const k = mediatorNames ? mediatorNames.length : 0;
     
+    if (k > 2) {
+    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+      <text x="${W/2}" y="${H/2}" text-anchor="middle" font-size="14" font-weight="600" fill="${colors.nodeText}" font-family="Sora,sans-serif">
+        Path diagram not available for more than 2 mediators
+      </text>
+    </svg>`;
+  }
+    
     if (k === 0) return '<svg></svg>';
     
     // Position X (left)
