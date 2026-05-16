@@ -9688,11 +9688,14 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   // STEP 6: Bootstrap for indirect effects
   // ============================================
   let bootIndices = [];
+  let totalBootCI = null;
   let bootHtml = '';
   
   if (nBoot > 0) {
     const alpha = 1 - cl;
     const bootSamples = [];
+    const totalBootSamples = [];
+    
     for (let i = 0; i < k; i++) bootSamples.push([]);
     
     for (let b = 0; b < nBoot; b++) {
@@ -9716,9 +9719,13 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
       const yPredictorsBoot = [bx, ...bm, ...bc];
       const rYb = ols(by, buildMat(yPredictorsBoot), ['X', ...mediatorNames, ...covNames]);
       if (rYb) {
+        let total = 0;
         for (let i = 0; i < k; i++) {
-          bootSamples[i].push(bootA[i] * rYb.coef[i + 2]);
+          const indirect = bootA[i] * rYb.coef[i + 2];
+          bootSamples[i].push(indirect);
+          total += indirect;
         }
+        totalBootSamples.push(total);
       }
     }
     
@@ -9731,6 +9738,7 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
     }
     
     bootIndices = bootSamples.map(s => getBootCI(s));
+    totalBootCI = getBootCI(totalBootSamples);
     
     let bootRows = '';
     for (let i = 0; i < k; i++) {
@@ -9744,6 +9752,18 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
           <td style="text-align:center;">${bootIndices[i].lo > 0 || bootIndices[i].hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
         </tr>`;
       }
+    }
+    
+    // Add total indirect effect row to bootstrap table
+    if (totalBootCI) {
+      bootRows += `<tr class="row-bold">
+        <td>Total indirect effect (sum)</td>
+        <td style="text-align:right;">${fmtv(totalBootCI.effect)}</td>
+        <td style="text-align:right;">${fmtv(totalBootCI.se)}</td>
+        <td style="text-align:right;">${fmtv(totalBootCI.lo)}</td>
+        <td style="text-align:right;">${fmtv(totalBootCI.hi)}</td>
+        <td style="text-align:center;">${totalBootCI.lo > 0 || totalBootCI.hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
+      </tr>`;
     }
     
     if (bootRows) {
@@ -9762,7 +9782,6 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   let aPathHtml = '';
   for (let i = 0; i < k; i++) {
     const mName = mediatorNames[i];
-    const mData = mediatorsData[mName];
     const Xmat_a = buildMat([xc, ...covArrays]);
     const predNames_a = [xn, ...covNames];
     
@@ -9788,7 +9807,7 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
       ${renderReg(rTot, rTz, yn, confPct, Xmat_tot, predNames_tot)}`;
   
   // ============================================
-  // STEP 10: Build Effects Summary Table
+  // STEP 10: Build Effects Summary Table (with Total Indirect)
   // ============================================
   let effectsRows = '';
   effectsRows += `<tr><td style="font-weight:600;">Total c (${xn}→${yn})</td>
@@ -9821,6 +9840,17 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
     </tr>`;
   }
   
+  // Add Total indirect effect row to effects summary
+  effectsRows += `<tr class="row-bold" style="border-top:1px solid var(--border);">
+    <td style="font-weight:800;">Total indirect effect (sum)</td>
+    <td style="text-align:right;">${fmtv(totalIndirect)}</td>
+    <td style="text-align:right;">${totalBootCI ? fmtv(totalBootCI.se) + ' (Boot)' : '—'}</td>
+    <td style="text-align:right;">${totalBootCI ? '—' : '—'}</td>
+    <td style="text-align:right;">${totalBootCI ? (totalBootCI.lo > 0 || totalBootCI.hi < 0 ? '<.05' : '>.05') : '—'}</td>
+    <td style="text-align:right;">${totalBootCI ? fmtv(totalBootCI.lo) : '—'}</td>
+    <td style="text-align:right;">${totalBootCI ? fmtv(totalBootCI.hi) : '—'}</td>
+  </tr>`;
+  
   const effectsHtml = `<div style="padding:18px;background:var(--surface-2);border-radius:var(--r-lg);border:1px solid var(--border);margin-top:18px">
     <div style="font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--brand);margin-bottom:14px"><i class="fas fa-share-alt"></i> Effects Summary</div>
     <div class="res-table-wrap"><table class="res-table">
@@ -9831,10 +9861,10 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   </div>`;
   
   // ============================================
-  // STEP 11: Descriptive Statistics
+  // STEP 11: Descriptive Statistics (FIXED: N right-aligned)
   // ============================================
   let descRows = `<tr><td style="font-weight:700;">${xn}</td>
-    <td style="text-align:center;">${xRaw.length}</td>
+    <td style="text-align:right;">${xRaw.length}</td>
     <td style="text-align:right;">${fmtv(mean(xRaw))}</td>
     <td style="text-align:right;">${fmtv(sd(xRaw))}</td>
     <td style="text-align:right;">${fmtv(Math.min(...xRaw))}</td>
@@ -9844,7 +9874,7 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   for (let i = 0; i < k; i++) {
     const mData = mediatorsData[mediatorNames[i]];
     descRows += `<tr><td style="font-weight:700;">${mediatorNames[i]}</td>
-      <td style="text-align:center;">${mData.length}</td>
+      <td style="text-align:right;">${mData.length}</td>
       <td style="text-align:right;">${fmtv(mean(mData))}</td>
       <td style="text-align:right;">${fmtv(sd(mData))}</td>
       <td style="text-align:right;">${fmtv(Math.min(...mData))}</td>
@@ -9853,7 +9883,7 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   }
   
   descRows += `<tr><td style="font-weight:700;">${yn}</td>
-    <td style="text-align:center;">${yRaw.length}</td>
+    <td style="text-align:right;">${yRaw.length}</td>
     <td style="text-align:right;">${fmtv(mean(yRaw))}</td>
     <td style="text-align:right;">${fmtv(sd(yRaw))}</td>
     <td style="text-align:right;">${fmtv(Math.min(...yRaw))}</td>
@@ -9877,9 +9907,10 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
   for (let i = 0; i < k; i++) {
     if (bootIndices[i] && (bootIndices[i].lo > 0 || bootIndices[i].hi < 0)) anyIndirectSig = true;
   }
+  const totalIndirectSig = totalBootCI ? (totalBootCI.lo > 0 || totalBootCI.hi < 0) : false;
   
   let mediationType = '';
-  if (anyIndirectSig) {
+  if (anyIndirectSig || totalIndirectSig) {
     if (totalEffectSig && directEffectSig) {
       mediationType = '<strong>Partial parallel mediation</strong>';
     } else if (totalEffectSig && !directEffectSig) {
@@ -9919,7 +9950,7 @@ c'-path (Direct effect, ${xn} → ${yn}): b = ${fmtv(cDirect)}, SE = ${fmtv(cDir
 
 <p><strong>Indirect effects:</strong><br>
 ${indirectText}
-<strong>Total indirect effect:</strong> b = ${fmtv(totalIndirect)}</p>
+<strong>Total indirect effect:</strong> b = ${fmtv(totalIndirect)}${totalBootCI ? `, BootSE = ${fmtv(totalBootCI.se)}, 95% CI [${fmtv(totalBootCI.lo)}, ${fmtv(totalBootCI.hi)}] — <strong>${totalIndirectSig ? 'excludes zero' : 'includes zero'}</strong>` : ''}</p>
 
 <p><strong>Overall interpretation:</strong> ${mediationType}. ${anyIndirectSig ? `The indirect effect${k > 1 ? 's' : ''} of ${xn} on ${yn} through ${k > 1 ? 'the proposed mediators' : mediatorNames[0]} is statistically significant.` : `No significant indirect effects were found.`} The direct effect ${directEffectSig ? 'remains significant' : 'is not significant'} after accounting for the mediator${k > 1 ? 's' : ''}.</p>`;
   
@@ -9951,10 +9982,6 @@ ${indirectText}
       ${effectsHtml}
       <div class="interp-box" style="margin-top:16px"><div class="interp-title"><i class="fas fa-lightbulb"></i> Summary</div>
         <div class="interp-text">${apaSummary}</div>
-      </div>
-      <div class="export-row no-export" style="margin-top:16px">
-        <button class="exp-btn" onclick="copyResults()"><i class="fas fa-copy"></i> Copy</button>
-        <button class="exp-btn" onclick="exportWord()"><i class="fas fa-file-word"></i> Export Word</button>
       </div>
     </div>
   </div>`;
