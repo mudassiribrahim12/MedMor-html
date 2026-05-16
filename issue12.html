@@ -6889,41 +6889,273 @@ window.showAllResultsAccumulated = function() {
     exportToWordDocument(combinedHtml, 'MedModr_All_Results');
   };
   
-  function exportToWordDocument(htmlContent, filename) {
+function exportToWordDocument(htmlContent, filename) {
     const yr = new Date().getFullYear();
+    
+    // Extract analysis configuration from the current result
+    let analysisConfigText = "";
+    
+    // Try to get the current analysis configuration
+    if (allGeneratedResults && allGeneratedResults.length > 0) {
+        const currentResult = allGeneratedResults.length === 1 ? allGeneratedResults[0] : allGeneratedResults[currentResultIndex];
+        if (currentResult && currentResult.config) {
+            analysisConfigText = currentResult.config;
+        } else {
+            // Fallback: try to extract from the currently selected analysis type and options
+            const analysisTypeSelect = document.getElementById('analysisTypeSelect');
+            const bootSamples = document.getElementById('bootSamples');
+            const confLevel = document.getElementById('confLevel');
+            const centerOption = document.getElementById('centerOption');
+            
+            let analysisType = analysisTypeSelect ? analysisTypeSelect.options[analysisTypeSelect.selectedIndex]?.text || 'Unknown' : 'Unknown';
+            let bootValue = bootSamples ? bootSamples.value : '0';
+            let confValue = confLevel ? confLevel.value : '0.95';
+            let centerText = "";
+            
+            if (centerOption && (analysisType === 'Moderation' || analysisType === 'moderation' || analysisType === 'Moderated Mediation' || analysisType === 'modmed')) {
+                const centerVal = centerOption.value;
+                if (centerVal === 'none') centerText = " | Centering: None";
+                else if (centerVal === 'continuous') centerText = " | Centering: Continuous-only";
+                else centerText = " | Centering: All variables";
+            }
+            
+            const bootText = bootValue !== '0' ? `${parseInt(bootValue).toLocaleString()} bootstrap samples` : "Sobel method";
+            const confText = ` ${Math.round(parseFloat(confValue) * 100)}% CIs`;
+            
+            analysisConfigText = `${analysisType} | ${bootText}${confText}${centerText}`;
+        }
+    }
+    
     const fullHtml = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
 <title>MedModr Results</title>
 <style>
-  body{font-family:Calibri,sans-serif;margin:50px;color:#111;font-size:11.5pt;line-height:1.7}
-  h1{font-size:18pt;color:#3d5af1;margin-bottom:4px}
-  h2{font-size:14pt;color:#3d5af1;margin-top:20px;}
-  .app-meta{font-size:10pt;color:#555;border-bottom:2px solid #3d5af1;padding-bottom:12px;margin-bottom:22px}
-  table{border-collapse:collapse;width:100%;margin:12px 0}
-  th,td{border:1px solid #ccc;padding:7px 12px;font-size:10.5pt}
-  th{background:#eef2ff;font-weight:bold}
-  .footer{margin-top:40px;font-size:9.5pt;color:#888;border-top:1px solid #ddd;padding-top:12px}
+  /* Base styles - professional report format */
+  body {
+    font-family: Calibri, sans-serif;
+    margin: 0 auto;
+    padding: 40px 60px;
+    color: #111;
+    font-size: 11pt;
+    line-height: 1.5;
+    max-width: 1100px;
+    background: white;
+  }
+  
+  h1 {
+    font-size: 18pt;
+    color: #2c3e50;
+    margin-bottom: 5px;
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  .app-meta {
+    font-size: 10pt;
+    color: #555;
+    border-top: 1px solid #aaa;
+    border-bottom: 1px solid #aaa;
+    padding: 10px 0;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+  
+  .analysis-config {
+    font-size: 10pt;
+    color: #2c3e50;
+    margin-top: 5px;
+    font-style: italic;
+  }
+  
+  /* Professional table styling - FULL BORDERS, NO COLOR ON FIRST TWO ROWS */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0 0 25px 0;
+    font-size: 10pt;
+    page-break-inside: avoid;
+  }
+  
+  th {
+    border: 1px solid #000000;
+    padding: 8px 10px;
+    font-weight: bold;
+    background: transparent !important;
+    text-align: center;
+    vertical-align: middle;
+  }
+  
+  td {
+    border: 1px solid #000000;
+    padding: 6px 10px;
+    text-align: center;
+    vertical-align: middle;
+    background: transparent !important;
+  }
+  
+  /* Remove background from first two rows of thead */
+  thead tr:first-child th,
+  thead tr:first-child td,
+  thead tr:nth-child(2) th,
+  thead tr:nth-child(2) td {
+    background: transparent !important;
+  }
+  
+  /* Remove background from tbody rows */
+  tbody tr td {
+    background: transparent !important;
+  }
+  
+  /* Remove background from any th or td with bg classes */
+  th[style*="background"], td[style*="background"],
+  th[class*="bg-"], td[class*="bg-"],
+  .th-group, .bg-brand, .bg-surface-2 {
+    background: transparent !important;
+  }
+  
+  /* First column left-aligned */
+  td:first-child, th:first-child {
+    text-align: left;
+  }
+  
+  /* Table headers with bottom border emphasis */
+  thead tr:first-child th {
+    border-bottom: 2px solid #000000;
+  }
+  
+  /* Label styling - close to table, professional spacing */
+  .res-sub-label {
+    font-weight: bold;
+    font-size: 11pt;
+    margin: 20px 0 6px 0;
+    padding: 0;
+    color: #2c3e50;
+    display: block;
+  }
+  
+  /* First label after h1 should have smaller top margin */
+  .res-sub-label:first-of-type {
+    margin-top: 10px;
+  }
+  
+  /* Panel spacing - prevents table overlap */
+  .panel {
+    margin-bottom: 30px;
+    page-break-inside: avoid;
+  }
+  
+  .panel-body {
+    padding: 0;
+  }
+  
+  /* Table wrapper - no extra margins */
+  .res-table-wrap {
+    margin: 0;
+    overflow-x: auto;
+  }
+  
+  /* Footer */
+  .footer {
+    margin-top: 50px;
+    font-size: 9pt;
+    color: #666;
+    border-top: 1px solid #aaa;
+    padding-top: 15px;
+    text-align: center;
+  }
+  
+  /* Main content container */
+  .main-content {
+    margin: 0 auto;
+    width: 100%;
+  }
+  
+  /* Prevent table breaks inside rows */
+  tr {
+    page-break-inside: avoid;
+    page-break-after: avoid;
+  }
+  
+  /* Interpretation box professional styling */
+  .interp-box {
+    margin: 25px 0 20px 0;
+    padding: 15px 20px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    page-break-inside: avoid;
+  }
+  
+  .interp-title {
+    font-weight: bold;
+    font-size: 11pt;
+    margin-bottom: 10px;
+    color: #2c3e50;
+  }
+  
+  .interp-text {
+    line-height: 1.6;
+    font-size: 10.5pt;
+  }
+  
+  /* Bold row styling - no background color */
+  tr.row-bold td {
+    font-weight: bold;
+    background: transparent !important;
+  }
+  
+  /* Sigma star column */
+  .sig-star {
+    text-align: center;
+    font-weight: bold;
+  }
+  
+  /* Column divider - keep original look */
+  .col-divider {
+    border-left: 1px solid #000000;
+  }
+  
+  /* Remove all colored backgrounds from any element */
+  * {
+    background-color: transparent !important;
+  }
+  
+  /* Keep Ghana flag and text readable */
+  p, div, span {
+    color: #111;
+  }
+  
+  /* Ghana flag style */
+  .ghana-flag {
+    font-size: 11pt;
+    display: inline-block;
+  }
 </style>
 </head>
 <body>
+<div class="main-content">
 <h1>MedModr — Analysis Results</h1>
 <div class="app-meta">
   <strong>MedModr: Mediation & Moderation Tool</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong><br>
+  <div class="analysis-config">📊 ${analysisConfigText}</div>
+  🇬🇭 Built in Ghana | Open-source for the global research community 🇬🇭<br>
   Generated: ${new Date().toLocaleString()}
 </div>
+
 ${htmlContent}
+
 <div class="footer">
-  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software].
+  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software].<br>
+</div>
 </div>
 </body>
 </html>`;
     const blob = new Blob([fullHtml], { type: 'application/msword' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${filename}_${new Date().toISOString().slice(0, 10)}.doc`;
+    a.download = `${filename}_${new Date().toISOString().slice(0,10)}.doc`;
     a.click();
     URL.revokeObjectURL(blob);
   }
@@ -12846,6 +13078,71 @@ if (originalShowAlertDialog) {
                 resolve(true);
             };
         });
+    };
+}
+
+// Function to capture current analysis configuration
+function getCurrentAnalysisConfig() {
+    const analysisTypeSelect = document.getElementById('analysisTypeSelect');
+    const bootSamples = document.getElementById('bootSamples');
+    const confLevel = document.getElementById('confLevel');
+    const centerOption = document.getElementById('centerOption');
+    const modStageOption = document.getElementById('modStageOption');
+    
+    let analysisType = analysisTypeSelect ? analysisTypeSelect.options[analysisTypeSelect.selectedIndex]?.text : 'Simple Mediation';
+    let bootValue = bootSamples ? bootSamples.value : '5000';
+    let confValue = confLevel ? confLevel.value : '0.95';
+    let confPercent = Math.round(parseFloat(confValue) * 100);
+    
+    let configParts = [];
+    
+    // Analysis type
+    configParts.push(analysisType);
+    
+    // Bootstrap or Sobel
+    if (bootValue !== '0') {
+        configParts.push(`${parseInt(bootValue).toLocaleString()} bootstrap samples`);
+    } else {
+        configParts.push(`Sobel method`);
+    }
+    
+    // Confidence level
+    configParts.push(`${confPercent}% confidence intervals`);
+    
+    // Centering (for moderation/modmed)
+    if (centerOption && (analysisType === 'Moderation' || analysisType === 'moderation' || analysisType === 'Moderated Mediation' || analysisType === 'modmed')) {
+        const centerVal = centerOption.value;
+        if (centerVal === 'none') configParts.push(`No centering`);
+        else if (centerVal === 'continuous') configParts.push(`Continuous-only centering`);
+        else configParts.push(`All variables centered`);
+    }
+    
+    // Moderation stage (for modmed)
+    if (modStageOption && analysisType === 'modmed') {
+        const stageVal = modStageOption.value;
+        if (stageVal === 'first') configParts.push(`First stage moderation (X×W→M)`);
+        else if (stageVal === 'second') configParts.push(`Second stage moderation (M×W→Y)`);
+        else configParts.push(`Both stages moderation`);
+    }
+    
+    return configParts.join(' | ');
+}
+
+// Modify the runAnalysisFromSelections function to store config with results
+const originalRunAnalysis = window.runAnalysisFromSelections;
+if (originalRunAnalysis) {
+    window.runAnalysisFromSelections = function() {
+        const currentConfig = getCurrentAnalysisConfig();
+        originalRunAnalysis();
+        
+        // After results are generated, attach config to each result
+        setTimeout(function() {
+            if (allGeneratedResults && allGeneratedResults.length > 0) {
+                allGeneratedResults.forEach(result => {
+                    result.config = currentConfig;
+                });
+            }
+        }, 500);
     };
 }
 
