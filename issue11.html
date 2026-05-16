@@ -11305,6 +11305,9 @@ function renderCategoricalModal(catVars) {
     }
     
     const groupId = `cat_group_${catVar.varName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const levelsContainerId = `levels_${catVar.varName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    // Store the unique values as a JavaScript array string
+    const uniqueValuesStr = JSON.stringify(catVar.uniqueValues);
     
     html += `
       <div class="cat-var-group" id="${groupId}">
@@ -11319,15 +11322,15 @@ function renderCategoricalModal(catVars) {
         <div class="cat-var-body">
           <div class="cat-ref-select">
             <label class="cat-ref-label"><i class="fas fa-flag-checkered"></i> Reference Category (coded as 0)</label>
-            <select class="cat-ref-dropdown" data-varname="${catVar.varName}" onchange="updateCatReference('${catVar.varName}', this.value, ${JSON.stringify(catVar.uniqueValues)})">
+            <select class="cat-ref-dropdown" data-varname="${catVar.varName}" id="refSelect_${groupId}">
               ${catVar.uniqueValues.map(v => `<option value="${escapeXml(String(v))}" ${config.reference === v ? 'selected' : ''}>${escapeXml(String(v))}</option>`).join('')}
             </select>
           </div>
           <div class="cat-levels-section">
             <div class="cat-levels-label"><i class="fas fa-check-square"></i> Include these levels (create dummy variables)</div>
-            <div class="cat-levels-checkbox-group" id="levels_${catVar.varName.replace(/[^a-zA-Z0-9]/g, '_')}">
+            <div class="cat-levels-checkbox-group" id="${levelsContainerId}">
               ${catVar.uniqueValues.filter(v => v !== config.reference).map(v => `
-                <div class="cat-level-item ${config.selectedLevels.includes(v) ? 'selected' : ''}" onclick="toggleCatLevel('${catVar.varName}', '${escapeXml(String(v)).replace(/'/g, "\\'")}', this)">
+                <div class="cat-level-item ${config.selectedLevels.includes(v) ? 'selected' : ''}" data-level="${escapeXml(String(v))}" onclick="toggleCatLevel('${catVar.varName}', '${escapeXml(String(v)).replace(/'/g, "\\'")}', this)">
                   <input type="checkbox" ${config.selectedLevels.includes(v) ? 'checked' : ''} style="pointer-events: none;">
                   <label>${escapeXml(String(v))}</label>
                 </div>
@@ -11340,6 +11343,49 @@ function renderCategoricalModal(catVars) {
   }
   
   container.innerHTML = html;
+  
+  // Attach event listeners to all dropdowns AFTER rendering
+  for (let catVar of catVars) {
+    const groupId = `cat_group_${catVar.varName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const selectEl = document.getElementById(`refSelect_${groupId}`);
+    const levelsContainerId = `levels_${catVar.varName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    
+    if (selectEl) {
+      selectEl.addEventListener('change', (function(varName, levelsId, uniqueVals) {
+        return function(e) {
+          const newRef = e.target.value;
+          // Update config
+          if (!categoricalConfig[varName]) {
+            categoricalConfig[varName] = { reference: newRef, selectedLevels: [] };
+          } else {
+            categoricalConfig[varName].reference = newRef;
+          }
+          // Select all levels except the new reference
+          categoricalConfig[varName].selectedLevels = uniqueVals.filter(v => v !== newRef);
+          
+          // Update checkboxes
+          const levelsContainer = document.getElementById(levelsId);
+          if (levelsContainer) {
+            const levelsToShow = uniqueVals.filter(v => v !== newRef);
+            const selectedLevels = categoricalConfig[varName].selectedLevels;
+            
+            levelsContainer.innerHTML = levelsToShow.map(v => `
+              <div class="cat-level-item ${selectedLevels.includes(v) ? 'selected' : ''}" data-level="${escapeXml(String(v))}" onclick="toggleCatLevel('${varName}', '${escapeXml(String(v)).replace(/'/g, "\\'")}', this)">
+                <input type="checkbox" ${selectedLevels.includes(v) ? 'checked' : ''} style="pointer-events: none;">
+                <label>${escapeXml(String(v))}</label>
+              </div>
+            `).join('');
+          }
+        };
+      })(catVar.varName, levelsContainerId, catVar.uniqueValues));
+    }
+  }
+}
+
+// Keep a compatibility function that does nothing (or redirects) so existing calls don't break
+function updateCatReferenceAndLevels(varName, newRef, levelsContainerId, uniqueValues) {
+  // This function is kept for compatibility but the event listeners handle everything now
+  console.log('updateCatReferenceAndLevels called - event listener should handle this');
 }
 
 function toggleCatGroup(groupId) {
@@ -11354,18 +11400,6 @@ function toggleCatGroup(groupId) {
     body.classList.add('open');
     if (icon) icon.className = 'fas fa-chevron-up';
   }
-}
-
-function updateCatReference(varName, newRef, uniqueValues) {
-  if (!categoricalConfig[varName]) {
-    categoricalConfig[varName] = { reference: newRef, selectedLevels: [] };
-  } else {
-    categoricalConfig[varName].reference = newRef;
-  }
-  categoricalConfig[varName].selectedLevels = uniqueValues.filter(v => v !== newRef);
-  
-  const catVars = getCategoricalVariablesFromRoles();
-  renderCategoricalModal(catVars);
 }
 
 function toggleCatLevel(varName, levelValue, element) {
