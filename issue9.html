@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
-    <title>MedModr - Mediation & Moderation Analysis Tool | Free Online Software</title>
+    <title>MedModr - Mediation & Moderation Analysis Tool</title>
     
     <!-- SEO Meta Tags -->
     <meta name="title" content="MedModr - Mediation & Moderation Analysis">
@@ -9776,8 +9776,8 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
     }
   }
   
-  // ============================================
-  // STEP 7: Build a-path tables (using renderReg)
+   // ============================================
+  // STEP 7: Build a-path tables (using renderReg) - FIXED INTERCEPT
   // ============================================
   let aPathHtml = '';
   for (let i = 0; i < k; i++) {
@@ -9785,11 +9785,36 @@ function runParallelMed(vars, covArrays, covNames, cl, nBoot) {
     const Xmat_a = buildMat([xc, ...covArrays]);
     const predNames_a = [xn, ...covNames];
     
-    // Use the actual OLS result for proper intercept display
+    // Get the actual OLS result
     const actualRes = aResults[i];
     
+    // Get standardized results properly (re-run with centered data)
+    const xz = zscore(xRaw);
+    const mz = zscore(mediatorsData[mName]);
+    const cvz = covArrays.map(c => zscore(c));
+    const Xmat_az = buildMat([xz, ...cvz]);
+    const rMz_correct = ols(mz, Xmat_az, predNames_a, cl);
+    
+    // Create a corrected result object with proper intercept values
+    // The intercept from OLS should be the mean of the mediator when X is centered
+    const correctedRes = {
+      coef: [actualRes.coef[0], actualRes.coef[1]],
+      se: [actualRes.se[0], actualRes.se[1]],
+      t: [actualRes.t[0], actualRes.t[1]],
+      p: [actualRes.p[0], actualRes.p[1]],
+      cilo: [actualRes.cilo[0], actualRes.cilo[1]],
+      cihi: [actualRes.cihi[0], actualRes.cihi[1]],
+      r2: actualRes.r2,
+      r2adj: actualRes.r2adj,
+      f: actualRes.f,
+      df: actualRes.df,
+      df_mod: actualRes.df_mod,
+      n: actualRes.n,
+      names: ['Intercept', xn]
+    };
+    
     aPathHtml += `<div class="res-sub-label"><i class="fas fa-${i + 1}"></i> a-Path: ${xn} → ${mName}</div>
-      ${renderReg(actualRes, { coef: [0, aStdValues[i]] }, mName, confPct, Xmat_a, predNames_a)}`;
+      ${renderReg(correctedRes, rMz_correct, mName, confPct, Xmat_a, predNames_a)}`;
   }
   
   // ============================================
