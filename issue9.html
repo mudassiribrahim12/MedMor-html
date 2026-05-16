@@ -842,7 +842,7 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
       <span class="theme-label">Appearance</span>
       <button class="theme-btn" id="themeBtn"><i class="fas fa-moon" id="themeIcon"></i> <span id="themeLabel">Dark</span></button>
     </div>
-    <div class="ver-badge">v2.0 · Free Forever</div>
+    <div class="ver-badge">v1.0 · Free Forever</div>
     <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--sidebar-border);">
       <div style="font-size: 0.65rem; font-family: var(--mono); color: var(--st-4); text-align: center;">
         <i class="fas fa-sync-alt" style="margin-right: 4px; font-size: 0.6rem;"></i> Updated: May 2026
@@ -3455,10 +3455,10 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
         <p class="doc-prose">If you use MedModr in your research, please cite it as:</p>
         <div class="citation-box" id="citationText" style="position: relative;">
 <button class="citation-copy-btn" id="citCopyBtnAbout" onclick="copyCitationAbout()"><i class="fas fa-copy"></i> Copy</button>
-          Ibrahim, M. M. (2026). <em>MedModr: Mediation and moderation analysis tool</em> (Version 2.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
+          Ibrahim, M. M. (2026). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 16px;">
-          <div><i class="fas fa-tag"></i> <strong>Version:</strong> 2.0</div>
+          <div><i class="fas fa-tag"></i> <strong>Version:</strong> 1.0</div>
           <div><i class="fas fa-calendar-alt"></i> <strong>First released:</strong> April 2026</div>
           <div><i class="fas fa-balance-scale"></i> <strong>License:</strong> MIT (Open Source)</div>
           <div><i class="fab fa-github"></i> <strong>Repository:</strong> <a href="https://github.com/shinyhealthtools/medmodr" target="_blank">github.com/shinyhealthtools/medmodr</a></div>
@@ -6018,13 +6018,13 @@ window.showAllResultsAccumulated = function() {
 <body>
 <h1>MedModr — Analysis Results</h1>
 <div class="app-meta">
-  <strong>MedModr: Mediation & Moderation Tool</strong> (Version 2.0)<br>
+  <strong>MedModr: Mediation & Moderation Tool</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong><br>
   Generated: ${new Date().toLocaleString()}
 </div>
 ${htmlContent}
 <div class="footer">
-  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 2.0) [Software].
+  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software].
 </div>
 </body>
 </html>`;
@@ -7010,7 +7010,7 @@ function drawSlopes(canvas, data, showAnnot) {
     ctx.fillStyle = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, .28)';
     ctx.font = `400 ${Math.round(W / 80)}px Sora, sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText('MedModr v2.0', W - 8, H - 6);
+    ctx.fillText('', W - 8, H - 6);
 }
 
 // --- Toggle between legend (top-right) and line annotations ---
@@ -7631,7 +7631,7 @@ function drawSlopesWithData(canvas, data, showAnnot) {
     ctx.fillStyle = isPubStyle ? '#AAAAAA' : 'rgba(61, 90, 241, .28)';
     ctx.font = `400 ${Math.round(W / 80)}px Sora, sans-serif`;
     ctx.textAlign = 'right';
-    ctx.fillText('MedModr v2.0', W - 8, H - 6);
+    ctx.fillText('MedModr v1.0', W - 8, H - 6);
 }
 
 // Open slopes modal with specific data
@@ -7824,7 +7824,7 @@ window.downloadSlopesHiRes = function() {
 // ══════════════════════════════════════════════════════
 window.copyCitation=function(){
   const yr=new Date().getFullYear();
-  const citation=`Ibrahim, M. M. (${yr}). MedModr: Mediation and moderation analysis tool (Version 2.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
+  const citation=`Ibrahim, M. M. (${yr}). MedModr: Mediation and moderation analysis tool (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
   navigator.clipboard.writeText(citation).then(()=>{
     const btn=document.getElementById('citCopyBtn');
     if(btn){const old=btn.innerHTML;btn.innerHTML='<i class="fas fa-check"></i> Copied!';btn.style.background='#047857';setTimeout(()=>{btn.innerHTML=old;btn.style.background='';},2200);}
@@ -11021,7 +11021,7 @@ window.exportWord=function(){
 <body>
 <h1>MedModr — Analysis Results</h1>
 <div class="app-meta">
-  <strong>MedModr: Mediation &amp; Moderation Tool</strong> (Version 2.0)<br>
+  <strong>MedModr: Mediation &amp; Moderation Tool</strong> (Version 1.0)<br>
   Developer: <strong>Mudasir Mohammed Ibrahim</strong> &nbsp;|&nbsp; Website: <a href="https://mudasiribrahim.github.io/gh/">https://mudasiribrahim.github.io/gh/</a><br>
   App Website: <a href="https://shinyhealthtools.github.io/medmodr/">https://shinyhealthtools.github.io/medmodr/</a> &nbsp;|&nbsp; Built in Ghana 🇬🇭<br>
   Documentation: <a href="https://shinyopensource.github.io/medmodr-documentation/">https://shinyopensource.github.io/medmodr-documentation/</a><br>
@@ -11029,7 +11029,7 @@ window.exportWord=function(){
 </div>
 ${body}
 <div class="footer">
-  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 2.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
+  Ibrahim, M. M. (${yr}). <em>MedModr: Mediation and moderation analysis tool</em> (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/
 </div>
 </body>
 </html>`;
@@ -11040,7 +11040,7 @@ ${body}
 };
 
 window.copyCitationAbout = function() {
-  const citation = `Ibrahim, M. M. (2026). MedModr: Mediation and moderation analysis tool (Version 2.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
+  const citation = `Ibrahim, M. M. (2026). MedModr: Mediation and moderation analysis tool (Version 1.0) [Software]. Available from https://shinyhealthtools.github.io/medmodr/`;
   navigator.clipboard.writeText(citation).then(() => {
     const btn = document.getElementById('citCopyBtnAbout');
     if (btn) {
