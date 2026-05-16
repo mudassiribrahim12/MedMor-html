@@ -9511,6 +9511,193 @@ function buildSimpleMedSVG(d, mode, showP, W, H) {
     </svg>`;
 }
 
+// ── PARALLEL MEDIATION DIAGRAM ──
+function buildParallelMedSVG(d, mode, showP, W, H) {
+    const { xn, yn, mediatorNames, aValues, aStdValues, aPs, bValues, bStdValues, bPs, cDirect, cDirectStd, pcp, indirectEffects, bootCI } = d;
+    const colors = getDiagramColors();
+    
+    const bw = 120;  // box width
+    const bh = 50;   // box height
+    const k = mediatorNames ? mediatorNames.length : 0;
+    
+    if (k === 0) return '<svg></svg>';
+    
+    // Position X (left)
+    const xB = { x: 35, y: H/2 - bh/2 };
+    
+    // Position Y (right)
+    const yB = { x: W - bw - 35, y: H/2 - bh/2 };
+    
+    // Calculate vertical positions for mediators
+    const topMargin = 50;
+    const bottomMargin = H - bh - 50;
+    const spacing = (bottomMargin - topMargin) / (k - 1 || 1);
+    
+    let mediatorPositions = [];
+    for (let i = 0; i < k; i++) {
+        mediatorPositions.push({
+            name: mediatorNames[i],
+            x: W/2 - bw/2,
+            y: k === 1 ? H/2 - bh/2 : topMargin + i * spacing,
+            index: i
+        });
+    }
+    
+    // X→Y direct path (c')
+    const cpStart = { x: xB.x + bw, y: xB.y + bh/2 };
+    const cpEnd = { x: yB.x, y: yB.y + bh/2 };
+    const cpMid = { x: (cpStart.x + cpEnd.x) / 2, y: (cpStart.y + cpEnd.y) / 2 };
+    
+    let cpLines = [];
+    if (_diagShowCoefs && cDirect !== undefined) {
+        cpLines = formatCoefLines(cDirect, cDirectStd, pcp, mode, showP);
+    }
+    
+    const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+    const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
+    
+    const markerDefs = _useBlackAndWhite ? 
+        '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+        '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
+    
+    function drawPathLabel(midX, midY, lines, offsetX = 0, offsetY = 0, boxWidth = 100) {
+        if (!lines || lines.length === 0) return '';
+        const labelX = midX + offsetX;
+        const labelY = midY + offsetY;
+        
+        if (!_diagShowCardBox) {
+            const fs = 9;
+            const lineHeight = 12;
+            const startY = labelY - (lines.length * lineHeight) / 2 + lineHeight;
+            let textElements = '';
+            lines.forEach((line, i) => {
+                textElements += `<text x="${labelX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
+            });
+            return `<g>${textElements}</g>`;
+        } else {
+            const maxChars = Math.floor(boxWidth / 6.5);
+            const wrappedLines = [];
+            lines.forEach(line => {
+                wrappedLines.push(...autoWrapText(line, maxChars));
+            });
+            const fs = 10.5, lh = 15, padX = 8, padY = 4;
+            const totalH = wrappedLines.length * lh + padY * 2;
+            const x = labelX - boxWidth/2;
+            const y = labelY - totalH/2;
+            const texts = wrappedLines.map((l, i) => 
+                `<text x="${labelX}" y="${y + padY + fs + i*lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
+            ).join('');
+            return `<rect x="${x}" y="${y}" width="${boxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
+        }
+    }
+    
+    // Build all mediator paths
+    let mediatorsHtml = '';
+    for (let i = 0; i < k; i++) {
+        const pos = mediatorPositions[i];
+        const isBottomMediator = (i === k - 1 && k > 1); // Last mediator (bottom one)
+        
+        const aStart = { x: xB.x + bw, y: xB.y + bh/2 };
+        const aEnd = { x: pos.x, y: pos.y + bh/2 };
+        const aMid = { x: (aStart.x + aEnd.x) / 2, y: (aStart.y + aEnd.y) / 2 };
+        
+        const bStart = { x: pos.x + bw, y: pos.y + bh/2 };
+        const bEnd = { x: yB.x, y: yB.y + bh/2 };
+        const bMid = { x: (bStart.x + bEnd.x) / 2, y: (bStart.y + bEnd.y) / 2 };
+        
+        let aLines = [], bLines = [];
+        if (_diagShowCoefs) {
+            if (aValues && aValues[i] !== undefined) {
+                aLines = formatCoefLines(aValues[i], aStdValues ? aStdValues[i] : 0, aPs ? aPs[i] : 1, mode, showP);
+            }
+            if (bValues && bValues[i] !== undefined) {
+                bLines = formatCoefLines(bValues[i], bStdValues ? bStdValues[i] : 0, bPs ? bPs[i] : 1, mode, showP);
+            }
+        }
+        
+        // Position offsets
+        let aOffsetX = -55;
+        let aOffsetY = -25;  // Default: above the line
+        let bOffsetX = 55;
+        let bOffsetY = -25;  // Default: above the line
+        
+        // FOR BOTTOM MEDIATOR ONLY: move coefficients BELOW the lines
+        if (isBottomMediator) {
+            aOffsetY = 25;   // Below the line
+            bOffsetY = 25;   // Below the line
+        }
+        
+        mediatorsHtml += `
+            <line x1="${aStart.x}" y1="${aStart.y}" x2="${aEnd.x}" y2="${aEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
+            ${drawPathLabel(aMid.x, aMid.y, aLines, aOffsetX, aOffsetY, 100)}
+            
+            <line x1="${bStart.x}" y1="${bStart.y}" x2="${bEnd.x}" y2="${bEnd.y}" stroke="${colors.lineStroke}" stroke-width="2.2" marker-end="${markerUrl}"/>
+            ${drawPathLabel(bMid.x, bMid.y, bLines, bOffsetX, bOffsetY, 100)}
+        `;
+    }
+    
+    // X→Y line coefficient - BELOW the line
+    const cpLabelOffsetY = 32;
+    let cpLabelHtml = '';
+    if (_diagShowCoefs && cpLines.length > 0) {
+        cpLabelHtml = drawPathLabel(cpMid.x, cpMid.y, cpLines, 0, cpLabelOffsetY, 120);
+    }
+    
+    let mediatorNodesHtml = '';
+    for (const pos of mediatorPositions) {
+        mediatorNodesHtml += drawNode(pos.x, pos.y, bw, bh, pos.name, true);
+    }
+    
+    // Bootstrap CI as ONE LINE
+    let bootCardsHtml = '';
+    if (bootCI && bootCI.length > 0 && indirectEffects && indirectEffects.length > 0) {
+        const cardWidth = 300;
+        const cardHeight = 38;
+        const cardSpacing = 15;
+        const startX = (W - (Math.min(k, bootCI.length) * cardWidth + (Math.min(k, bootCI.length) - 1) * cardSpacing)) / 2;
+        const cardsY = H + 15;
+        
+        for (let i = 0; i < k && i < bootCI.length; i++) {
+            const ci = bootCI[i];
+            const indVal = indirectEffects[i];
+            if (ci && ci.lo !== undefined && ci.hi !== undefined && indVal !== undefined) {
+                const cardX = startX + i * (cardWidth + cardSpacing);
+                const indValFmt = mode === 'std' ? fmtv(indVal, 3) : fmtv(indVal, 3);
+                const indPrefix = mode === 'std' ? 'β' : 'b';
+                const oneLineText = `${mediatorNames[i]}: ${indPrefix} = ${indValFmt}, 95% CI [${fmtv(ci.lo, 3)}, ${fmtv(ci.hi, 3)}]`;
+                
+                if (_diagShowCardBox) {
+                    bootCardsHtml += `
+                        <rect x="${cardX}" y="${cardsY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+                        <text x="${cardX + cardWidth/2}" y="${cardsY + 24}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${escapeXml(oneLineText)}</text>
+                    `;
+                } else {
+                    bootCardsHtml += `
+                        <text x="${cardX + cardWidth/2}" y="${cardsY + 24}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.labelText}">${escapeXml(oneLineText)}</text>
+                    `;
+                }
+            }
+        }
+    }
+    
+    const finalHeight = H + (bootCardsHtml ? 70 : 40);
+    
+    return `<svg viewBox="0 0 ${W} ${finalHeight}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+        <defs>${markerDefs}</defs>
+        
+        ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+        ${mediatorNodesHtml}
+        ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+        
+        <line x1="${cpStart.x}" y1="${cpStart.y}" x2="${cpEnd.x}" y2="${cpEnd.y}" stroke="${colors.lineStroke}" stroke-width="1.8" ${directStyle} marker-end="${markerUrl}"/>
+        ${cpLabelHtml}
+        
+        ${mediatorsHtml}
+        
+        ${bootCardsHtml}
+    </svg>`;
+}
+
 // ── SERIAL MEDIATION DIAGRAM ──
 function buildSerialMedSVG(d, mode, showP, W, H){
   const {xn,m1n,m2n,yn,
@@ -10257,10 +10444,11 @@ function setModMedStage(stage) {
 
 function buildDiagSVG(d, mode, showP, big){
   const W=big?900:660, H=big?400:300;
-  if(d.type==='simple')    return buildSimpleMedSVG(d, mode, showP, W, H);
-  if(d.type==='serial')    return buildSerialMedSVG(d, mode, showP, W, H+80);
-  if(d.type==='moderation')return buildModerationSVG(d, mode, showP, W, H);
-  if(d.type==='modmed')    return buildModMedSVG(d, mode, showP, W, H);
+  if(d.type==='simple')     return buildSimpleMedSVG(d, mode, showP, W, H);
+  if(d.type==='parallel')   return buildParallelMedSVG(d, mode, showP, W, H+80);
+  if(d.type==='serial')     return buildSerialMedSVG(d, mode, showP, W, H+80);
+  if(d.type==='moderation') return buildModerationSVG(d, mode, showP, W, H);
+  if(d.type==='modmed')     return buildModMedSVG(d, mode, showP, W, H);
   return '';
 }
 
@@ -11119,16 +11307,24 @@ ${indirectText}
   // ============================================
   // STEP 13: Diagram data
   // ============================================
-  const diagData = {
+const diagData = {
     type: 'parallel',
-    xn, yn,
-    mediatorNames,
-    aValues, aStdValues, aPs,
-    bValues, bStdValues, bPs,
-    cDirect, cDirectStd, cTotal, cTotalStd,
-    indirectEffects, indirectStd, totalIndirect,
+    xn: xn,
+    yn: yn,
+    mediatorNames: mediatorNames,
+    aValues: aValues,
+    aStdValues: aStdValues,
+    aPs: aPs,
+    bValues: bValues,
+    bStdValues: bStdValues,
+    bPs: bPs,
+    cDirect: cDirect,
+    cDirectStd: cDirectStd,
+    pcp: cDirectP,
+    indirectEffects: indirectEffects,
+    bootCI: bootIndices,  // Make sure bootIndices is defined (from bootstrap section)
     mediatorCount: k
-  };
+};
   
   // ============================================
   // FINAL OUTPUT
