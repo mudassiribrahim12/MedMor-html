@@ -9988,6 +9988,7 @@ ${drawPathLabel(b1Mid.x, b1Mid.y, b1Lines, 100, 45, -15)}
     </svg>`;
 }
 
+
 // ── MODERATION DIAGRAM (Auto text wrap + Black/White toggle) ──
 function buildModerationSVG(d, mode, showP, W, H){
   const {xn,wn,yn,b_x,b_x_std,pb_x,b_xw,b_xw_std,pb_xw} = d;
@@ -10190,6 +10191,151 @@ function buildModerationSVG(d, mode, showP, W, H){
     ${directLabelHTML}
     ${moderationHTML}
     </svg>`;
+}
+
+// ── MODERATED MODERATION (3-way) DIAGRAM ──
+function buildModModSVG(d, mode, showP, W, H) {
+  const { xn, wn, zn, yn, 
+    b_x, b_x_std, p_x,
+    b_w, b_w_std, p_w,
+    b_z, b_z_std, p_z,
+    b_xw, b_xw_std, p_xw,
+    b_xz, b_xz_std, p_xz,
+    b_wz, b_wz_std, p_wz,
+    b_xwz, b_xwz_std, p_xwz } = d;
+  
+  const colors = getDiagramColors();
+  const bw = 100, bh = 45;
+  
+  // Layout: X at bottom-left, W top-left, Z top-right, Y bottom-right
+  const xB = { x: 40, y: H - 70 };
+  const yB = { x: W - bw - 40, y: H - 70 };
+  const wB = { x: 40, y: 40 };
+  const zB = { x: W - bw - 40, y: 40 };
+  
+  // X → Y direct path
+  const xyStart = { x: xB.x + bw, y: xB.y + bh/2 };
+  const xyEnd = { x: yB.x, y: yB.y + bh/2 };
+  const xyMid = { x: (xyStart.x + xyEnd.x) / 2, y: (xyStart.y + xyEnd.y) / 2 };
+  
+  // W → Y path
+  const wyStart = { x: wB.x + bw/2, y: wB.y + bh };
+  const wyEnd = { x: yB.x + bw/3, y: yB.y + bh/2 };
+  const wyMid = { x: (wyStart.x + wyEnd.x) / 2, y: (wyStart.y + wyEnd.y) / 2 };
+  
+  // Z → Y path
+  const zyStart = { x: zB.x + bw/2, y: zB.y + bh };
+  const zyEnd = { x: yB.x + bw*2/3, y: yB.y + bh/2 };
+  const zyMid = { x: (zyStart.x + zyEnd.x) / 2, y: (zyStart.y + zyEnd.y) / 2 };
+  
+  // X×W interaction path (from X→Y line midpoint to interaction box)
+  const xwMid = { x: (xyStart.x + xyEnd.x) * 0.35, y: xyStart.y - 25 };
+  const xwLabelPos = { x: xwMid.x - 30, y: xwMid.y - 10 };
+  
+  // X×Z interaction path
+  const xzMid = { x: (xyStart.x + xyEnd.x) * 0.65, y: xyStart.y - 25 };
+  const xzLabelPos = { x: xzMid.x + 30, y: xzMid.y - 10 };
+  
+  // W×Z interaction path
+  const wzMid = { x: W/2, y: H/2 - 20 };
+  const wzLabelPos = { x: W/2, y: wzMid.y - 15 };
+  
+  // 3-way interaction (X×W×Z)
+  const xwzPos = { x: W/2, y: H - 45 };
+  
+  // Format coefficient lines
+  let xLines = [], wLines = [], zLines = [], xwLines = [], xzLines = [], wzLines = [], xwzLines = [];
+  
+  if (_diagShowCoefs) {
+    xLines = formatCoefLines(b_x, b_x_std, p_x, mode, showP);
+    wLines = formatCoefLines(b_w, b_w_std, p_w, mode, showP);
+    zLines = formatCoefLines(b_z, b_z_std, p_z, mode, showP);
+    xwLines = formatCoefLines(b_xw, b_xw_std, p_xw, mode, showP);
+    xzLines = formatCoefLines(b_xz, b_xz_std, p_xz, mode, showP);
+    wzLines = formatCoefLines(b_wz, b_wz_std, p_wz, mode, showP);
+    xwzLines = formatCoefLines(b_xwz, b_xwz_std, p_xwz, mode, showP);
+  }
+  
+  const lineStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
+  const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
+  
+  const markerDefs = _useBlackAndWhite ? 
+    '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
+    '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
+  
+  function renderLabel(midX, midY, lines, offsetX = 0, offsetY = 0, boxWidth = 100) {
+    if (!lines || lines.length === 0 || !_diagShowCoefs) return '';
+    const labelX = midX + offsetX;
+    const labelY = midY + offsetY;
+    
+    if (!_diagShowCardBox) {
+      const fs = 9;
+      const lineHeight = 12;
+      const startY = labelY - (lines.length * lineHeight) / 2 + lineHeight;
+      let textElements = '';
+      lines.forEach((line, i) => {
+        textElements += `<text x="${labelX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
+      });
+      return `<g>${textElements}</g>`;
+    } else {
+      const maxChars = Math.floor(boxWidth / 6.5);
+      const wrappedLines = [];
+      lines.forEach(line => {
+        wrappedLines.push(...autoWrapText(line, maxChars));
+      });
+      const fs = 10.5, lh = 15, padX = 8, padY = 4;
+      const totalH = wrappedLines.length * lh + padY * 2;
+      const x = labelX - boxWidth/2;
+      const y = labelY - totalH/2;
+      const texts = wrappedLines.map((l, i) => 
+        `<text x="${labelX}" y="${y + padY + fs + i*lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
+      ).join('');
+      return `<rect x="${x}" y="${y}" width="${boxWidth}" height="${totalH}" rx="5" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1.2" stroke-opacity=".5"/>${texts}`;
+    }
+  }
+  
+  const finalHeight = H;
+  
+  return `<svg viewBox="0 0 ${W} ${finalHeight}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+    <defs>${markerDefs}</defs>
+    
+    <!-- Variable nodes -->
+    ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+    ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+    ${drawNode(wB.x, wB.y, bw, bh, wn, false)}
+    ${drawNode(zB.x, zB.y, bw, bh, zn, false)}
+    
+    <!-- Main effects -->
+    <line x1="${xyStart.x}" y1="${xyStart.y}" x2="${xyEnd.x}" y2="${xyEnd.y}" stroke="${colors.lineStroke}" stroke-width="2" ${lineStyle} marker-end="${markerUrl}"/>
+    ${renderLabel(xyMid.x, xyMid.y, xLines, 0, -25, 100)}
+    
+    <line x1="${wyStart.x}" y1="${wyStart.y}" x2="${wyEnd.x}" y2="${wyEnd.y}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${renderLabel(wyMid.x, wyMid.y, wLines, -30, -15, 90)}
+    
+    <line x1="${zyStart.x}" y1="${zyStart.y}" x2="${zyEnd.x}" y2="${zyEnd.y}" stroke="${colors.lineStroke}" stroke-width="1.8" ${lineStyle} marker-end="${markerUrl}"/>
+    ${renderLabel(zyMid.x, zyMid.y, zLines, 30, -15, 90)}
+    
+    <!-- Two-way interaction arrows -->
+    <line x1="${xyStart.x + (xyEnd.x - xyStart.x) * 0.35}" y1="${xyStart.y}" x2="${xwMid.x}" y2="${xwMid.y}" stroke="${colors.lineStroke}" stroke-width="1.5" stroke-dasharray="5,3" marker-end="${markerUrl}"/>
+    ${renderLabel(xwLabelPos.x, xwLabelPos.y, xwLines, 0, -5, 85)}
+    
+    <line x1="${xyStart.x + (xyEnd.x - xyStart.x) * 0.65}" y1="${xyStart.y}" x2="${xzMid.x}" y2="${xzMid.y}" stroke="${colors.lineStroke}" stroke-width="1.5" stroke-dasharray="5,3" marker-end="${markerUrl}"/>
+    ${renderLabel(xzLabelPos.x, xzLabelPos.y, xzLines, 0, -5, 85)}
+    
+    <line x1="${wB.x + bw/2}" y1="${wB.y + bh}" x2="${wzMid.x}" y2="${wzMid.y}" stroke="${colors.lineStroke}" stroke-width="1.5" stroke-dasharray="5,3" marker-end="${markerUrl}"/>
+    ${renderLabel(wzLabelPos.x, wzLabelPos.y, wzLines, 0, -5, 85)}
+    
+    <!-- Three-way interaction card -->
+    <rect x="${W/2 - 140}" y="${xwzPos.y}" width="280" height="38" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+    <text x="${W/2}" y="${xwzPos.y + 15}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${colors.boxText}">3-way interaction: ${xn}×${wn}×${zn} → ${yn}</text>
+    <text x="${W/2}" y="${xwzPos.y + 30}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}">${xwzLines.length > 0 ? xwzLines[0] : ''} ${xwzLines.length > 1 ? ', ' + xwzLines[1] : ''}</text>
+    
+    <!-- Dashed lines from two-way interactions to 3-way box -->
+    <line x1="${xwMid.x}" y1="${xwMid.y}" x2="${W/2 - 80}" y2="${xwzPos.y}" stroke="${colors.lineStroke}" stroke-width="1" stroke-dasharray="3,3"/>
+    <line x1="${xzMid.x}" y1="${xzMid.y}" x2="${W/2 + 80}" y2="${xwzPos.y}" stroke="${colors.lineStroke}" stroke-width="1" stroke-dasharray="3,3"/>
+    <line x1="${wzMid.x}" y1="${wzMid.y}" x2="${W/2}" y2="${xwzPos.y - 10}" stroke="${colors.lineStroke}" stroke-width="1" stroke-dasharray="3,3"/>
+    
+  </svg>`;
 }
 
 // ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
@@ -10511,6 +10657,7 @@ function buildDiagSVG(d, mode, showP, big){
   if(d.type==='serial')     return buildSerialMedSVG(d, mode, showP, W, H+80);
   if(d.type==='moderation') return buildModerationSVG(d, mode, showP, W, H);
   if(d.type==='modmed')     return buildModMedSVG(d, mode, showP, W, H);
+  if(d.type==='modmod')     return buildModModSVG(d, mode, showP, W, H);
   return '';
 }
 
@@ -12177,82 +12324,68 @@ function runModeratedModeration(vars, covArrays, covNames, cl, nBoot, centerOpti
   const wz = wC.map((v, i) => v * zC[i]);
   const xwz = xC.map((v, i) => v * wC[i] * zC[i]);  // 3-way interaction
   
-  // Build design matrix
-  const Xmat = buildMat([xC, wC, zC, xw, xz, wz, xwz, ...covArrays]);
-  const predictorNames = [xn, wn, zn, `${xn}×${wn}`, `${xn}×${zn}`, `${wn}×${zn}`, `${xn}×${wn}×${zn}`, ...covNames];
+  // Build design matrix for full model
+  const Xmat_full = buildMat([xC, wC, zC, xw, xz, wz, xwz, ...covArrays]);
+  const predictorNames_full = [xn, wn, zn, `${xn}×${wn}`, `${xn}×${zn}`, `${wn}×${zn}`, `${xn}×${wn}×${zn}`, ...covNames];
   
-  // Run regression
-  const rY = ols(yRaw, Xmat, predictorNames, cl);
-  if (!rY) return err('Moderated moderation regression failed.');
+  // Run full regression
+  const rY_full = ols(yRaw, Xmat_full, predictorNames_full, cl);
+  if (!rY_full) return err('Moderated moderation regression failed.');
   
-  // Standardized version
+  // Standardized version for full model
   const xzStd = zscore(xRaw);
   const wzStd = zscore(wRaw);
   const zzStd = zscore(zRaw);
   const yzStd = zscore(yRaw);
   const xwzStd = xzStd.map((v, i) => v * wzStd[i] * zzStd[i]);
   const cvz = covArrays.map(c => zscore(c));
-  const XmatZ = buildMat([xzStd, wzStd, zzStd, 
+  const XmatZ_full = buildMat([xzStd, wzStd, zzStd, 
     xzStd.map((v, i) => v * wzStd[i]), 
     xzStd.map((v, i) => v * zzStd[i]),
     wzStd.map((v, i) => v * zzStd[i]),
     xwzStd, ...cvz]);
-  const rYz = ols(yzStd, XmatZ, predictorNames, cl);
+  const rYz_full = ols(yzStd, XmatZ_full, predictorNames_full, cl);
   
-  // Extract coefficients
-  const b_xwz = rY.coef[7];
-  const b_xwz_se = rY.se[7];
-  const b_xwz_t = rY.t[7];
-  const b_xwz_p = rY.p[7];
+  // Extract coefficients from full model
+  const b_x = rY_full.coef[1];
+  const b_w = rY_full.coef[2];
+  const b_z = rY_full.coef[3];
+  const b_xw = rY_full.coef[4];
+  const b_xz = rY_full.coef[5];
+  const b_wz = rY_full.coef[6];
+  const b_xwz = rY_full.coef[7];
+  const b_xwz_se = rY_full.se[7];
+  const b_xwz_t = rY_full.t[7];
+  const b_xwz_p = rY_full.p[7];
   const threeWaySig = b_xwz_p < (1 - cl);
   
-  // Simple slopes at combinations of W and Z
-  const mW = mean(wRaw);
-  const sW = sd(wRaw);
-  const mZ = mean(zRaw);
-  const sZ = sd(zRaw);
+  // Standardized coefficients for path diagram
+  const b_x_std = rYz_full ? rYz_full.coef[1] : 0;
+  const b_w_std = rYz_full ? rYz_full.coef[2] : 0;
+  const b_z_std = rYz_full ? rYz_full.coef[3] : 0;
+  const b_xw_std = rYz_full ? rYz_full.coef[4] : 0;
+  const b_xz_std = rYz_full ? rYz_full.coef[5] : 0;
+  const b_wz_std = rYz_full ? rYz_full.coef[6] : 0;
+  const b_xwz_std = rYz_full ? rYz_full.coef[7] : 0;
   
-  const wLevels = [mW - sW, mW, mW + sW];
-  const zLevels = [mZ - sZ, mZ, mZ + sZ];
-  const wLabels = ['Low W (−1SD)', 'Mean W', 'High W (+1SD)'];
-  const zLabels = ['Low Z (−1SD)', 'Mean Z', 'High Z (+1SD)'];
+  // ============================================
+  // TABLE 1: Regression of Y on X, W, Z (all main effects, NO interactions)
+  // This shows the baseline model before adding interactions
+  // ============================================
+  const Xmat_main = buildMat([xC, wC, zC, ...covArrays]);
+  const predictorNames_main = [xn, wn, zn, ...covNames];
+  const rY_main = ols(yRaw, Xmat_main, predictorNames_main, cl);
+  const rYz_main = ols(yzStd, buildMat([xzStd, wzStd, zzStd, ...cvz]), predictorNames_main, cl);
   
-  let simpleSlopeRows = '';
-  for (let wi = 0; wi < wLevels.length; wi++) {
-    for (let zi = 0; zi < zLevels.length; zi++) {
-      const wVal = wLevels[wi];
-      const zVal = zLevels[zi];
-      const wc = wVal - mW;
-      const zc = zVal - mZ;
-      
-      // Simple slope = b_X + b_XW*wc + b_XZ*zc + b_XWZ*wc*zc
-      const slope = rY.coef[1] + rY.coef[4] * wc + rY.coef[5] * zc + b_xwz * wc * zc;
-      const seSlope = Math.sqrt(
-        Math.pow(rY.se[1], 2) +
-        Math.pow(rY.se[4], 2) * Math.pow(wc, 2) +
-        Math.pow(rY.se[5], 2) * Math.pow(zc, 2) +
-        Math.pow(b_xwz_se, 2) * Math.pow(wc * zc, 2)
-      );
-      
-      const tSlope = seSlope > 0 ? slope / seSlope : 0;
-      const pSlope = tcdf2(Math.abs(tSlope), rY.df);
-      const tc = tQuantile(rY.df, 1 - cl);
-      const lo = slope - tc * seSlope;
-      const hi = slope + tc * seSlope;
-      const sig = pSlope < (1 - cl);
-      
-      simpleSlopeRows += `<tr>
-        <td style="font-weight:600">${wLabels[wi]}, ${zLabels[zi]}</td>
-        <td style="text-align:right">${fmtv(slope, 4)}</td>
-        <td style="text-align:right">${fmtv(seSlope, 4)}</td>
-        <td style="text-align:right">${fmtv(tSlope, 4)}</td>
-        <td style="text-align:right">${fmtp(pSlope)}</td>
-        <td style="text-align:right">${fmtv(lo, 4)}</td>
-        <td style="text-align:right">${fmtv(hi, 4)}</td>
-        <td style="text-align:center">${sig ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
-      </table>`;
-    }
-  }
+  // Direct effect (X on Y controlling for all interactions) - placed last
+  const directEffect = b_x;
+  const directSE = rY_full.se[1];
+  const directT = rY_full.t[1];
+  const directP = rY_full.p[1];
+  const directLo = rY_full.cilo[1];
+  const directHi = rY_full.cihi[1];
+  const directSig = directP < (1 - cl);
+  const directBeta = b_x_std;
   
   // Bootstrap for 3-way interaction
   let boot3way = null;
@@ -12287,7 +12420,7 @@ function runModeratedModeration(vars, covArrays, covNames, cl, nBoot, centerOpti
       const bxwz = bxc.map((v, i) => v * bwc[i] * bzc[i]);
       
       const Xboot = buildMat([bxc, bwc, bzc, bxw, bxz, bwz, bxwz, ...bc]);
-      const rYboot = ols(by, Xboot, predictorNames, cl);
+      const rYboot = ols(by, Xboot, predictorNames_full, cl);
       if (rYboot && rYboot.coef.length > 7) {
         bootSamples.push(rYboot.coef[7]);
       }
@@ -12318,45 +12451,62 @@ function runModeratedModeration(vars, covArrays, covNames, cl, nBoot, centerOpti
       bootHtml = `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
         <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap ${bootMethod === 'bias-corrected' ? 'BC' : 'Percentile'} CI (${nBoot.toLocaleString()} samples)</div>
         <div class="res-table-wrap"><table class="res-table"><thead><tr><th>Parameter</th><th>Estimate</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr></thead>
-        <tbody><tr class="row-bold"><td>3-way interaction (${xn}×${wn}×${zn})</td>
-        <td style="text-align:right">${fmtv(boot3way.effect, 4)}</td>
-        <td style="text-align:right">${fmtv(boot3way.se, 4)}</td>
-        <td style="text-align:right">${fmtv(boot3way.lo, 4)}</td>
-        <td style="text-align:right">${fmtv(boot3way.hi, 4)}</td>
-        <td style="text-align:center">${bootSig ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
+        <tbody><tr class="row-bold"><td>3-way interaction (${xn}×${wn}×${zn})</span></td>
+        <td style="text-align:right">${fmtv(boot3way.effect, 4)}</span></td>
+        <td style="text-align:right">${fmtv(boot3way.se, 4)}</span></td>
+        <td style="text-align:right">${fmtv(boot3way.lo, 4)}</span></td>
+        <td style="text-align:right">${fmtv(boot3way.hi, 4)}</span></td>
+        <td style="text-align:center">${bootSig ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</span></td>
       </tr></tbody></table></div>
         <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Significant 3-way interaction indicates moderated moderation.</div>
       </div>`;
     }
   }
   
-  // APA Summary
-  const threeWaySigText = threeWaySig ? 'significant' : 'non-significant';
-  const threeWayStars = pStar(b_xwz_p);
+  // Helper function to get significance text with star
+  function getSigText(p, isSig) {
+    const star = pStar(p);
+    const sigWord = isSig ? 'significant' : 'non-significant';
+    return `${star ? star + ' ' : ''}${sigWord}`;
+  }
   
+  // Calculate significance flags
+  const xw_p = rY_full.p[4];
+  const xz_p = rY_full.p[5];
+  const wz_p = rY_full.p[6];
+  const x_p = rY_full.p[1];
+  const w_p = rY_full.p[2];
+  const z_p = rY_full.p[3];
+  
+  const xw_sig = xw_p < (1 - cl);
+  const xz_sig = xz_p < (1 - cl);
+  const wz_sig = wz_p < (1 - cl);
+  const x_sig = x_p < (1 - cl);
+  const w_sig = w_p < (1 - cl);
+  const z_sig = z_p < (1 - cl);
+  
+  // Build APA Summary with clear significance indicators
   let apaSummary = `<p>A moderated moderation (three-way interaction) analysis examined whether the effect of <strong>${xn}</strong> on <strong>${yn}</strong> is jointly moderated by <strong>${wn}</strong> and <strong>${zn}</strong>.</p>
 
-<p><strong>Three-way interaction (${xn}×${wn}×${zn} → ${yn}):</strong> b = ${fmtv(b_xwz, 4)}${threeWayStars ? ' ' + threeWayStars : ''}, SE = ${fmtv(b_xwz_se, 4)}, t = ${fmtv(b_xwz_t, 4)}, p ${fmtp(b_xwz_p)} — <strong>${threeWaySigText}</strong></p>
+<p><strong>Three-way interaction (${xn}×${wn}×${zn} → ${yn}):</strong> b = ${fmtv(b_xwz, 4)}, SE = ${fmtv(b_xwz_se, 4)}, t = ${fmtv(b_xwz_t, 4)}, p ${fmtp(b_xwz_p)} — <strong>${getSigText(b_xwz_p, threeWaySig)}</strong></p>
 
-<p><strong>Two-way interactions:</strong><br>
-${xn}×${wn}: b = ${fmtv(rY.coef[4], 4)}, p ${fmtp(rY.p[4])}<br>
-${xn}×${zn}: b = ${fmtv(rY.coef[5], 4)}, p ${fmtp(rY.p[5])}<br>
-${wn}×${zn}: b = ${fmtv(rY.coef[6], 4)}, p ${fmtp(rY.p[6])}</p>
+<p><strong>Two-way interactions (from full model):</strong><br>
+${xn}×${wn}: b = ${fmtv(b_xw, 4)}, p ${fmtp(xw_p)} — <strong>${getSigText(xw_p, xw_sig)}</strong><br>
+${xn}×${zn}: b = ${fmtv(b_xz, 4)}, p ${fmtp(xz_p)} — <strong>${getSigText(xz_p, xz_sig)}</strong><br>
+${wn}×${zn}: b = ${fmtv(b_wz, 4)}, p ${fmtp(wz_p)} — <strong>${getSigText(wz_p, wz_sig)}</strong></p>
 
-<p><strong>Overall interpretation:</strong> ${threeWaySig ? 'There is significant moderated moderation, indicating that the two-way interaction between X and W varies across levels of Z.' : 'The three-way interaction is not significant, suggesting that the moderating effect of W on X→Y does not depend on Z.'}</p>`;
-  
-  // Total effect (bivariate)
-  const xcSimple = centre(xRaw);
-  const rTot = ols(yRaw, buildMat([xcSimple, ...covArrays]), [xn, ...covNames], cl);
-  const totalEffect = rTot ? rTot.coef[1] : 0;
-  const totalSE = rTot ? rTot.se[1] : 0;
-  const totalP = rTot ? rTot.p[1] : 1;
+<p><strong>Main effects (from full model):</strong><br>
+${xn} → ${yn}: b = ${fmtv(b_x, 4)}, p ${fmtp(x_p)} — <strong>${getSigText(x_p, x_sig)}</strong><br>
+${wn} → ${yn}: b = ${fmtv(b_w, 4)}, p ${fmtp(w_p)} — <strong>${getSigText(w_p, w_sig)}</strong><br>
+${zn} → ${yn}: b = ${fmtv(b_z, 4)}, p ${fmtp(z_p)} — <strong>${getSigText(z_p, z_sig)}</strong></p>
+
+<p><strong>Overall interpretation:</strong> ${threeWaySig ? 'There is significant moderated moderation, indicating that the two-way interaction between ' + xn + ' and ' + wn + ' varies across levels of ' + zn + '.' : 'The three-way interaction is not significant, suggesting that the moderating effect of ' + wn + ' on ' + xn + '→' + yn + ' does not depend on ' + zn + '.'}</p>`;
   
   // Descriptive statistics
-  let descRows = `<tr><td style="font-weight:700;">${xn}</td><td style="text-align:right">${xRaw.length}</td><td style="text-align:right">${fmtv(mean(xRaw))}</td><td style="text-align:right">${fmtv(sd(xRaw))}</td><td style="text-align:right">${fmtv(Math.min(...xRaw))}</td><td style="text-align:right">${fmtv(Math.max(...xRaw))}</td></tr>`;
-  descRows += `<tr><td style="font-weight:700;">${wn} (Moderator 1)</td><td style="text-align:right">${wRaw.length}</td><td style="text-align:right">${fmtv(mean(wRaw))}</td><td style="text-align:right">${fmtv(sd(wRaw))}</td><td style="text-align:right">${fmtv(Math.min(...wRaw))}</td><td style="text-align:right">${fmtv(Math.max(...wRaw))}</td></tr>`;
-  descRows += `<tr><td style="font-weight:700;">${zn} (Moderator 2)</td><td style="text-align:right">${zRaw.length}</td><td style="text-align:right">${fmtv(mean(zRaw))}</td><td style="text-align:right">${fmtv(sd(zRaw))}</td><td style="text-align:right">${fmtv(Math.min(...zRaw))}</td><td style="text-align:right">${fmtv(Math.max(...zRaw))}</td></tr>`;
-  descRows += `<tr><td style="font-weight:700;">${yn}</td><td style="text-align:right">${yRaw.length}</td><td style="text-align:right">${fmtv(mean(yRaw))}</td><td style="text-align:right">${fmtv(sd(yRaw))}</td><td style="text-align:right">${fmtv(Math.min(...yRaw))}</td><td style="text-align:right">${fmtv(Math.max(...yRaw))}</td></tr>`;
+  let descRows = `<tr><td style="font-weight:700;">${xn}</span></td><td style="text-align:right">${xRaw.length}</span></td><td style="text-align:right">${fmtv(mean(xRaw))}</span></td><td style="text-align:right">${fmtv(sd(xRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...xRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...xRaw))}</span></tr>`;
+  descRows += `<tr><td style="font-weight:700;">${wn} (Moderator 1)</span></td><td style="text-align:right">${wRaw.length}</span></td><td style="text-align:right">${fmtv(mean(wRaw))}</span></td><td style="text-align:right">${fmtv(sd(wRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...wRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...wRaw))}</span></tr>`;
+  descRows += `<tr><td style="font-weight:700;">${zn} (Moderator 2)</span></td><td style="text-align:right">${zRaw.length}</span></td><td style="text-align:right">${fmtv(mean(zRaw))}</span></td><td style="text-align:right">${fmtv(sd(zRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...zRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...zRaw))}</span></tr>`;
+  descRows += `<tr><td style="font-weight:700;">${yn}</span></td><td style="text-align:right">${yRaw.length}</span></td><td style="text-align:right">${fmtv(mean(yRaw))}</span></td><td style="text-align:right">${fmtv(sd(yRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...yRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...yRaw))}</span></tr>`;
   
   const descHtml = `<div class="panel" style="margin-bottom:18px">
     <div class="panel-header"><div class="panel-title"><i class="fas fa-table"></i> Descriptive Statistics</div></div>
@@ -12365,54 +12515,79 @@ ${wn}×${zn}: b = ${fmtv(rY.coef[6], 4)}, p ${fmtp(rY.p[6])}</p>
       <tbody>${descRows}</tbody>
     </table></div></div></div>`;
   
-  // Build complete output
+  // Direct effect table (X on Y controlling for all interactions) - placed last
+  const directEffectHtml = `<div class="res-sub-label"><i class="fas fa-table"></i> Table 3: Direct Effect of ${xn} on ${yn} (c' path, controlling for ${wn}, ${zn}, and all interactions)</div>
+  <div class="res-table-wrap"><table class="res-table">
+    <thead>
+      <tr><th rowspan="2">Effect</th><th colspan="7" class="th-group">Unstandardized</th><th class="th-group col-divider" style="color:var(--violet);background:rgba(109,40,217,.07);border-color:var(--violet)">Standardized</th></tr>
+      <tr><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th>Sig?</th><th class="col-divider" style="color:var(--violet)">β</th></tr>
+    </thead>
+    <tbody>
+      <tr><td style="font-weight:600">Direct effect (${xn} → ${yn})</span></td>
+      <td style="text-align:right">${fmtv(directEffect, 4)}</span></td>
+      <td style="text-align:right">${fmtv(directSE, 4)}</span></td>
+      <td style="text-align:right">${fmtv(directT, 4)}</span></td>
+      <td style="text-align:right">${fmtp(directP)}</span></td>
+      <td style="text-align:right">${fmtv(directLo, 4)}</span></td>
+      <td style="text-align:right">${fmtv(directHi, 4)}</span></td>
+      <td style="text-align:center">${directSig ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</span></td>
+      <td class="col-divider td-std" style="text-align:right">${fmtv(directBeta, 4)}</span></td>
+    </tr>
+    </tbody>
+  </table></div>
+  <div style="font-size:.71rem;color:var(--text-4);margin-top:4px">Direct effect (c') = effect of ${xn} on ${yn} after accounting for ${wn}, ${zn}, all two-way interactions (${xn}×${wn}, ${xn}×${zn}, ${wn}×${zn}), and the three-way interaction (${xn}×${wn}×${zn}).</div>`;
+  
+  // Build path diagram data for 3-way interaction model
+  const diagData = {
+    type: 'modmod',
+    xn: xn,
+    wn: wn,
+    zn: zn,
+    yn: yn,
+    b_x: b_x,
+    b_x_std: b_x_std,
+    p_x: rY_full.p[1],
+    b_w: b_w,
+    b_w_std: b_w_std,
+    p_w: rY_full.p[2],
+    b_z: b_z,
+    b_z_std: b_z_std,
+    p_z: rY_full.p[3],
+    b_xw: b_xw,
+    b_xw_std: b_xw_std,
+    p_xw: rY_full.p[4],
+    b_xz: b_xz,
+    b_xz_std: b_xz_std,
+    p_xz: rY_full.p[5],
+    b_wz: b_wz,
+    b_wz_std: b_wz_std,
+    p_wz: rY_full.p[6],
+    b_xwz: b_xwz,
+    b_xwz_std: b_xwz_std,
+    p_xwz: b_xwz_p,
+    bootCI: boot3way
+  };
+  
+  // Build complete output with all tables in order
   return `${descHtml}
   <div class="panel" style="margin-bottom:18px">
     <div class="panel-header"><div class="panel-title"><i class="fas fa-chart-line"></i> Moderated Moderation (3-way Interaction) Results</div></div>
     <div class="panel-body">
-      <div class="res-sub-label"><i class="fas fa-table"></i> Table 1: Moderated Moderation Model (${yn})</div>
-      ${renderReg(rY, rYz, yn, confPct, Xmat, predictorNames)}
+      ${diagPreview(diagData)}
       
-      <div class="res-sub-label"><i class="fas fa-table"></i> Table 2: Simple Slopes of ${xn} on ${yn} at combinations of ${wn} and ${zn}</div>
-      <div class="res-table-wrap"><table class="res-table">
-        <thead>
-          <tr><th rowspan="2">Moderator Levels</th><th colspan="7" class="th-group">Simple Slope (b)</th><th>Sig?</th></tr>
-          <tr><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th></tr>
-        </thead>
-        <tbody>${simpleSlopeRows}</tbody>
-      </table></div>
+      <div class="res-sub-label"><i class="fas fa-table"></i> Table 1: Main Effects Model (${yn} regressed on ${xn}, ${wn}, and ${zn}) — NO interactions</div>
+      ${renderReg(rY_main, rYz_main, yn, confPct, Xmat_main, predictorNames_main)}
       
-      <div class="res-sub-label"><i class="fas fa-table"></i> Table 3: Total Effect of ${xn} on ${yn}</div>
-      <div class="res-table-wrap"><table class="res-table">
-        <thead><tr><th>Effect</th><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th>Sig?</th></tr></thead>
-        <tbody><tr><td style="font-weight:600">Total effect (${xn} → ${yn})</td>
-          <td style="text-align:right">${fmtv(totalEffect, 4)}</td>
-          <td style="text-align:right">${fmtv(totalSE, 4)}</td>
-          <td style="text-align:right">${fmtv(totalSE > 0 ? totalEffect / totalSE : 0, 4)}</td>
-          <td style="text-align:right">${fmtp(totalP)}</td>
-          <td style="text-align:right">${rTot ? fmtv(rTot.cilo[1], 4) : '—'}</td>
-          <td style="text-align:right">${rTot ? fmtv(rTot.cihi[1], 4) : '—'}</td>
-          <td style="text-align:center">${totalP < (1 - cl) ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
-        </tr></tbody>
-      </table></div>
+      <div class="res-sub-label"><i class="fas fa-table"></i> Table 2: Full Moderated Moderation Model (${yn} with all predictors and interactions)</div>
+      ${renderReg(rY_full, rYz_full, yn, confPct, Xmat_full, predictorNames_full)}
+      
+      ${directEffectHtml}
       
       ${bootHtml}
       
       <div class="interp-box" style="margin-top:16px"><div class="interp-title"><i class="fas fa-lightbulb"></i> Summary</div>
       <div class="interp-text">${apaSummary}</div></div>
     </div>
-  </div>`;
-}
-
-
-// ── HELPERS ──
-function err(msg){return `<div class="alert alert-err"><i class="fas fa-times-circle"></i>${msg}</div>`}
-function sigLbl(lo,hi){return lo>0||hi<0?'<span style="color:var(--emerald);font-weight:800">✓ Yes</span>':'<span style="color:var(--text-4)">✗ No</span>'}
-function bootBlock(paths, nBoot, method = 'Percentile'){
-  const rows=paths.map(p=>`<tr${p.bold?' class="row-bold"':''}><td>${p.path}</td><td>${fmtv(p.e)}</td><td>${fmtv(p.se)}</td><td>${fmtv(p.lo)}</td><td>${fmtv(p.hi)}</td><td>${sigLbl(p.lo,p.hi)}</td><tr>`).join('');
-  return `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
-    <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap ${method} CI (${nBoot.toLocaleString()} samples)</div>
-    <div class="res-table-wrap"><table class="res-table"><thead><tr><th>Path</th><th>Effect</th><th>BootSE</th><th>BootLLCI</th><th>BootULCI</th><th>Sig?</th></tr></thead><tbody>${rows}</tbody></table></div>
   </div>`;
 }
 
