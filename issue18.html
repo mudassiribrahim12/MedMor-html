@@ -11662,29 +11662,8 @@ const y_Xmat = buildMat([xC, mC, m2C, wC, mwC_both, m2wC_both, ...covArrays]);
   
 
 // ============================================================
-// REPLACEMENT CODE FOR TABLES 6, 7, 8 IN runModMed()
-// Replace everything from "// TABLE 6: Conditional Effect..."
-// down to the end of "// TABLE 8: Conditional Indirect Effect..."
+// TABLES 6, 7, 8 
 // ============================================================
-//
-// KEY FIXES:
-// 1. W values computed from data: mW ± 1SD (centered as Wc = Wraw - mW)
-//    so the three Wc values are: [-sW, 0, +sW] of wRaw
-//    which in raw terms correspond to [mW-sW, mW, mW+sW]
-// 2. Table 6: conditional effect of M1 on Y = b_m1 + b_m1w * Wc
-//    using coefficients from the joint Y model (Table 5 / rY_both)
-//    M1 is at index 2, M1xW is at index 5
-// 3. Table 7: conditional indirect X→M1→Y
-//    a_cond(Wc) = a1_simple + a3 * Wc   (from M1 model, Table 1)
-//    b_cond(Wc) = b_m1 + b_m1w * Wc     (from Y model, Table 5)
-//    indirect(Wc) = a_cond * b_cond
-// 4. Table 8: conditional indirect X→M2→Y  (same logic with M2 coefficients)
-// ============================================================
-
-// --- Compute W levels from actual data (centered) ---
-// wRaw and wC (= centre(wRaw)) are already in scope from runModMed
-// mW = mean(wRaw), sW = sd(wRaw) are already computed
-// Three W levels in centered units:
 const wLevels_centered = [-sW, 0, sW];
 // Corresponding raw W values (for display labels):
 const wLevels_raw = [mW - sW, mW, mW + sW];
@@ -11696,26 +11675,16 @@ const wLevelLabels = [
 
 // ============================================================
 // TABLE 6: Conditional effect of M1 on Y at levels of W
-// Uses rY_both coefficients (Table 5 joint model)
-// Model: Y ~ X + M1 + M2 + W + M1*W + M2*W
-//   coef[0] = Intercept
-//   coef[1] = X
-//   coef[2] = M1        <-- b_m1
-//   coef[3] = M2
-//   coef[4] = W
-//   coef[5] = M1*W      <-- b_m1w
-//   coef[6] = M2*W
-// Conditional effect of M1 on Y at Wc: b_m1 + b_m1w * Wc
 // ============================================================
 let conditionalYRows = '';
 let conditionalYHTML = '';
 
 if (stage === 'both' && rY_both) {
-  const b_m1   = rY_both.coef[2];   // M1 main effect
-  const b_m1w  = rY_both.coef[5];   // M1 x W interaction
+  const b_m1   = rY_both.coef[2];   
+  const b_m1w  = rY_both.coef[5];   
   const se_m1  = rY_both.se[2];
   const se_m1w = rY_both.se[5];
-  const cov_m1_m1w = 0;             // off-diagonal of var-cov; 0 is conservative
+  const cov_m1_m1w = 0;             
   const df_y   = rY_both.df;
   const tc_y   = tQuantile(df_y, 1 - cl);
 
@@ -11728,6 +11697,8 @@ if (stage === 'both' && rY_both) {
     const pEff  = tcdf2(Math.abs(tEff), df_y);
     const lo    = eff - tc_y * seEff;
     const hi    = eff + tc_y * seEff;
+    const sig   = pEff < (1 - cl);  // Significant if p < alpha
+    
     return `<tr>
       <td style="font-weight:600">${wLevelLabels[i]}</td>
       <td style="text-align:right">${fmtv(eff,4)}</td>
@@ -11736,7 +11707,9 @@ if (stage === 'both' && rY_both) {
       <td style="text-align:right">${fmtp(pEff)}</td>
       <td style="text-align:right">${fmtv(lo,4)}</td>
       <td style="text-align:right">${fmtv(hi,4)}</td>
-      <td class="sig-star" style="text-align:center">${pStar(pEff)}</td>
+      <td style="text-align:center">${sig
+        ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>'
+        : '<span style="color:var(--text-4)">✗ No</span>'}</td>
     </tr>`;
   }).join('');
 
@@ -11746,38 +11719,29 @@ if (stage === 'both' && rY_both) {
     <div class="res-table-wrap"><table class="res-table">
       <thead><tr>
         <th>${wn} level (raw)</th><th>b</th><th>SE</th><th>t</th><th>p</th>
-        <th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th>
+        <th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th>Sig?</th>
       </tr></thead>
       <tbody>${conditionalYRows}</tbody>
     </table></div>
     <div style="font-size:.71rem;color:var(--text-4);margin-top:4px">
       Conditional effect = b<sub>M1</sub> + b<sub>M1×W</sub> × W<sub>c</sub>, 
       where W<sub>c</sub> = W − mean(W). Shown at W = mean − 1SD, mean, mean + 1SD.
+      Significance determined by p < ${(1 - cl).toFixed(2)}.
     </div>`;
   }
 }
 
 // ============================================================
 // TABLE 7: Conditional indirect effect X → M1 → Y
-//
-// a_cond(Wc) = a1 + a3 * Wc
-//   where a1 = rM1_both.coef[1] (X → M1 main)
-//         a3 = rM1_both.coef[3] (X*W → M1 interaction)
-//
-// b_cond(Wc) = b_m1 + b_m1w * Wc
-//   where b_m1  = rY_both.coef[2]
-//         b_m1w = rY_both.coef[5]
-//
-// indirect(Wc) = a_cond(Wc) * b_cond(Wc)
 // ============================================================
 let indirectM1Rows = '';
 let indirectM1HTML = '';
 
 if (stage === 'both' && rM1_both && rY_both) {
-  const a1_m1  = rM1_both.coef[1];   // X main in M1 model
-  const a3_m1  = rM1_both.coef[3];   // X*W interaction in M1 model
-  const b_m1   = rY_both.coef[2];    // M1 main in Y model
-  const b_m1w  = rY_both.coef[5];    // M1*W in Y model
+  const a1_m1  = rM1_both.coef[1];   
+  const a3_m1  = rM1_both.coef[3];   
+  const b_m1   = rY_both.coef[2];    
+  const b_m1w  = rY_both.coef[5];    
 
   // Point estimates
   const indirectM1_vals = wLevels_centered.map(Wc =>
@@ -11789,7 +11753,7 @@ if (stage === 'both' && rM1_both && rY_both) {
   if (nBoot > 0) {
     const alpha  = 1 - cl;
     const bootS  = [[], [], []];
-    const bootN  = Math.min(nBoot, n); // use actual nBoot but cap iterations
+    const bootN  = Math.min(nBoot, n); 
 
     for (let b = 0; b < nBoot; b++) {
       const idx = Array.from({ length: n }, () => getRandomInt(n));
@@ -11885,18 +11849,15 @@ if (stage === 'both' && rM1_both && rY_both) {
 
 // ============================================================
 // TABLE 8: Conditional indirect effect X → M2 → Y
-// Same logic as Table 7 but with M2 model coefficients
-//   a1_m2 = rM2_both.coef[1], a3_m2 = rM2_both.coef[3]
-//   b_m2  = rY_both.coef[3],  b_m2w = rY_both.coef[6]
 // ============================================================
 let indirectM2Rows = '';
 let indirectM2HTML = '';
 
 if (stage === 'both' && rM2_both && rY_both && m2Raw && m2Raw.length === n) {
-  const a1_m2  = rM2_both.coef[1];   // X main in M2 model
-  const a3_m2  = rM2_both.coef[3];   // X*W interaction in M2 model
-  const b_m2   = rY_both.coef[3];    // M2 main in Y model  (index 3)
-  const b_m2w  = rY_both.coef[6];    // M2*W in Y model     (index 6)
+  const a1_m2  = rM2_both.coef[1];   
+  const a3_m2  = rM2_both.coef[3];   
+  const b_m2   = rY_both.coef[3];    
+  const b_m2w  = rY_both.coef[6];    
 
   const indirectM2_vals = wLevels_centered.map(Wc =>
     (a1_m2 + a3_m2 * Wc) * (b_m2 + b_m2w * Wc)
@@ -11933,8 +11894,8 @@ if (stage === 'both' && rM2_both && rY_both && m2Raw && m2Raw.length === n) {
 
       const a1b  = rM2b.coef[1];
       const a3b  = rM2b.coef[3];
-      const b2b  = rYb.coef[3];   // M2 main in Y (index 3)
-      const b2wb = rYb.coef[6];   // M2*W in Y    (index 6)
+      const b2b  = rYb.coef[3];   
+      const b2wb = rYb.coef[6];   
 
       for (let i = 0; i < 3; i++) {
         const Wc = wLevels_centered[i];
