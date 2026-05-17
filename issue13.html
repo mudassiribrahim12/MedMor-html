@@ -11523,482 +11523,297 @@ At high ${wn} (${fmtv(mW+sW,4)}): b = ${fmtv(slopes[2])}, SE = ${fmtv(slopeSEs[2
 //  MODERATED MEDIATION — with Centering Options
 // ══════════════════════════════════════════════════════
 function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
-  const xRaw=vars.x,mRaw=vars.m,yRaw=vars.y,wRaw=vars.w,xn=vars.xname,mn=vars.mname,yn=vars.yname,wn=vars.wname;
-  
-  const m=[...mRaw], y=[...yRaw];
+  const xRaw=vars.x,mRaw=vars.m,yRaw=vars.y,wRaw=vars.w;
+  const xn=vars.xname,mn=vars.mname,yn=vars.yname,wn=vars.wname;
+  const n=xRaw.length;
   const confPct=Math.round(cl*100)+'%';
-  const mX=mean(xRaw), mW=mean(wRaw), sW=sd(wRaw), sdX=sd(xRaw);
-  
-  // ========== PREPARE DATA WITH PROPER CENTERING ==========
-  let xCentered, wCentered, mCentered;
-  if (centerOption === 'none') {
-    xCentered = [...xRaw]; wCentered = [...wRaw]; mCentered = [...mRaw];
-  } else if (centerOption === 'continuous') {
-    const centerX = !isBinary(xRaw), centerW = !isBinary(wRaw), centerM = !isBinary(mRaw);
-    xCentered = centerX ? centre(xRaw) : [...xRaw];
-    wCentered = centerW ? centre(wRaw) : [...wRaw];
-    mCentered = centerM ? centre(mRaw) : [...mRaw];
+  const mX=mean(xRaw),mW=mean(wRaw),sW=sd(wRaw),sdX=sd(xRaw);
+  const stageName=stage==='first'?'First Stage (X×W→M)':stage==='second'?'Second Stage (M×W→Y)':'Both Stages';
+
+  // ── center helpers ──
+  function applyCenter(arr){
+    if(centerOption==='none') return [...arr];
+    if(centerOption==='continuous') return isBinary(arr)?[...arr]:centre(arr);
+    return centre(arr);
+  }
+  const xC=applyCenter(xRaw);
+  const wC=applyCenter(wRaw);
+  const mC=applyCenter(mRaw);
+  const xwC=xC.map((v,i)=>v*wC[i]);
+  const mwC=mC.map((v,i)=>v*wC[i]);
+
+  // ── standardised helpers ──
+  const xz=zscore(xRaw),mz=zscore(mRaw),yz=zscore(yRaw),wz=zscore(wRaw);
+  const cvz=covArrays.map(c=>zscore(c));
+  const xwz=centre(xz).map((v,i)=>v*centre(wz)[i]);
+  const mwz=centre(mz).map((v,i)=>v*centre(wz)[i]);
+
+  // ── run all regressions needed ──
+  // a-path with interaction (first / both)
+  const rM_int = ols(mRaw, buildMat([xRaw,wRaw,xwC,...covArrays]), [xn,wn,`${xn}×${wn}`,...covNames], cl);
+  const rMz_int= ols(mz,   buildMat([xz,wz,xwz,...cvz]),           [xn,wn,`${xn}×${wn}`,...covNames], cl);
+
+  // a-path simple (second stage only needs X→M)
+  const rM_sim = ols(mRaw, buildMat([xRaw,...covArrays]), [xn,...covNames], cl);
+  const rMz_sim= ols(mz,   buildMat([xz,...cvz]),         [xn,...covNames], cl);
+
+  // b-path with interaction (second / both)
+  const rY_int = ols(yRaw, buildMat([xRaw,mRaw,wRaw,mwC,...covArrays]), [xn,mn,wn,`${mn}×${wn}`,...covNames], cl);
+  const rYz_int= ols(yz,   buildMat([xz,mz,wz,mwz,...cvz]),             [xn,mn,wn,`${mn}×${wn}`,...covNames], cl);
+
+  // b-path simple (first stage only needs X,M→Y)
+  const rY_sim = ols(yRaw, buildMat([xRaw,mRaw,...covArrays]), [xn,mn,...covNames], cl);
+  const rYz_sim= ols(yz,   buildMat([xz,mz,...cvz]),            [xn,mn,...covNames], cl);
+
+  // total effect
+  const rTot   = ols(yRaw, buildMat([xRaw,...covArrays]), [xn,...covNames], cl);
+  const rTz    = ols(yz,   buildMat([xz,...cvz]),          [xn,...covNames], cl);
+
+  // ── null-check every model we need ──
+  if(!rTot) return err('Total effect regression failed — check for missing values or perfect multicollinearity.');
+  if(stage==='first'||stage==='both'){
+    if(!rM_int) return err(`a-path regression (${xn}, ${wn}, ${xn}×${wn} → ${mn}) failed — check for missing values or multicollinearity.`);
+  }
+  if(stage==='second'){
+    if(!rM_sim) return err(`a-path regression (${xn} → ${mn}) failed — check for missing values or multicollinearity.`);
+  }
+  if(stage==='second'||stage==='both'){
+    if(!rY_int) return err(`b-path regression (${xn}, ${mn}, ${wn}, ${mn}×${wn} → ${yn}) failed — check for missing values or multicollinearity.`);
+  }
+  if(stage==='first'){
+    if(!rY_sim) return err(`b-path regression (${xn}, ${mn} → ${yn}) failed — check for missing values or multicollinearity.`);
+  }
+
+  // ── pick coefficients based on stage ──
+  let a1,a1_se,a1_p,a1_std;
+  let a3,a3_se,a3_p,a3_std;
+  let b1,b1_se,b1_p,b1_std;
+  let b3,b3_se,b3_p,b3_std;
+  let cp,cp_se,cp_p,cp_std;
+  let rM_use,rMz_use,rY_use,rYz_use;
+
+  if(stage==='first'){
+    rM_use=rM_int; rMz_use=rMz_int; rY_use=rY_sim; rYz_use=rYz_sim;
+    a1=rM_int.coef[1]; a1_se=rM_int.se[1]; a1_p=rM_int.p[1]; a1_std=rMz_int?rMz_int.coef[1]:NaN;
+    a3=rM_int.coef[3]; a3_se=rM_int.se[3]; a3_p=rM_int.p[3]; a3_std=rMz_int?rMz_int.coef[3]:NaN;
+    b1=rY_sim.coef[2];  b1_se=rY_sim.se[2];  b1_p=rY_sim.p[2];  b1_std=rYz_sim?rYz_sim.coef[2]:NaN;
+    b3=0; b3_se=0; b3_p=1; b3_std=0;
+    cp=rY_sim.coef[1];  cp_se=rY_sim.se[1];  cp_p=rY_sim.p[1];  cp_std=rYz_sim?rYz_sim.coef[1]:NaN;
+  } else if(stage==='second'){
+    rM_use=rM_sim; rMz_use=rMz_sim; rY_use=rY_int; rYz_use=rYz_int;
+    a1=rM_sim.coef[1]; a1_se=rM_sim.se[1]; a1_p=rM_sim.p[1]; a1_std=rMz_sim?rMz_sim.coef[1]:NaN;
+    a3=0; a3_se=0; a3_p=1; a3_std=0;
+    b1=rY_int.coef[2];  b1_se=rY_int.se[2];  b1_p=rY_int.p[2];  b1_std=rYz_int?rYz_int.coef[2]:NaN;
+    b3=rY_int.coef[4];  b3_se=rY_int.se[4];  b3_p=rY_int.p[4];  b3_std=rYz_int?rYz_int.coef[4]:NaN;
+    cp=rY_int.coef[1];  cp_se=rY_int.se[1];  cp_p=rY_int.p[1];  cp_std=rYz_int?rYz_int.coef[1]:NaN;
   } else {
-    xCentered = centre(xRaw); wCentered = centre(wRaw); mCentered = centre(mRaw);
-  }
-  
-  const xwCentered = xCentered.map((v,i)=> v * wCentered[i]);
-  const mwCentered = mCentered.map((v,i)=> v * wCentered[i]);
-  const xRawData = [...xRaw];
-  const wRawData = [...wRaw];
-  
-  // ========== RUN REGRESSIONS BASED ON STAGE ==========
-  let rM = null, rMz = null, rY = null, rYz = null, rTot = null, rTz = null;
-  let rBothM = null, rBothMz = null, rBothY = null, rBothYz = null;
-  let rY_simple = null, rYz_simple = null;
-  let rM_simple = null, rMz_simple = null;
-  
-  // Build matrices for VIF
-  let Xmat_a = null, Xmat_b = null, Xmat_tot = null;
-  let predNames_a = [], predNames_b = [], predNames_tot = [];
-  
-  if (stage === 'first' || stage === 'both') {
-    const Xcols_a = [xRawData, wRawData, xwCentered];
-    for (let c of covArrays) Xcols_a.push(c);
-    Xmat_a = buildMat(Xcols_a);
-    predNames_a = [xn, wn, `${xn}×${wn}`, ...covNames];
-    
-    rM = ols(m, Xcols_a, predNames_a, cl);
-    const xz = zscore(xRaw), mz = zscore(mRaw), wz = zscore(wRaw), cvz = covArrays.map(c=>zscore(c));
-    let xwz;
-    if (centerOption === 'none') xwz = xz.map((v,i)=> v * wz[i]);
-    else { const xc_z = centre(xz); const wc_z = centre(wz); xwz = xc_z.map((v,i)=> v * wc_z[i]); }
-    const Xcols_az = [xz, wz, xwz, ...cvz];
-    rMz = ols(mz, Xcols_az, predNames_a, cl);
-  }
-  
-  if (stage === 'second' || stage === 'both') {
-    const Xcols_b = [xRawData, m, wRawData, mwCentered];
-    for (let c of covArrays) Xcols_b.push(c);
-    Xmat_b = buildMat(Xcols_b);
-    predNames_b = [xn, mn, wn, `${mn}×${wn}`, ...covNames];
-    
-    rY = ols(y, Xcols_b, predNames_b, cl);
-    const xz = zscore(xRaw), mz = zscore(mRaw), yz = zscore(yRaw), wz = zscore(wRaw), cvz = covArrays.map(c=>zscore(c));
-    let mwz;
-    if (centerOption === 'none') mwz = mz.map((v,i)=> v * wz[i]);
-    else { const mc_z = centre(mz); const wc_z = centre(wz); mwz = mc_z.map((v,i)=> v * wc_z[i]); }
-    const Xcols_bz = [xz, mz, wz, mwz, ...cvz];
-    rYz = ols(yz, Xcols_bz, predNames_b, cl);
-  }
-  
-  if (stage === 'first') {
-    const Xcols_simple = [xRawData, m];
-    for (let c of covArrays) Xcols_simple.push(c);
-    rY_simple = ols(y, Xcols_simple, [xn, mn, ...covNames], cl);
-    const yz = zscore(yRaw), xz = zscore(xRaw), mz = zscore(mRaw), cvz = covArrays.map(c=>zscore(c));
-    const Xcols_simplez = [xz, mz, ...cvz];
-    rYz_simple = ols(yz, Xcols_simplez, [xn, mn, ...covNames], cl);
-  }
-  
-  if (stage === 'second') {
-    const Xcols_simple = [xRawData];
-    for (let c of covArrays) Xcols_simple.push(c);
-    rM_simple = ols(m, Xcols_simple, [xn, ...covNames], cl);
-    const mz = zscore(mRaw), xz = zscore(xRaw), cvz = covArrays.map(c=>zscore(c));
-    const Xcols_simplez = [xz, ...cvz];
-    rMz_simple = ols(mz, Xcols_simplez, [xn, ...covNames], cl);
-  }
-  
-  // Total effect
-  const Xcols_tot = [xRawData];
-  for (let c of covArrays) Xcols_tot.push(c);
-  Xmat_tot = buildMat(Xcols_tot);
-  predNames_tot = [xn, ...covNames];
-  rTot = ols(y, Xcols_tot, predNames_tot, cl);
-  const xz = zscore(xRaw), yz = zscore(yRaw), cvz = covArrays.map(c=>zscore(c));
-  const Xcols_totz = [xz, ...cvz];
-  rTz = ols(yz, Xcols_totz, predNames_tot, cl);
-  
-  if (stage === 'both') {
-    rBothM = rM; rBothMz = rMz; rBothY = rY; rBothYz = rYz;
+    rM_use=rM_int; rMz_use=rMz_int; rY_use=rY_int; rYz_use=rYz_int;
+    a1=rM_int.coef[1]; a1_se=rM_int.se[1]; a1_p=rM_int.p[1]; a1_std=rMz_int?rMz_int.coef[1]:NaN;
+    a3=rM_int.coef[3]; a3_se=rM_int.se[3]; a3_p=rM_int.p[3]; a3_std=rMz_int?rMz_int.coef[3]:NaN;
+    b1=rY_int.coef[2];  b1_se=rY_int.se[2];  b1_p=rY_int.p[2];  b1_std=rYz_int?rYz_int.coef[2]:NaN;
+    b3=rY_int.coef[4];  b3_se=rY_int.se[4];  b3_p=rY_int.p[4];  b3_std=rYz_int?rYz_int.coef[4]:NaN;
+    cp=rY_int.coef[1];  cp_se=rY_int.se[1];  cp_p=rY_int.p[1];  cp_std=rYz_int?rYz_int.coef[1]:NaN;
   }
 
-  // ========== EXTRACT COEFFICIENTS ==========
-  let a1_val, a3_val, b1_val, b3_val, cp_val;
-  let a1_se, a3_se, b1_se, b3_se, cp_se;
-  let a1_p, a3_p, b1_p, b3_p, cp_p;
-  let a1_std, a3_std, b1_std, b3_std, cp_std;
-
-  if (stage === 'first') {
-    a1_val = rM.coef[1]; a1_se = rM.se[1]; a1_p = rM.p[1]; a1_std = rMz ? rMz.coef[1] : NaN;
-    a3_val = rM.coef[3]; a3_se = rM.se[3]; a3_p = rM.p[3]; a3_std = rMz ? rMz.coef[3] : NaN;
-    b1_val = rY_simple.coef[2]; b1_se = rY_simple.se[2]; b1_p = rY_simple.p[2]; b1_std = rYz_simple ? rYz_simple.coef[2] : NaN;
-    b3_val = 0; b3_std = 0; b3_p = 1;
-    cp_val = rY_simple.coef[1]; cp_std = rYz_simple ? rYz_simple.coef[1] : NaN; cp_p = rY_simple.p[1];
-    cp_se = rY_simple.se[1];
-  } else if (stage === 'second') {
-    a1_val = rM_simple.coef[1]; a1_se = rM_simple.se[1]; a1_p = rM_simple.p[1]; a1_std = rMz_simple ? rMz_simple.coef[1] : NaN;
-    a3_val = 0; a3_std = 0; a3_p = 1;
-    b1_val = rY.coef[2]; b1_se = rY.se[2]; b1_p = rY.p[2]; b1_std = rYz ? rYz.coef[2] : NaN;
-    b3_val = rY.coef[4]; b3_se = rY.se[4]; b3_p = rY.p[4]; b3_std = rYz ? rYz.coef[4] : NaN;
-    cp_val = rY.coef[1]; cp_std = rYz ? rYz.coef[1] : NaN; cp_p = rY.p[1];
-    cp_se = rY.se[1];
-  } else { 
-    a1_val = rBothM.coef[1]; a1_se = rBothM.se[1]; a1_p = rBothM.p[1]; a1_std = rBothMz ? rBothMz.coef[1] : NaN;
-    a3_val = rBothM.coef[3]; a3_se = rBothM.se[3]; a3_p = rBothM.p[3]; a3_std = rBothMz ? rBothMz.coef[3] : NaN;
-    b1_val = rBothY.coef[2]; b1_se = rBothY.se[2]; b1_p = rBothY.p[2]; b1_std = rBothYz ? rBothYz.coef[2] : NaN;
-    b3_val = rBothY.coef[4]; b3_se = rBothY.se[4]; b3_p = rBothY.p[4]; b3_std = rBothYz ? rBothYz.coef[4] : NaN;
-    cp_val = rBothY.coef[1]; cp_std = rBothYz ? rBothYz.coef[1] : NaN; cp_p = rBothY.p[1];
-    cp_se = rBothY.se[1];
+  // ── index of moderated mediation ──
+  let indexMM, indexMM_std;
+  if(stage==='first'){
+    indexMM=a3*b1; indexMM_std=(isNaN(a3_std)||isNaN(b1_std))?NaN:a3_std*b1_std;
+  } else if(stage==='second'){
+    indexMM=a1*b3; indexMM_std=(isNaN(a1_std)||isNaN(b3_std))?NaN:a1_std*b3_std;
+  } else {
+    indexMM=a3*b1; indexMM_std=(isNaN(a3_std)||isNaN(b1_std))?NaN:a3_std*b1_std;
   }
 
-  let indexMM = 0, indexMM_std = 0;
-  if (stage === 'first') {
-    indexMM = a3_val * b1_val;
-    indexMM_std = a3_std * b1_std;
-  } else if (stage === 'second') {
-    indexMM = a1_val * b3_val;
-    indexMM_std = a1_std * b3_std;
-  } else { 
-    indexMM = a3_val * b1_val;
-    indexMM_std = a3_std * b1_std;
-  }
-  
-  // ========== BOOTSTRAP ==========
-  let bootHtml = '';
-  let bootRes = null;
-  
-  if (nBoot > 0 && stage !== 'both') {
-if (stage === 'first') {
-      const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
-      if (bootMethod === 'bias-corrected') {
-          bootRes = bootCI_modmed_first_bc(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
-      } else {
-          bootRes = bootCI_modmed_first(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
-      }
-      
-      if (bootRes) {
-        bootHtml = `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
-          <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap Results (${nBoot.toLocaleString()} samples, percentile method)</div>
+  // ── bootstrap ──
+  let bootRes=null, bootHtml='';
+  if(nBoot>0 && stage!=='both'){
+    const bootMethod=document.getElementById('bootMethod')?.value||'percentile';
+    const bootFn=stage==='first'
+      ?(bootMethod==='bias-corrected'?bootCI_modmed_first_bc:bootCI_modmed_first)
+      :(bootMethod==='bias-corrected'?bootCI_modmed_second_bc:bootCI_modmed_second);
+    bootRes=bootFn(xRaw,mRaw,yRaw,wRaw,nBoot,cl,covArrays);
+    if(bootRes){
+      const idx=stage==='first'?bootRes.index:bootRes.index_second;
+      if(idx){
+        const sig=idx.lo>0||idx.hi<0;
+        bootHtml=`<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
+          <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap ${bootMethod==='bias-corrected'?'BC':'Percentile'} CI (${nBoot.toLocaleString()} samples)</div>
           <div class="res-table-wrap"><table class="res-table">
-            <thead>
-              <tr><th rowspan="2">Parameter</th><th colspan="4" class="th-group">Bootstrap Results</th><th class="col-divider" style="color:var(--violet);">Standardized</th></tr>
-              <tr><th>Estimate</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th><th class="col-divider" style="color:var(--violet)">β</th></tr>
-            </thead>
-            <tbody>
-              <tr class="row-bold">
-                <td>Index of Moderated Mediation (a₃×b₁)</td>
-                <td style="text-align:right;">${fmtv(bootRes.index.effect)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index.se)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index.lo)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index.hi)}</td>
-                <td style="text-align:center;">${bootRes.index.lo > 0 || bootRes.index.hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
-                <td class="col-divider td-std" style="text-align:right;font-weight:800;">${fmtv(indexMM_std, 3)}</td>
-               </tr>
-            </tbody>
+            <thead><tr><th>Parameter</th><th>Estimate</th><th>BootSE</th><th>BootLLCI</th><th>BootULCI</th><th>Sig?</th></tr></thead>
+            <tbody><tr class="row-bold">
+              <td>Index of Moderated Mediation</td>
+              <td>${fmtv(idx.effect)}</td><td>${fmtv(idx.se)}</td>
+              <td>${fmtv(idx.lo)}</td><td>${fmtv(idx.hi)}</td>
+              <td>${sig?'<span style="color:var(--emerald);font-weight:800">✓ Yes</span>':'<span style="color:var(--text-4)">✗ No</span>'}</td>
+            </tr></tbody>
           </table></div>
-          <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the Index of Moderated Mediation CI excludes zero.</div>
-        </div>`;
-      }
-} else if (stage === 'second') {
-      const bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
-      if (bootMethod === 'bias-corrected') {
-          bootRes = bootCI_modmed_second_bc(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
-      } else {
-          bootRes = bootCI_modmed_second(xRaw, mRaw, yRaw, wRaw, nBoot, cl, covArrays);
-      }
-      
-      if (bootRes) {
-        bootHtml = `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
-          <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap Results (${nBoot.toLocaleString()} samples, percentile method)</div>
-          <div class="res-table-wrap"><table class="res-table">
-            <thead>
-              <tr><th rowspan="2">Parameter</th><th colspan="4" class="th-group">Bootstrap Results</th><th class="col-divider" style="color:var(--violet);">Standardized</th></tr>
-              <tr><th>Estimate</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th><th class="col-divider" style="color:var(--violet)">β</th></tr>
-            </thead>
-            <tbody>
-              <tr class="row-bold">
-                <td>Index of Moderated Mediation (a₁×b₃)</td>
-                <td style="text-align:right;">${fmtv(bootRes.index_second.effect)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index_second.se)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index_second.lo)}</td>
-                <td style="text-align:right;">${fmtv(bootRes.index_second.hi)}</td>
-                <td style="text-align:center;">${bootRes.index_second.lo > 0 || bootRes.index_second.hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓ Yes</span>' : '<span style="color:var(--text-4)">✗ No</span>'}</td>
-                <td class="col-divider td-std" style="text-align:right;font-weight:800;">${fmtv(indexMM_std, 3)}</td>
-               </tr>
-            </tbody>
-          </table></div>
-          <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the Index of Moderated Mediation CI excludes zero.</div>
+          <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the IMM CI excludes zero.</div>
         </div>`;
       }
     }
   }
-  
-  const diagData = {
-    type: 'modmed', xn, mn, yn, wn,
-    a1: a1_val, a1_std: a1_std, pa1: a1_p,
-    a3: a3_val, a3_std: a3_std, pa3: a3_p,
-    b: b1_val, b_std: b1_std, pb: b1_p,
-    b3: b3_val, b3_std: b3_std, pb3: b3_p,
-    cp: cp_val, cp_std: cp_std, pcp: cp_p,
-    indexMM: indexMM, indexMM_std: indexMM_std,
-    selectedStage: stage,
-    bootCI_index: (stage === 'first' && bootRes) ? bootRes.index : (stage === 'second' && bootRes) ? bootRes.index_second : null
-  };
-  
-  let methodNote = '';
-  const stageName = stage === 'first' ? 'First Stage' : (stage === 'second' ? 'Second Stage' : 'Both Stages');
-  methodNote = `<div class="alert alert-info" style="margin-bottom:12px"><i class="fas fa-info-circle"></i> <strong>${stageName} Moderation:</strong> `;
-  if (stage === 'first') methodNote += `W moderates the X→M path (a-path). Index = a₃ × b.`;
-  else if (stage === 'second') methodNote += `W moderates the M→Y path (b-path). Index = a₁ × b₃.`;
-  else methodNote += `W moderates both the X→M and M→Y paths.`;
-  methodNote += `</div>`;
-  
-  // ========== APA SUMMARY ==========
-  let apaSummary = '';
-  
-  if (stage === 'first') {
-    const imm_sig = (bootRes && bootRes.index && (bootRes.index.lo > 0 || bootRes.index.hi < 0));
-    apaSummary = `<p>A moderated mediation analysis examined whether <strong>${wn}</strong> moderates the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> (first stage moderation).</p>
-    <p><strong>First stage moderation (${xn}×${wn} → ${mn}):</strong> b = ${fmtv(a3_val)}, SE = ${fmtv(a3_se)}, p ${fmtp(a3_p)} — <strong>${a3_p < .05 ? 'significant' : 'non-significant'}</strong></p>
-    <p><strong>Index of Moderated Mediation (IMM = a₃ × b):</strong> IMM = ${fmtv(indexMM)} (β = ${fmtv(indexMM_std, 3)})${nBoot > 0 && bootRes ? `, BootSE = ${fmtv(bootRes.index.se)}, 95% BC CI [${fmtv(bootRes.index.lo, 3)}, ${fmtv(bootRes.index.hi, 3)}] — <strong>${imm_sig ? 'excludes zero' : 'includes zero'}</strong>` : ''}</p>
-    <p><strong>Overall interpretation:</strong> ${imm_sig ? 'Moderated mediation is supported.' : '<strong>Moderated mediation is not supported.</strong>'}</p>`;
-  } 
-  else if (stage === 'second') {
-    const imm_sig = (bootRes && bootRes.index_second && (bootRes.index_second.lo > 0 || bootRes.index_second.hi < 0));
-    apaSummary = `<p>A moderated mediation analysis examined whether <strong>${wn}</strong> moderates the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> (second stage moderation).</p>
-    <p><strong>Second stage moderation (${mn}×${wn} → ${yn}):</strong> b = ${fmtv(b3_val)}, SE = ${fmtv(b3_se)}, p ${fmtp(b3_p)} — <strong>${b3_p < .05 ? 'significant' : 'non-significant'}</strong></p>
-    <p><strong>Index of Moderated Mediation (IMM = a₁ × b₃):</strong> IMM = ${fmtv(indexMM)} (β = ${fmtv(indexMM_std, 3)})${nBoot > 0 && bootRes ? `, BootSE = ${fmtv(bootRes.index_second.se)}, 95% BC CI [${fmtv(bootRes.index_second.lo, 3)}, ${fmtv(bootRes.index_second.hi, 3)}] — <strong>${imm_sig ? 'excludes zero' : 'includes zero'}</strong>` : ''}</p>
-    <p><strong>Overall interpretation:</strong> ${imm_sig ? 'Moderated mediation is supported.' : '<strong>Moderated mediation is not supported.</strong>'}</p>`;
-  } 
-  else {
-    apaSummary = `<p>A moderated mediation analysis examined whether <strong>${wn}</strong> moderates the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> at both the first and second stages.</p>
-    <p><strong>First stage moderation (${xn}×${wn} → ${mn}):</strong> b = ${fmtv(a3_val)}, SE = ${fmtv(a3_se)}, p ${fmtp(a3_p)} — <strong>${a3_p < .05 ? 'significant' : 'non-significant'}</strong><br>
-    <strong>IMM₁ (a₃ × b₁) = ${fmtv(a3_val * b1_val)}</strong> (β = ${fmtv(a3_std * b1_std, 3)})</p>
-    <p><strong>Second stage moderation (${mn}×${wn} → ${yn}):</strong> b = ${fmtv(b3_val)}, SE = ${fmtv(b3_se)}, p ${fmtp(b3_p)} — <strong>${b3_p < .05 ? 'significant' : 'non-significant'}</strong><br>
-    <strong>IMM₂ (a₁ × b₃) = ${fmtv(a1_val * b3_val)}</strong> (β = ${fmtv(a1_std * b3_std, 3)})</p>
-    <p><strong>Overall interpretation:</strong> ${(a3_p < .05 || b3_p < .05) ? 'Moderated mediation may be present at one or more stages.' : '<strong>Moderated mediation is not supported.</strong>'}</p>`;
-  }
-  
-  // ========== SIMPLE SLOPES and CONDITIONAL INDIRECT EFFECTS ==========
-  let slopesHTML = '';
-  let condIndPaths = [];
-  let slopeRows = '';
-  let tc, allCondPaths = [];
-  
-  if (stage === 'first' || stage === 'second') {
-    if (stage === 'first') {
-      const df = rM.df;
-      tc = tQuantile(df, 1-cl);
-      let wLVals, slopes, slopeSEs, slopePvals;
-      if (centerOption === 'none') {
-        wLVals = [mW - sW, mW, mW + sW];
-        slopes = wLVals.map(wv => a1_val + a3_val * wv);
-        slopeSEs = wLVals.map(wv => Math.sqrt(a1_se**2 + wv**2 * a3_se**2));
+
+  // ── simple slopes ──
+  const tc=tQuantile(rM_use?rM_use.df:rY_use.df,1-cl);
+  let slopeRows='', slopesHTML='', condIndTable='';
+
+  if(stage==='first'||stage==='second'){
+    // which coefficient drives the slope and what's its SE?
+    const slope_b   = stage==='first'?a1:b1;
+    const slope_int = stage==='first'?a3:b3;
+    const slope_se_b  = stage==='first'?a1_se:b1_se;
+    const slope_se_int= stage==='first'?a3_se:b3_se;
+    const slope_df  = stage==='first'?rM_use.df:rY_use.df;
+    const tc2=tQuantile(slope_df,1-cl);
+
+    const wLevels=[-sW,0,sW];
+    const wActual=wLevels.map(w=>mW+w);
+    const slopes=wLevels.map(w=>slope_b+slope_int*w);
+    const slopeSEs=wLevels.map(w=>Math.sqrt(slope_se_b**2+w**2*slope_se_int**2));
+    const slopePvals=slopes.map((s,i)=>tcdf2(Math.abs(slopeSEs[i]>0?s/slopeSEs[i]:0),slope_df));
+
+    const slopeLabels=[`Low (M−1SD = ${fmtv(wActual[0],4)})`,`Mean (${fmtv(wActual[1],4)})`,`High (M+1SD = ${fmtv(wActual[2],4)})`];
+    slopeRows=slopes.map((sl,i)=>{
+      const lo=sl-tc2*slopeSEs[i],hi=sl+tc2*slopeSEs[i],ts=slopeSEs[i]>0?sl/slopeSEs[i]:0;
+      const betaSlope=stage==='first'?(a1_std+(isNaN(a3_std)?0:a3_std)*(wLevels[i]/sW)):(b1_std+(isNaN(b3_std)?0:b3_std)*(wLevels[i]/sW));
+      return `<tr><td style="font-weight:600">${slopeLabels[i]}</td>
+        <td style="text-align:right">${fmtv(sl)}</td><td style="text-align:right">${fmtv(slopeSEs[i])}</td>
+        <td style="text-align:right">${fmtv(ts)}</td><td style="text-align:right">${fmtp(slopePvals[i])}</td>
+        <td style="text-align:right">${fmtv(lo)}</td><td style="text-align:right">${fmtv(hi)}</td>
+        <td class="sig-star" style="text-align:center">${pStar(slopePvals[i])}</td>
+        <td class="col-divider td-std" style="text-align:right">${isNaN(betaSlope)?'—':fmtv(betaSlope,3)}</td></tr>`;
+    }).join('');
+
+    // slopes plot
+    const plotXn=stage==='first'?xn:mn;
+    const plotYn=stage==='first'?mn:yn;
+    const plotData={
+      b_intercept:(stage==='first'?rM_use.coef[0]:rY_use.coef[0])+(stage==='first'?a1*mX:b1*mean(mRaw))+(stage==='first'?rM_use.coef[2]:rY_use.coef[3])*mW,
+      b_x:slope_b,b_xw:slope_int,
+      mX:stage==='first'?mX:mean(mRaw),mW,sW,
+      sdX:stage==='first'?sdX:sd(mRaw),
+      wLevelVals:wLevels,slopes,slopeSEs,slopePvals,
+      xn:plotXn,wn,yn:plotYn
+    };
+    slopesHTML=buildSlopesHTML(plotData,plotXn,wn,plotYn);
+
+    // conditional indirect effects
+    const condRows=wLevels.map((wv,i)=>{
+      let ind,indSE,ind_std;
+      if(stage==='first'){
+        const aVal=a1+a3*wv; ind=aVal*b1;
+        indSE=Math.sqrt(b1**2*slopeSEs[i]**2+aVal**2*b1_se**2);
+        ind_std=(a1_std+(isNaN(a3_std)?0:a3_std)*(wv/sW))*b1_std;
       } else {
-        wLVals = [-sW, 0, sW];
-        slopes = wLVals.map(wv => a1_val + a3_val * wv);
-        slopeSEs = wLVals.map(wv => Math.sqrt(a1_se**2 + wv**2 * a3_se**2));
+        const bVal=b1+b3*wv; ind=a1*bVal;
+        indSE=Math.sqrt(bVal**2*a1_se**2+a1**2*slopeSEs[i]**2);
+        ind_std=a1_std*((b1_std+(isNaN(b3_std)?0:b3_std)*(wv/sW)));
       }
-      slopePvals = slopes.map((sl,i) => tcdf2(Math.abs(slopeSEs[i] > 0 ? sl / slopeSEs[i] : 0), df));
-      
-      slopeRows = slopes.map((sl,i) => {
-        const lo = sl - tc * slopeSEs[i];
-        const hi = sl + tc * slopeSEs[i];
-        const pv = slopePvals[i];
-        const ts = slopeSEs[i] > 0 ? sl / slopeSEs[i] : 0;
-        // Calculate standardized slope
-        const betaSlope = a1_std + a3_std * (wLVals[i] / sW);
-        const wDesc = [`Low (M−1SD = ${fmtv(mW-sW,4)})`, `Mean (M = ${fmtv(mW,4)})`, `High (M+1SD = ${fmtv(mW+sW,4)})`][i];
-        return `<tr>
-          <td style="font-weight:600;">${wDesc}</td>
-          <td style="text-align:right;">${fmtv(sl)}</td>
-          <td style="text-align:right;">${fmtv(slopeSEs[i])}</td>
-          <td style="text-align:right;">${fmtv(ts)}</td>
-          <td style="text-align:right;">${fmtp(pv)}</td>
-          <td style="text-align:right;">${fmtv(lo)}</td>
-          <td style="text-align:right;">${fmtv(hi)}</td>
-          <td class="sig-star" style="text-align:center;">${pStar(pv)}</td>
-          <td class="col-divider td-std" style="text-align:right;">${fmtv(betaSlope, 3)}</td>
-        </tr>`;
-      }).join('');
-      
-      const wVals = centerOption === 'none' ? [mW - sW, mW, mW + sW] : [-sW, 0, sW];
-      condIndPaths = wVals.map((wv,i) => {
-        const aVal = a1_val + a3_val * wv;
-        const ind = aVal * b1_val;
-        const indSE = Math.sqrt(b1_val**2 * slopeSEs[i]**2 + aVal**2 * b1_se**2);
-        const indT = indSE > 0 ? ind / indSE : 0;
-        const indP = tcdf2(Math.abs(indT), Math.min(df, rY_simple.df));
-        const indLo = ind - tc * indSE;
-        const indHi = ind + tc * indSE;
-        const lbl = ['Low (M−1SD)', 'Mean', 'High (M+1SD)'][i];
-        const ind_std = (a1_std + a3_std * (wv / sW)) * b1_std;
-        return {label: `${lbl} — Indirect (a×b)`, b: ind, b_std: ind_std, se: indSE, t: indT, p: indP, cilo: indLo, cihi: indHi};
-      });
-      
-      const plotWVals = [mW - sW, mW, mW + sW];
-      const plotData = {
-        b_intercept: rM.coef[0] + a1_val * mX + rM.coef[2] * mW,
-        b_x: a1_val, b_xw: a3_val, mX, mW, sW, sdX,
-        wLevelVals: plotWVals.map(wv => wv - mW), slopes, slopeSEs, slopePvals,
-        xn: xn, wn: wn, yn: mn
-      };
-      slopesHTML = buildSlopesHTML(plotData, xn, wn, mn);
-      
-      allCondPaths = [...condIndPaths, {label: `Index of Moderated Mediation (IMM)`, b: indexMM, b_std: indexMM_std, bold: true}];
-      
-    } else if (stage === 'second') {
-      const df = rY.df;
-      tc = tQuantile(df, 1-cl);
-      let wLVals, slopes, slopeSEs, slopePvals;
-      if (centerOption === 'none') {
-        wLVals = [mW - sW, mW, mW + sW];
-        slopes = wLVals.map(wv => b1_val + b3_val * wv);
-        slopeSEs = wLVals.map(wv => Math.sqrt(b1_se**2 + wv**2 * b3_se**2));
-      } else {
-        wLVals = [-sW, 0, sW];
-        slopes = wLVals.map(wv => b1_val + b3_val * wv);
-        slopeSEs = wLVals.map(wv => Math.sqrt(b1_se**2 + wv**2 * b3_se**2));
+      const indT=indSE>0?ind/indSE:0;
+      const indP=tcdf2(Math.abs(indT),slope_df);
+      const lo=ind-tc2*indSE,hi=ind+tc2*indSE;
+      // override with bootstrap CI if available
+      let bLo=lo,bHi=hi,bSE=indSE;
+      if(bootRes){
+        const bootArr=[bootRes.low,bootRes.mid,bootRes.high][i];
+        if(bootArr){bLo=bootArr.lo;bHi=bootArr.hi;bSE=bootArr.se;}
       }
-      slopePvals = slopes.map((sl,i) => tcdf2(Math.abs(slopeSEs[i] > 0 ? sl / slopeSEs[i] : 0), df));
-      
-      slopeRows = slopes.map((sl,i) => {
-        const lo = sl - tc * slopeSEs[i];
-        const hi = sl + tc * slopeSEs[i];
-        const pv = slopePvals[i];
-        const ts = slopeSEs[i] > 0 ? sl / slopeSEs[i] : 0;
-        const betaSlope = b1_std + b3_std * (wLVals[i] / sW);
-        const wDesc = [`Low (M−1SD = ${fmtv(mW-sW,4)})`, `Mean (M = ${fmtv(mW,4)})`, `High (M+1SD = ${fmtv(mW+sW,4)})`][i];
-        return `<tr>
-          <td style="font-weight:600;">${wDesc}</td>
-          <td style="text-align:right;">${fmtv(sl)}</td>
-          <td style="text-align:right;">${fmtv(slopeSEs[i])}</td>
-          <td style="text-align:right;">${fmtv(ts)}</td>
-          <td style="text-align:right;">${fmtp(pv)}</td>
-          <td style="text-align:right;">${fmtv(lo)}</td>
-          <td style="text-align:right;">${fmtv(hi)}</td>
-          <td class="sig-star" style="text-align:center;">${pStar(pv)}</td>
-          <td class="col-divider td-std" style="text-align:right;">${fmtv(betaSlope, 3)}</td>
-        </tr>`;
-      }).join('');
-      
-      const wVals = centerOption === 'none' ? [mW - sW, mW, mW + sW] : [-sW, 0, sW];
-      condIndPaths = wVals.map((wv,i) => {
-        const bVal = b1_val + b3_val * wv;
-        const ind = a1_val * bVal;
-        const indSE = Math.sqrt(bVal**2 * a1_se**2 + a1_val**2 * slopeSEs[i]**2);
-        const indT = indSE > 0 ? ind / indSE : 0;
-        const indP = tcdf2(Math.abs(indT), Math.min(rM_simple.df, df));
-        const indLo = ind - tc * indSE;
-        const indHi = ind + tc * indSE;
-        const lbl = ['Low (M−1SD)', 'Mean', 'High (M+1SD)'][i];
-        const ind_std = a1_std * (b1_std + b3_std * (wv / sW));
-        return {label: `${lbl} — Indirect (a×b)`, b: ind, b_std: ind_std, se: indSE, t: indT, p: indP, cilo: indLo, cihi: indHi};
-      });
-      
-      const plotWVals = [mW - sW, mW, mW + sW];
-      const plotData = {
-        b_intercept: rY.coef[0] + b1_val * mean(mRaw) + rY.coef[3] * mW,
-        b_x: b1_val, b_xw: b3_val,
-        mX: mean(mRaw), mW, sW, sdX: sd(mRaw),
-        wLevelVals: plotWVals.map(wv => wv - mW), slopes, slopeSEs, slopePvals,
-        xn: mn, wn: wn, yn: yn
-      };
-      slopesHTML = buildSlopesHTML(plotData, mn, wn, yn);
-      
-      allCondPaths = [...condIndPaths, {label: `Index of Moderated Mediation (IMM)`, b: indexMM, b_std: indexMM_std, bold: true}];
-    }
-  }
-  
-  // ========== BUILD CONDITIONAL INDIRECT TABLE ==========
-  let condIndTableHtml = '';
-  if (allCondPaths.length > 0) {
-    condIndTableHtml = `<div style="padding:18px;background:var(--surface-2);border-radius:var(--r-lg);border:1px solid var(--border);margin-top:18px">
+      return `<tr><td style="font-weight:600">${slopeLabels[i]} — Indirect</td>
+        <td style="text-align:right">${fmtv(ind)}</td><td style="text-align:right">${fmtv(bSE)}</td>
+        <td style="text-align:right">—</td><td style="text-align:right">—</td>
+        <td style="text-align:right">${fmtv(bLo)}</td><td style="text-align:right">${fmtv(bHi)}</td>
+        <td class="sig-star" style="text-align:center">${bLo>0||bHi<0?pStar(0.04):''}</td>
+        <td class="col-divider td-std" style="text-align:right">${isNaN(ind_std)?'—':fmtv(ind_std,3)}</td></tr>`;
+    }).join('');
+    const immRow=`<tr class="row-bold"><td>Index of Moderated Mediation</td>
+      <td style="text-align:right">${fmtv(indexMM)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td>
+      <td class="col-divider td-std" style="text-align:right">${isNaN(indexMM_std)?'—':fmtv(indexMM_std,3)}</td></tr>`;
+    condIndTable=`<div style="padding:18px;background:var(--surface-2);border-radius:var(--r-lg);border:1px solid var(--border);margin-top:18px">
       <div style="font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--brand);margin-bottom:12px"><i class="fas fa-project-diagram"></i> Conditional Indirect Effects &amp; Index of Moderated Mediation</div>
       <div class="res-table-wrap"><table class="res-table">
-        <thead>
-          <tr><th rowspan="2">Path</th><th colspan="7" class="th-group">Unstandardized</th><th class="col-divider" style="color:var(--violet);">Standardized</th></tr>
-          <tr><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th><th class="col-divider" style="color:var(--violet)">β</th></tr>
-        </thead>
-        <tbody>`;
-    
-    for (const path of allCondPaths) {
-      const star = path.p !== undefined ? pStar(path.p) : '';
-      condIndTableHtml += `<tr${path.bold ? ' class="row-bold"' : ''}>
-        <td style="${path.bold ? 'font-weight:800;' : 'font-weight:500;'}">${path.label}</td>
-        <td style="text-align:right;">${fmtv(path.b)}</td>
-        <td style="text-align:right;">${path.se !== undefined ? fmtv(path.se) : '—'}</td>
-        <td style="text-align:right;">${path.t !== undefined ? fmtv(path.t) : '—'}</td>
-        <td style="text-align:right;">${path.p !== undefined ? fmtp(path.p) : '—'}</td>
-        <td style="text-align:right;">${path.cilo !== undefined ? fmtv(path.cilo) : '—'}</td>
-        <td style="text-align:right;">${path.cihi !== undefined ? fmtv(path.cihi) : '—'}</td>
-        <td class="sig-star" style="text-align:center;">${star}</td>
-        <td class="col-divider td-std" style="text-align:right;${path.bold ? 'font-weight:800;' : ''}">${path.b_std !== undefined && !isNaN(path.b_std) ? fmtv(path.b_std, 3) : '—'}</td>
-      </tr>`;
-    }
-    
-    condIndTableHtml += `</tbody></table></div>${bootHtml}</div>`;
+        <thead><tr><th rowspan="2">Path</th><th colspan="7" class="th-group">Unstandardized</th><th class="col-divider" style="color:var(--violet)">Standardized</th></tr>
+        <tr><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th><th class="col-divider" style="color:var(--violet)">β</th></tr></thead>
+        <tbody>${condRows}${immRow}</tbody>
+      </table></div>${bootHtml}</div>`;
   }
-  
-  // ========== FINAL OUTPUT ==========
-  let finalOutput = `${renderDesc([{name:xn,vals:xRaw},{name:mn,vals:mRaw},{name:yn,vals:yRaw},{name:wn,vals:wRaw}])}
+
+  // ── diagram data ──
+  const bootIdx=bootRes?(stage==='first'?bootRes.index:bootRes.index_second):null;
+  const diagData={
+    type:'modmed',xn,mn,yn,wn,
+    a1,a1_std,pa1:a1_p,
+    a3,a3_std,pa3:a3_p,
+    b:b1,b_std:b1_std,pb:b1_p,
+    b3,b3_std,pb3:b3_p,
+    cp,cp_std,pcp:cp_p,
+    indexMM,indexMM_std,
+    selectedStage:stage,
+    bootCI_index:bootIdx
+  };
+
+  // ── APA summary ──
+  const immSig=bootIdx?(bootIdx.lo>0||bootIdx.hi<0):false;
+  const a3Sig=a3_p<.05,b3Sig=b3_p<.05;
+  let apaSummary='';
+  if(stage==='first'){
+    apaSummary=`<p>A moderated mediation analysis examined whether <strong>${wn}</strong> moderates the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> via the first-stage (a-path) interaction.</p>
+    <p><strong>First-stage interaction (${xn}×${wn} → ${mn}):</strong> b = ${fmtv(a3)}, SE = ${fmtv(a3_se)}, p ${fmtp(a3_p)} — <strong>${a3Sig?'significant':'non-significant'}</strong></p>
+    <p><strong>b-path (${mn} → ${yn}):</strong> b = ${fmtv(b1)}, SE = ${fmtv(b1_se)}, p ${fmtp(b1_p)} — <strong>${b1_p<.05?'significant':'non-significant'}</strong></p>
+    <p><strong>Index of Moderated Mediation (a₃×b) = ${fmtv(indexMM)}</strong> (β = ${isNaN(indexMM_std)?'N/A':fmtv(indexMM_std,3)})${bootIdx?`, BootSE = ${fmtv(bootIdx.se)}, 95% CI [${fmtv(bootIdx.lo)}, ${fmtv(bootIdx.hi)}] — <strong>${immSig?'excludes zero':'includes zero'}</strong>`:''}.</p>
+    <p><strong>Overall:</strong> ${immSig?'Moderated mediation is supported.':'<strong>Moderated mediation is not supported.</strong>'} The indirect effect of ${xn} on ${yn} through ${mn} ${immSig?'varies significantly':'does not vary significantly'} as a function of ${wn}.</p>`;
+  } else if(stage==='second'){
+    apaSummary=`<p>A moderated mediation analysis examined whether <strong>${wn}</strong> moderates the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> via the second-stage (b-path) interaction.</p>
+    <p><strong>a-path (${xn} → ${mn}):</strong> b = ${fmtv(a1)}, SE = ${fmtv(a1_se)}, p ${fmtp(a1_p)} — <strong>${a1_p<.05?'significant':'non-significant'}</strong></p>
+    <p><strong>Second-stage interaction (${mn}×${wn} → ${yn}):</strong> b = ${fmtv(b3)}, SE = ${fmtv(b3_se)}, p ${fmtp(b3_p)} — <strong>${b3Sig?'significant':'non-significant'}</strong></p>
+    <p><strong>Index of Moderated Mediation (a₁×b₃) = ${fmtv(indexMM)}</strong> (β = ${isNaN(indexMM_std)?'N/A':fmtv(indexMM_std,3)})${bootIdx?`, BootSE = ${fmtv(bootIdx.se)}, 95% CI [${fmtv(bootIdx.lo)}, ${fmtv(bootIdx.hi)}] — <strong>${immSig?'excludes zero':'includes zero'}</strong>`:''}.</p>
+    <p><strong>Overall:</strong> ${immSig?'Moderated mediation is supported.':'<strong>Moderated mediation is not supported.</strong>'}</p>`;
+  } else {
+    apaSummary=`<p>A moderated mediation analysis examined both-stage moderation for the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong>.</p>
+    <p><strong>First-stage interaction (${xn}×${wn} → ${mn}):</strong> b = ${fmtv(a3)}, SE = ${fmtv(a3_se)}, p ${fmtp(a3_p)} — <strong>${a3Sig?'significant':'non-significant'}</strong></p>
+    <p><strong>Second-stage interaction (${mn}×${wn} → ${yn}):</strong> b = ${fmtv(b3)}, SE = ${fmtv(b3_se)}, p ${fmtp(b3_p)} — <strong>${b3Sig?'significant':'non-significant'}</strong></p>
+    <p><strong>Overall:</strong> ${(a3Sig||b3Sig)?'Significant moderation detected at one or more stages.':'<strong>Neither stage shows significant moderation.</strong>'}</p>`;
+  }
+
+  // ── build output ──
+  const aPath_Xmat=stage==='first'||stage==='both'?buildMat([xRaw,wRaw,xwC,...covArrays]):buildMat([xRaw,...covArrays]);
+  const aPath_names=stage==='first'||stage==='both'?[xn,wn,`${xn}×${wn}`,...covNames]:[xn,...covNames];
+  const bPath_Xmat=stage==='first'?buildMat([xRaw,mRaw,...covArrays]):buildMat([xRaw,mRaw,wRaw,mwC,...covArrays]);
+  const bPath_names=stage==='first'?[xn,mn,...covNames]:[xn,mn,wn,`${mn}×${wn}`,...covNames];
+
+  return `${renderDesc([{name:xn,vals:xRaw},{name:mn,vals:mRaw},{name:yn,vals:yRaw},{name:wn,vals:wRaw}])}
   <div class="panel" style="margin-bottom:18px">
-    <div class="panel-header"><div class="panel-title"><i class="fas fa-project-diagram"></i> Moderated Mediation Results — ${stageName}</div></div>
+    <div class="panel-header"><div class="panel-title"><i class="fas fa-project-diagram"></i> Moderated Mediation — ${stageName}</div></div>
     <div class="panel-body">
       ${diagPreview(diagData)}
-      ${methodNote}`;
-  
-  // Add regression tables based on stage
-  if (stage === 'second') {
-    if (rM_simple && Xmat_tot) {
-      finalOutput += `<div class="res-sub-label"><i class="fas fa-1"></i> a-Path: ${xn} → ${mn}</div>${renderReg(rM_simple, rMz_simple, mn, confPct, Xmat_tot, predNames_tot)}`;
-    }
-  }
-  
-  if (stage === 'first' || stage === 'both') {
-    if (rM && Xmat_a) {
-      finalOutput += `<div class="res-sub-label"><i class="fas fa-1"></i> First Stage: ${xn}, ${wn}, ${xn}×${wn} → ${mn}</div>${renderReg(rM, rMz, mn, confPct, Xmat_a, predNames_a)}`;
-    }
-  }
-  
-  if (stage === 'second' || stage === 'both') {
-    if (rY && Xmat_b) {
-      finalOutput += `<div class="res-sub-label"><i class="fas fa-2"></i> Second Stage: ${xn}, ${mn}, ${wn}, ${mn}×${wn} → ${yn}</div>${renderReg(rY, rYz, yn, confPct, Xmat_b, predNames_b)}`;
-    }
-  }
-  
-  if (stage === 'first') {
-    if (rY_simple) {
-      const Xmat_simple = buildMat([xRawData, m, ...covArrays]);
-      const predNames_simple = [xn, mn, ...covNames];
-      finalOutput += `<div class="res-sub-label"><i class="fas fa-2"></i> b-Path: ${xn}, ${mn} → ${yn}</div>${renderReg(rY_simple, rYz_simple, yn, confPct, Xmat_simple, predNames_simple)}`;
-    }
-  }
-  
-  finalOutput += `<div class="res-sub-label"><i class="fas fa-3"></i> Total Effect: ${xn} → ${yn}</div>
-      ${renderReg(rTot, rTz, yn, confPct, Xmat_tot, predNames_tot)}`;
-  
-  // Add slopes and conditional indirect tables if applicable
-  if (stage === 'first' || stage === 'second') {
-    finalOutput += `<div style="padding:18px;background:var(--surface-2);border-radius:var(--r-lg);border:1px solid var(--border);margin-top:18px">
-        <div style="font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--brand);margin-bottom:12px"><i class="fas fa-chart-line"></i> Simple Slopes: ${stage === 'first' ? `${xn} → ${mn}` : `${mn} → ${yn}`} at Three Levels of ${wn}</div>
+      <div class="alert alert-info" style="margin-bottom:12px"><i class="fas fa-info-circle"></i>
+        ${stage==='first'?`<strong>First-stage moderation:</strong> W moderates X→M. Interaction = centred X × centred W.`
+          :stage==='second'?`<strong>Second-stage moderation:</strong> W moderates M→Y. Interaction = centred M × centred W.`
+          :`<strong>Both-stage moderation:</strong> W moderates both X→M and M→Y paths.`}
+      </div>
+      <div class="res-sub-label"><i class="fas fa-1"></i> a-Path: ${stage==='first'||stage==='both'?`${xn}, ${wn}, ${xn}×${wn} → ${mn}`:`${xn} → ${mn}`}</div>
+      ${renderReg(rM_use,rMz_use,mn,confPct,aPath_Xmat,aPath_names)}
+      <div class="res-sub-label"><i class="fas fa-2"></i> b-Path: ${stage==='first'?`${xn}, ${mn} → ${yn}`:`${xn}, ${mn}, ${wn}, ${mn}×${wn} → ${yn}`}</div>
+      ${renderReg(rY_use,rYz_use,yn,confPct,bPath_Xmat,bPath_names)}
+      <div class="res-sub-label"><i class="fas fa-3"></i> Total Effect: ${xn} → ${yn}</div>
+      ${renderReg(rTot,rTz,yn,confPct,buildMat([xRaw,...covArrays]),[xn,...covNames])}
+      ${(stage==='first'||stage==='second')?`
+      <div style="padding:18px;background:var(--surface-2);border-radius:var(--r-lg);border:1px solid var(--border);margin-top:18px">
+        <div style="font-size:.76rem;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--brand);margin-bottom:12px"><i class="fas fa-chart-line"></i>
+          Simple Slopes: ${stage==='first'?`${xn} → ${mn}`:`${mn} → ${yn}`} at Three Levels of ${wn}</div>
         <div class="res-table-wrap"><table class="res-table">
-          <thead>
-            <tr><th rowspan="2">Condition</th><th colspan="7" class="th-group">Unstandardized</th><th class="col-divider" style="color:var(--violet);">Standardized</th></tr>
-            <tr><th>Slope (b)</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th><th class="col-divider" style="color:var(--violet)">β</th></tr>
-          </thead>
+          <thead><tr><th rowspan="2">Condition</th><th colspan="7" class="th-group">Unstandardized</th><th class="col-divider" style="color:var(--violet)">Standardized</th></tr>
+          <tr><th>Slope (b)</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th><th></th><th class="col-divider" style="color:var(--violet)">β</th></tr></thead>
           <tbody>${slopeRows}</tbody>
         </table></div>
         ${slopesHTML}
-      </div>`;
-    
-    finalOutput += condIndTableHtml;
-  }
-  
-  finalOutput += `<div class="interp-box" style="margin-top:16px"><div class="interp-title"><i class="fas fa-lightbulb"></i> Summary</div>
+      </div>${condIndTable}`:''}
+      ${stage==='both'?bootHtml:''}
+      <div class="interp-box" style="margin-top:16px"><div class="interp-title"><i class="fas fa-lightbulb"></i> Summary</div>
         <div class="interp-text">${apaSummary}</div>
       </div>
     </div>
   </div>`;
-  
-  return finalOutput;
 }
 
 // ── HELPERS ──
