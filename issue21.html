@@ -10193,187 +10193,111 @@ function buildModerationSVG(d, mode, showP, W, H){
     </svg>`;
 }
 
-// ── MODERATED MODERATION (3-way) DIAGRAM ──
-// Compact, square-sized lines for thesis presentation
-// - X left, Y right (close together)
-// - W centered above with short arrow to X→Y line
-// - Z centered on W path line with short horizontal arrow
 function buildModModSVG(d, mode, showP, W, H) {
-  const { xn, wn, zn, yn, 
-    b_x, b_x_std, p_x,
-    b_w, b_w_std, p_w,
-    b_z, b_z_std, p_z } = d;
-  
+  const { xn, wn, zn, yn,
+    b_x, b_x_std, p_x } = d;
+
   const colors = getDiagramColors();
-  const bw = 95;   // compact box width
-  const bh = 42;   // compact box height
-  
-  // Compact positioning - X and Y close together for square appearance
-  const xB = { x: 45, y: H/2 - bh/2 + 35 };
-  const yB = { x: W - bw - 45, y: H/2 - bh/2 + 35 };
-  
-  // Position W card - centered above X→Y line
-  const wB = { x: (xB.x + yB.x + bw) / 2 - bw/2, y: 30 };
-  
-  // X → Y path coordinates (SHORT, square-like length)
-  const pathStartX = xB.x + bw;
-  const pathStartY = xB.y + bh/2;
-  const pathEndX = yB.x;
-  const pathEndY = yB.y + bh/2;
-  const pathMidX = (pathStartX + pathEndX) / 2;
-  const pathMidY = (pathStartY + pathEndY) / 2;
-  
-  // W → short arrow pointing down to X→Y line
-  const wArrowStartX = wB.x + bw/2;
-  const wArrowStartY = wB.y + bh;
-  const wArrowEndX = pathMidX;
-  const wArrowEndY = pathMidY;
-  const wMidX = (wArrowStartX + wArrowEndX) / 2;
-  const wMidY = (wArrowStartY + wArrowEndY) / 2;
-  
-  // Position Z card - centered on W path line
-  const zB = { x: xB.x, y: wMidY - bh/2 };
-  
-  // Z → SHORT horizontal line to W path line
+  const bw = 110;
+  const bh = 44;
+
+  // W: centered horizontally in diagram, near top
+  const wB = { x: W/2 - bw/2, y: 40 };
+  const wMidX = wB.x + bw/2;
+  const wMidY = (wB.y + bh + H/2) / 2;
+
+  // Z: left side, vertically centered on W path
+  const zB = { x: wB.x - bw - 40, y: wMidY - bh/2 };
+
+  // Z arrow length
   const zArrowStartX = zB.x + bw;
-  const zArrowStartY = zB.y + bh/2;
-  const zArrowEndX = wMidX;
-  const zArrowEndY = wMidY;
-  const zMidX = (zArrowStartX + zArrowEndX) / 2;
-  const zMidY = zArrowStartY;
-  
-  // Format coefficient lines
-  let xLines = [], wLines = [], zLines = [];
-  
+  const zArrowEndX   = wMidX;
+  const zLen = zArrowEndX - zArrowStartX;
+
+  // X→Y: slightly longer than Z arrow
+  const xyPad = 250;
+  const pathStartX = wMidX - (zLen + xyPad) / 2;
+  const pathEndX   = wMidX + (zLen + xyPad) / 2;
+  const pathY      = H/2 + bh/2 + 10;
+
+  // X node: aligned to path start
+  const xB = { x: pathStartX - bw, y: pathY - bh/2 };
+  // Y node: aligned to path end
+  const yB = { x: pathEndX,        y: pathY - bh/2 };
+
+  // W arrow
+  const wArrowStartX = wMidX;
+  const wArrowStartY = wB.y + bh;
+  const wArrowEndX   = wMidX;
+  const wArrowEndY   = pathY;
+
+  // Format direct effect label
+  let xLines = [];
   if (_diagShowCoefs) {
     xLines = formatCoefLines(b_x, b_x_std, p_x, mode, showP);
-    wLines = formatCoefLines(b_w, b_w_std, p_w, mode, showP);
-    zLines = formatCoefLines(b_z, b_z_std, p_z, mode, showP);
   }
-  
+
   const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
   const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
-  
-  const markerDefs = _useBlackAndWhite ? 
+
+  const markerDefs = _useBlackAndWhite ?
     '<marker id="arr_bw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#000000"/></marker>' :
     '<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3d5af1"/></marker>';
-  
-  function renderLabel(midX, midY, lines, offsetX = 0, offsetY = 0, boxWidth = 90) {
-    if (!lines || lines.length === 0 || !_diagShowCoefs) return '';
-    const labelX = midX + offsetX;
-    const labelY = midY + offsetY;
-    
-    if (!_diagShowCardBox) {
-      const fs = 8.5;
-      const lineHeight = 11;
-      const startY = labelY - (lines.length * lineHeight) / 2 + lineHeight;
-      let textElements = '';
-      lines.forEach((line, i) => {
-        textElements += `<text x="${labelX}" y="${startY + i * lineHeight}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${_useBlackAndWhite ? '#000000' : colors.labelText}" font-family="Sora,sans-serif">${escapeXml(line)}</text>`;
-      });
-      return `<g>${textElements}</g>`;
-    } else {
-      const maxChars = Math.floor(boxWidth / 6.5);
-      const wrappedLines = [];
-      lines.forEach(line => {
-        wrappedLines.push(...autoWrapText(line, maxChars));
-      });
-      const fs = 10, lh = 14, padX = 6, padY = 3;
-      const totalH = wrappedLines.length * lh + padY * 2;
-      const x = labelX - boxWidth/2;
-      const y = labelY - totalH/2;
-      const texts = wrappedLines.map((l, i) => 
-        `<text x="${labelX}" y="${y + padY + fs + i*lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
-      ).join('');
-      return `<rect x="${x}" y="${y}" width="${boxWidth}" height="${totalH}" rx="4" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1" stroke-opacity=".5"/>${texts}`;
-    }
-  }
-  
-  // Direct effect label position (above the X→Y line)
-  const directLabelX = pathMidX;
-  const directLabelY = pathStartY - 12;
-  
-  // Direct effect label
+
+  // Direct effect label — below the X→Y line
   let directLabelHTML = '';
   if (_diagShowCoefs && xLines.length > 0) {
-    const line1 = 'Direct';
-    const line2 = xLines[0] || '';
-    const line3 = (showP && xLines.length > 1) ? xLines[1] : '';
-    const allLines = [line1, line2, line3].filter(l => l);
-    
+    const labelX = wMidX;
+    const labelY = pathY + 10;
+
     if (_diagShowCardBox) {
+      const allLines = ['Direct', ...xLines].filter(Boolean);
       const fs = 9.5, lh = 13, padX = 6, padY = 3;
       const maxWidth = 110;
       const maxChars = Math.floor(maxWidth / 6.5);
       const wrappedLines = [];
-      allLines.forEach(line => {
-        wrappedLines.push(...autoWrapText(line, maxChars));
-      });
+      allLines.forEach(line => wrappedLines.push(...autoWrapText(line, maxChars)));
       const totalH = wrappedLines.length * lh + padY * 2;
-      const x = directLabelX - maxWidth/2;
-      const y = directLabelY - 6 - (totalH/2) + 16;
-      const texts = wrappedLines.map((l, i) => {
-        let fontWeight = '700';
-        let fontSize = fs;
-        if (i === 0) {
-          fontWeight = '700';
-          fontSize = fs;
-        } else {
-          fontWeight = '500';
-          fontSize = fs;
-        }
-        return `<text x="${directLabelX}" y="${y + padY + fontSize + i*lh}" text-anchor="middle" font-size="${fontSize}" font-weight="${fontWeight}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`;
-      }).join('');
+      const x = labelX - maxWidth / 2;
+      const y = labelY;
+      const texts = wrappedLines.map((l, i) =>
+        `<text x="${labelX}" y="${y + padY + fs + i * lh}" text-anchor="middle" font-size="${fs}" font-weight="${i === 0 ? '700' : '500'}" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(l)}</text>`
+      ).join('');
       directLabelHTML = `<rect x="${x}" y="${y}" width="${maxWidth}" height="${totalH}" rx="4" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1" stroke-opacity=".5"/>${texts}`;
     } else {
-      const inlineText = allLines.join(' · ');
-      directLabelHTML = `<text x="${directLabelX}" y="${directLabelY + 4}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(inlineText)}</text>`;
+      const inlineText = ['Direct', ...xLines].filter(Boolean).join(' · ');
+      directLabelHTML = `<text x="${labelX}" y="${labelY + 12}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(inlineText)}</text>`;
     }
   }
-  
-  // Moderation effect label (W)
-  let wModLabelHTML = '';
-  if (_diagShowCoefs && wLines.length > 0) {
-    const labelText = wLines[0] + (showP && wLines.length > 1 ? ' · ' + wLines[1] : '');
-    if (_diagShowCardBox) {
-      wModLabelHTML = renderLabel(wMidX, wMidY - 10, wLines, 20, -5, 80);
-    } else {
-      wModLabelHTML = `<text x="${wMidX + 25}" y="${wMidY - 6}" text-anchor="middle" font-size="8.5" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(labelText)}</text>`;
-    }
-  }
-  
-  // Z moderation effect label
-  let zModLabelHTML = '';
-  if (_diagShowCoefs && zLines.length > 0) {
-    const labelText = zLines[0] + (showP && zLines.length > 1 ? ' · ' + zLines[1] : '');
-    if (_diagShowCardBox) {
-      zModLabelHTML = renderLabel(zMidX, zMidY - 8, zLines, 0, -12, 80);
-    } else {
-      zModLabelHTML = `<text x="${zMidX}" y="${zMidY - 10}" text-anchor="middle" font-size="8.5" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(labelText)}</text>`;
-    }
-  }
-  
+
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
     <defs>${markerDefs}</defs>
-    
-    <!-- Variable nodes -->
+
+    <!-- X node -->
     ${drawNode(xB.x, xB.y, bw, bh, xn, false)}
+
+    <!-- Y node -->
     ${drawNode(yB.x, yB.y, bw, bh, yn, false)}
+
+    <!-- W node -->
     ${drawNode(wB.x, wB.y, bw, bh, wn, false)}
+
+    <!-- Z node -->
     ${drawNode(zB.x, zB.y, bw, bh, zn, false)}
-    
-    <!-- Main effect X → Y path (SHORT, square length) -->
-    <line x1="${pathStartX}" y1="${pathStartY}" x2="${pathEndX}" y2="${pathEndY}" stroke="${colors.lineStroke}" stroke-width="2.5" ${directStyle} marker-end="${markerUrl}"/>
+
+    <!-- X → Y direct effect -->
+    <line x1="${pathStartX}" y1="${pathY}" x2="${pathEndX}" y2="${pathY}"
+          stroke="${colors.lineStroke}" stroke-width="2.5" ${directStyle} marker-end="${markerUrl}"/>
     ${directLabelHTML}
-    
-    <!-- Moderator W → short arrow to X→Y line -->
-    <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}" stroke="${colors.lineStroke}" stroke-width="2" ${directStyle} marker-end="${markerUrl}"/>
-    ${wModLabelHTML}
-    
-    <!-- Moderator Z → SHORT horizontal line to W path line -->
-    <line x1="${zArrowStartX}" y1="${zArrowStartY}" x2="${zArrowEndX}" y2="${zArrowEndY}" stroke="${colors.lineStroke}" stroke-width="2" ${directStyle} marker-end="${markerUrl}"/>
-    ${zModLabelHTML}
-    
+
+    <!-- W → X→Y midpoint -->
+    <line x1="${wArrowStartX}" y1="${wArrowStartY}" x2="${wArrowEndX}" y2="${wArrowEndY}"
+          stroke="${colors.lineStroke}" stroke-width="2" marker-end="${markerUrl}"/>
+
+    <!-- Z → W path midpoint -->
+    <line x1="${zArrowStartX}" y1="${wMidY}" x2="${zArrowEndX}" y2="${wMidY}"
+          stroke="${colors.lineStroke}" stroke-width="2" marker-end="${markerUrl}"/>
+
   </svg>`;
 }
 
