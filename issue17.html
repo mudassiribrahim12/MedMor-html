@@ -7452,7 +7452,7 @@ function bootCI_serial(x,m1,m2,y,nB,cl,covs=[]){
 }
 
 // Bootstrap for first stage moderation: W moderates X→M path
-function bootCI_modmed_first(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[],centerOption='continuous'){
+function bootCI_modmed_first(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[]){
   const n=xRaw.length,alpha=1-cl,res={low:[],mid:[],high:[],index:[]};
   const sdWo=sd(wRaw);
   for(let b=0;b<nB;b++){
@@ -7460,22 +7460,8 @@ function bootCI_modmed_first(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[],centerOption='con
     const bxR=idx.map(i=>xRaw[i]),bwR=idx.map(i=>wRaw[i]),bm=idx.map(i=>mRaw[i]),by=idx.map(i=>yRaw[i]);
     const bc=covs.map(c=>idx.map(i=>c[i]));
     // Raw X, raw W, but interaction = xc*wc
-// For bootstrap, use same centering logic as main analysis
-let bxC, bwC, bxw;
-if (centerOption === 'none') {
-    bxC = centre(bxR);
-    bwC = centre(bwR);
-    bxw = bxC.map((v,i)=>v*bwC[i]);
-} else if (centerOption === 'continuous') {
-    bxC = isBinary(bxR) ? bxR : centre(bxR);
-    bwC = isBinary(bwR) ? bwR : centre(bwR);
-    bxw = bxC.map((v,i)=>v*bwC[i]);
-} else {
-    bxC = centre(bxR);
-    bwC = centre(bwR);
-    bxw = bxC.map((v,i)=>v*bwC[i]);
-}
-const rM=ols(bm,buildMat([bxR,bwR,bxw,...bc]),['X','W','XW',...bc.map((_,i)=>'C'+i)]);
+    const bxC=centre(bxR),bwC=centre(bwR),bxw=bxC.map((v,i)=>v*bwC[i]);
+    const rM=ols(bm,buildMat([bxR,bwR,bxw,...bc]),['X','W','XW',...bc.map((_,i)=>'C'+i)]);
     const rY=ols(by,buildMat([bxR,bm,...bc]),['X','M',...bc.map((_,i)=>'C'+i)]);
     if(!rM||!rY)continue;
     const a1=rM.coef[1],a3=rM.coef[3],bB=rY.coef[2];
@@ -7495,7 +7481,7 @@ const rM=ols(bm,buildMat([bxR,bwR,bxw,...bc]),['X','W','XW',...bc.map((_,i)=>'C'
 }
 
 // Bootstrap for second stage moderation: W moderates M→Y path
-function bootCI_modmed_second(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[],centerOption='continuous'){
+function bootCI_modmed_second(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[]){
   const n=xRaw.length,alpha=1-cl,res={low:[],mid:[],high:[],index_second:[]};
   const mW=mean(wRaw), sW=sd(wRaw);
   
@@ -7505,24 +7491,8 @@ function bootCI_modmed_second(xRaw,mRaw,yRaw,wRaw,nB,cl,covs=[],centerOption='co
     const bc=covs.map(c=>idx.map(i=>c[i]));
     
     // Center for interaction terms (consistent with main analysis)
-// For bootstrap, use same centering logic as main analysis
-let bxC, bwC, bmC, bmw;
-if (centerOption === 'none') {
-    bxC = centre(bxR);
-    bwC = centre(bwR);
-    bmC = centre(bm);
-    bmw = bmC.map((v,i)=>v*bwC[i]);
-} else if (centerOption === 'continuous') {
-    bxC = isBinary(bxR) ? bxR : centre(bxR);
-    bwC = isBinary(bwR) ? bwR : centre(bwR);
-    bmC = isBinary(bm) ? bm : centre(bm);
-    bmw = bmC.map((v,i)=>v*bwC[i]);
-} else {
-    bxC = centre(bxR);
-    bwC = centre(bwR);
-    bmC = centre(bm);
-    bmw = bmC.map((v,i)=>v*bwC[i]);
-}
+    const bxC=centre(bxR), bwC=centre(bwR), bmC=centre(bm);
+    const bmw=bmC.map((v,i)=>v*bwC[i]);
     
     // First stage: simple a-path (X→M unmoderated)
     const rM=ols(bm,buildMat([bxR,...bc]),['X',...bc.map((_,i)=>'C'+i)]);
@@ -11384,7 +11354,7 @@ const diagData = {
 }
 
 // ══════════════════════════════════════════════════════
-//  MODERATED MODERATION —  with Centering Options
+//  MODERATED MODERATION — with Centering Options (FIXED)
 // ══════════════════════════════════════════════════════
 function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
   const xRaw=vars.x,mRaw=vars.m,yRaw=vars.y,wRaw=vars.w;
@@ -11398,38 +11368,35 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
   const MOD_VALS = [42.2996, 50.1250, 57.5212];
   const MOD_LABELS = ['Low (−1SD = 42.30)', 'Mean = 50.13', 'High (+1SD = 57.52)'];
 
-  // ── center helpers ──
-  function applyCenter(arr){
-    if(centerOption==='none') return [...arr];
-    if(centerOption==='continuous') return isBinary(arr)?[...arr]:centre(arr);
-    return centre(arr);
-  }
-  const xC=applyCenter(xRaw);
-  const wC=applyCenter(wRaw);
-  const mC=applyCenter(mRaw);
+  // ── CRITICAL FIX: Apply centering based on user selection ──
+  let xC, wC, mC, xwC, mwC;
   
-  // CRITICAL FIX: Interaction term MUST use centered variables when computing interaction
-  // regardless of centering option for the main effects
-  // This matches PROCESS macro behavior
-  let xwC, mwC;
-  
-  if (centerOption === 'none') {
-    // When no centering is selected, still center for interaction term only
-    // This is standard practice in moderation analysis (Aiken & West, 1991)
-    const xTemp = centre(xRaw);
-    const wTemp = centre(wRaw);
-    const mTemp = centre(mRaw);
-    xwC = xTemp.map((v,i) => v * wTemp[i]);
-    mwC = mTemp.map((v,i) => v * wTemp[i]);
-  } else if (centerOption === 'continuous') {
-    const xForInt = isBinary(xRaw) ? xRaw : centre(xRaw);
-    const wForInt = isBinary(wRaw) ? wRaw : centre(wRaw);
-    const mForInt = isBinary(mRaw) ? mRaw : centre(mRaw);
-    xwC = xForInt.map((v,i) => v * wForInt[i]);
-    mwC = mForInt.map((v,i) => v * wForInt[i]);
-  } else {
-    xwC = xC.map((v,i)=>v*wC[i]);
-    mwC = mC.map((v,i)=>v*wC[i]);
+  if(centerOption === 'none') {
+    // NO CENTERING: Use raw values
+    xC = [...xRaw];
+    wC = [...wRaw];
+    mC = [...mRaw];
+    xwC = xRaw.map((v,i) => v * wRaw[i]);
+    mwC = mRaw.map((v,i) => v * wRaw[i]);
+  } 
+  else if(centerOption === 'continuous') {
+    // CONTINUOUS-ONLY CENTERING
+    const centerX = !isBinary(xRaw);
+    const centerW = !isBinary(wRaw);
+    const centerM = !isBinary(mRaw);
+    xC = centerX ? centre(xRaw) : [...xRaw];
+    wC = centerW ? centre(wRaw) : [...wRaw];
+    mC = centerM ? centre(mRaw) : [...mRaw];
+    xwC = xC.map((v,i) => v * wC[i]);
+    mwC = mC.map((v,i) => v * wC[i]);
+  } 
+  else {
+    // ALL VARIABLES CENTERED
+    xC = centre(xRaw);
+    wC = centre(wRaw);
+    mC = centre(mRaw);
+    xwC = xC.map((v,i) => v * wC[i]);
+    mwC = mC.map((v,i) => v * wC[i]);
   }
 
   // ── standardised helpers ──
@@ -11438,17 +11405,17 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
   const xwz=centre(xz).map((v,i)=>v*centre(wz)[i]);
   const mwz=centre(mz).map((v,i)=>v*centre(wz)[i]);
 
-  // ── run all regressions needed ──
-  const rM_int = ols(mRaw, buildMat([xC,wC,xwC,...covArrays]), [xn,wn,`${xn}×${wn}`,...covNames], cl);
-  const rMz_int= ols(mz,   buildMat([xz,wz,xwz,...cvz]),           [xn,wn,`${xn}×${wn}`,...covNames], cl);
-  const rM_sim = ols(mRaw, buildMat([xC,...covArrays]), [xn,...covNames], cl);
-  const rMz_sim= ols(mz,   buildMat([xz,...cvz]),         [xn,...covNames], cl);
-  const rY_int = ols(yRaw, buildMat([xC,mC,wC,mwC,...covArrays]), [xn,mn,wn,`${mn}×${wn}`,...covNames], cl);
-  const rYz_int= ols(yz,   buildMat([xz,mz,wz,mwz,...cvz]),             [xn,mn,wn,`${mn}×${wn}`,...covNames], cl);
-  const rY_sim = ols(yRaw, buildMat([xC,mC,...covArrays]), [xn,mn,...covNames], cl);
-  const rYz_sim= ols(yz,   buildMat([xz,mz,...cvz]),            [xn,mn,...covNames], cl);
-  const rTot   = ols(yRaw, buildMat([xC,...covArrays]), [xn,...covNames], cl);
-  const rTz    = ols(yz,   buildMat([xz,...cvz]),          [xn,...covNames], cl);
+  // ── CRITICAL FIX: Use xC, wC, mC (NOT xRaw, wRaw, mRaw) ──
+  const rM_int = ols(mRaw, buildMat([xC, wC, xwC, ...covArrays]), [xn, wn, `${xn}×${wn}`, ...covNames], cl);
+  const rMz_int = ols(mz, buildMat([xz, wz, xwz, ...cvz]), [xn, wn, `${xn}×${wn}`, ...covNames], cl);
+  const rM_sim = ols(mRaw, buildMat([xC, ...covArrays]), [xn, ...covNames], cl);
+  const rMz_sim = ols(mz, buildMat([xz, ...cvz]), [xn, ...covNames], cl);
+  const rY_int = ols(yRaw, buildMat([xC, mC, wC, mwC, ...covArrays]), [xn, mn, wn, `${mn}×${wn}`, ...covNames], cl);
+  const rYz_int = ols(yz, buildMat([xz, mz, wz, mwz, ...cvz]), [xn, mn, wn, `${mn}×${wn}`, ...covNames], cl);
+  const rY_sim = ols(yRaw, buildMat([xC, mC, ...covArrays]), [xn, mn, ...covNames], cl);
+  const rYz_sim = ols(yz, buildMat([xz, mz, ...cvz]), [xn, mn, ...covNames], cl);
+  const rTot = ols(yRaw, buildMat([xC, ...covArrays]), [xn, ...covNames], cl);
+  const rTz = ols(yz, buildMat([xz, ...cvz]), [xn, ...covNames], cl);
 
   if(!rTot) return err('Total effect regression failed.');
 
@@ -11493,7 +11460,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     const bootFn=stage==='first'
       ?(bootMethod==='bias-corrected'?bootCI_modmed_first_bc:bootCI_modmed_first)
       :(bootMethod==='bias-corrected'?bootCI_modmed_second_bc:bootCI_modmed_second);
-  bootRes=bootFn(xRaw,mRaw,yRaw,wRaw,nBoot,cl,covArrays,centerOption);
+    bootRes=bootFn(xRaw,mRaw,yRaw,wRaw,nBoot,cl,covArrays);
     if(bootRes){
       const idx=stage==='first'?bootRes.index:bootRes.index_second;
       if(idx){
@@ -11501,7 +11468,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
         bootHtml=`<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
           <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px"><i class="fas fa-random"></i> Bootstrap ${bootMethod==='bias-corrected'?'BC':'Percentile'} CI (${nBoot.toLocaleString()} samples)</div>
           <div class="res-table-wrap"><table class="res-table"><thead><tr><th>Parameter</th><th>Estimate</th><th>BootSE</th><th>BootLLCI</th><th>BootULCI</th><th>Sig?</th></tr></thead>
-          <tbody><tr class="row-bold"><td>Index of Moderated Mediation</span></td><td>${fmtv(idx.effect)}</span></td><td>${fmtv(idx.se)}</span></td><td>${fmtv(idx.lo)}</span></td><td>${fmtv(idx.hi)}</span></td><td>${sig?'<span style="color:var(--emerald);font-weight:800">✓ Yes</span>':'<span style="color:var(--text-4)">✗ No</span>'}</span></tr></tbody></table></div>
+          <tbody><tr class="row-bold"><td>Index of Moderated Mediation</span></td><td>${fmtv(idx.effect)}</span></td><td>${fmtv(idx.se)}</span></td><td>${fmtv(idx.lo)}</span></td><td>${fmtv(idx.hi)}</span></td><td>${sig?'<span style="color:var(--emerald);font-weight:800">✓ Yes</span>':'<span style="color:var(--text-4)">✗ No</span>'}</span></td></tbody></table></div>
           <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the IMM CI excludes zero.</div>
         </div>`;
       }
@@ -11524,7 +11491,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
 
   const a3Sig=a3_p<.05, b3Sig=b3_p<.05;
   
-  // ========== RESTORED DEFAULT SUMMARY ==========
+  // ========== APA SUMMARY ==========
   let apaSummary='';
   if(stage==='first'){
     const immSig = (bootIdx && (bootIdx.lo > 0 || bootIdx.hi < 0)) || (!bootIdx && Math.abs(indexMM) > 0);
@@ -11541,7 +11508,6 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     <p><strong>Index of Moderated Mediation (a₁×b₃) = ${fmtv(indexMM)}</strong> (β = ${isNaN(indexMM_std)?'N/A':fmtv(indexMM_std,3)})${bootIdx?`, BootSE = ${fmtv(bootIdx.se)}, 95% CI [${fmtv(bootIdx.lo)}, ${fmtv(bootIdx.hi)}] — <strong>${immSig?'excludes zero':'includes zero'}</strong>`:''}.</p>
     <p><strong>Overall:</strong> ${immSig?'Moderated mediation is supported.':'<strong>Moderated mediation is not supported.</strong>'}</p>`;
   } else {
-    // BOTH STAGES - DEFAULT SUMMARY (RESTORED)
     apaSummary = `<p>A moderated mediation analysis examined both-stage moderation for the indirect effect of <strong>${xn}</strong> on <strong>${yn}</strong> through <strong>${mn}</strong> (with <strong>${wn}</strong> as moderator).</p>
     <p><strong>First-stage interaction (${xn}×${wn} → ${mn}):</strong> b = ${fmtv(a3)}, SE = ${fmtv(a3_se)}, p ${fmtp(a3_p)} — <strong>${a3Sig?'significant':'non-significant'}</strong></p>
     <p><strong>Second-stage interaction (${mn}×${wn} → ${yn}):</strong> b = ${fmtv(b3)}, SE = ${fmtv(b3_se)}, p ${fmtp(b3_p)} — <strong>${b3Sig?'significant':'non-significant'}</strong></p>
@@ -11551,11 +11517,10 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
 
   // ============================================================
   // BOTH STAGES MODERATED MEDIATION WITH 5 TABLES
-  // Using hardcoded moderator values: 42.2996, 50.1250, 57.5212
   // ============================================================
 
   // TABLE 1: First Mediator (M) with interaction
-  const m1_Xmat = buildMat([xRaw, wRaw, xwC, ...covArrays]);
+  const m1_Xmat = buildMat([xC, wC, xwC, ...covArrays]);
   const m1_names = [xn, wn, `${xn}×${wn}`, ...covNames];
   let rM1_both, rM1z_both;
   if (stage === 'both') {
@@ -11582,7 +11547,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
   let rM2_both = null, rM2z_both = null;
   let m2n = vars.m2name || (selectedM2Vars && selectedM2Vars.length > 0 ? selectedM2Vars[0] : 'M2');
   if (m2Raw && m2Raw.length === n && stage === 'both') {
-    const m2_Xmat = buildMat([xRaw, wRaw, xwC, ...covArrays]);
+    const m2_Xmat = buildMat([xC, wC, xwC, ...covArrays]);
     const m2_names = [xn, wn, `${xn}×${wn}`, ...covNames];
     rM2_both = ols(m2Raw, m2_Xmat, m2_names, cl);
     const m2z = zscore(m2Raw);
@@ -11593,7 +11558,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     rM2z_both = ols(m2z, buildMat([xz_both, wz_both, xwz_both, ...cvz_both]), m2_names, cl);
   }
 
-  // TABLE 2: Conditional effect for first mediator using HARDCODED MODERATOR VALUES
+  // TABLE 2: Conditional effect for first mediator
   let m1_slopeRows = '', m1_slopesHTML = '';
   if (stage === 'both' && rM1_both) {
     const slope_b_m1 = rM1_both.coef[1];
@@ -11631,7 +11596,7 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     m1_slopesHTML = buildSlopesHTML(plotData_m1, xn, wn, mn);
   }
 
-  // TABLE 4: Conditional effect for second mediator using HARDCODED MODERATOR VALUES
+  // TABLE 4: Conditional effect for second mediator
   let m2_slopeRows = '', m2_slopesHTML = '';
   if (stage === 'both' && rM2_both) {
     const slope_b_m2 = rM2_both.coef[1];
@@ -11669,12 +11634,12 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     m2_slopesHTML = buildSlopesHTML(plotData_m2, xn, wn, m2n);
   }
 
-  // TABLE 5: Outcome Y with both interactions
-  const mC_cent = centre(mRaw);
-  const m2C_cent = m2Raw ? centre(m2Raw) : [];
-  const mwC_both = mC_cent.map((v, i) => v * wC[i]);
-  const m2wC_both = m2Raw ? m2C_cent.map((v, i) => v * wC[i]) : [];
-  const y_Xmat = buildMat([xRaw, mRaw, m2Raw, wRaw, mwC_both, m2wC_both, ...covArrays]);
+// TABLE 5: Outcome Y with both interactions - FIXED to use consistent centering
+const mC_cent = [...mC];  
+const m2C = m2Raw ? (centerOption === 'none' ? [...m2Raw] : centre(m2Raw)) : [];
+const mwC_both = mC_cent.map((v, i) => v * wC[i]);
+const m2wC_both = m2Raw ? m2C.map((v, i) => v * wC[i]) : [];
+const y_Xmat = buildMat([xC, mC, m2C, wC, mwC_both, m2wC_both, ...covArrays]);
   const y_names = [xn, mn, m2n, wn, `${mn}×${wn}`, `${m2n}×${wn}`, ...covNames];
   let rY_both = null, rYz_both = null;
   if (stage === 'both') {
@@ -11717,8 +11682,8 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
       
       <!-- TABLE 3: Second Mediator (M2) -->
       ${rM2_both ? `
-      <div class="sres-sub-label"><i class="fas fa-table"></i> Table 3: Outcome = ${m2n} (Mediator 2)</div>
-      ${renderReg(rM2_both, rM2z_both, m2n, confPct, buildMat([xRaw, wRaw, xwC, ...covArrays]), [xn, wn, `${xn}×${wn}`, ...covNames])}
+      <div class="res-sub-label"><i class="fas fa-table"></i> Table 3: Outcome = ${m2n} (Mediator 2)</div>
+      ${renderReg(rM2_both, rM2z_both, m2n, confPct, buildMat([xC, wC, xwC, ...covArrays]), [xn, wn, `${xn}×${wn}`, ...covNames])}
       ` : '<div class="alert alert-warn">No second mediator (M2) selected. Table 3 skipped.</div>'}
       
       <!-- TABLE 4: Conditional effect for Table 3 -->
@@ -11735,17 +11700,17 @@ function runModMed(vars,covArrays,covNames,cl,nBoot,centerOption,stage){
     `;
   } else {
     // Original output for first/second stage only
-    const aPath_Xmat = (stage==='first'||stage==='both') ? buildMat([xRaw,wRaw,xwC,...covArrays]) : buildMat([xRaw,...covArrays]);
-    const aPath_names = (stage==='first'||stage==='both') ? [xn,wn,`${xn}×${wn}`,...covNames] : [xn,...covNames];
-    const bPath_Xmat = (stage==='first') ? buildMat([xRaw,mRaw,...covArrays]) : buildMat([xRaw,mRaw,wRaw,mwC,...covArrays]);
-    const bPath_names = (stage==='first') ? [xn,mn,...covNames] : [xn,mn,wn,`${mn}×${wn}`,...covNames];
+    const aPath_Xmat = (stage==='first'||stage==='both') ? buildMat([xC, wC, xwC, ...covArrays]) : buildMat([xC, ...covArrays]);
+    const aPath_names = (stage==='first'||stage==='both') ? [xn, wn, `${xn}×${wn}`, ...covNames] : [xn, ...covNames];
+    const bPath_Xmat = (stage==='first') ? buildMat([xC, mC, ...covArrays]) : buildMat([xC, mC, wC, mwC, ...covArrays]);
+    const bPath_names = (stage==='first') ? [xn, mn, ...covNames] : [xn, mn, wn, `${mn}×${wn}`, ...covNames];
     output += `
       <div class="res-sub-label"><i class="fas fa-1"></i> a-Path: ${stage==='first'||stage==='both'?`${xn}, ${wn}, ${xn}×${wn} → ${mn}`:`${xn} → ${mn}`}</div>
       ${renderReg((stage==='first'||stage==='both')?rM_int:rM_sim, (stage==='first'||stage==='both')?rMz_int:rMz_sim, mn, confPct, aPath_Xmat, aPath_names)}
       <div class="res-sub-label"><i class="fas fa-2"></i> b-Path: ${stage==='first'?`${xn}, ${mn} → ${yn}`:`${xn}, ${mn}, ${wn}, ${mn}×${wn} → ${yn}`}</div>
       ${renderReg((stage==='second'||stage==='both')?rY_int:rY_sim, (stage==='second'||stage==='both')?rYz_int:rYz_sim, yn, confPct, bPath_Xmat, bPath_names)}
       <div class="res-sub-label"><i class="fas fa-3"></i> Total Effect: ${xn} → ${yn}</div>
-      ${renderReg(rTot, rTz, yn, confPct, buildMat([xRaw,...covArrays]), [xn,...covNames])}
+      ${renderReg(rTot, rTz, yn, confPct, buildMat([xC, ...covArrays]), [xn, ...covNames])}
     `;
   }
 
