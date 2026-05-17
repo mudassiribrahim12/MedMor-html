@@ -10193,9 +10193,11 @@ function buildModerationSVG(d, mode, showP, W, H){
     </svg>`;
 }
 
+// ── MODERATED MODERATION DIAGRAM ──
 function buildModModSVG(d, mode, showP, W, H) {
   const { xn, wn, zn, yn,
-    b_x, b_x_std, p_x } = d;
+    b_x, b_x_std, p_x,
+    b_xwz, b_xwz_std, p_xwz } = d;
 
   const colors = getDiagramColors();
   const bw = 110;
@@ -10237,6 +10239,14 @@ function buildModModSVG(d, mode, showP, W, H) {
     xLines = formatCoefLines(b_x, b_x_std, p_x, mode, showP);
   }
 
+  // Format three-way interaction text
+  let threeWayLines = [];
+  let threeWayText = '';
+  if (_diagShowCoefs && b_xwz !== undefined && b_xwz !== null && !isNaN(b_xwz)) {
+    threeWayLines = formatCoefLines(b_xwz, b_xwz_std, p_xwz, mode, showP);
+    threeWayText = threeWayLines.join(' · ');
+  }
+
   const directStyle = _useDottedDirect ? 'stroke-dasharray="8,4"' : '';
   const markerUrl = _useBlackAndWhite ? 'url(#arr_bw)' : 'url(#arr)';
 
@@ -10265,12 +10275,44 @@ function buildModModSVG(d, mode, showP, W, H) {
       ).join('');
       directLabelHTML = `<rect x="${x}" y="${y}" width="${maxWidth}" height="${totalH}" rx="4" fill="${colors.labelFill}" fill-opacity=".95" stroke="${colors.labelStroke}" stroke-width="1" stroke-opacity=".5"/>${texts}`;
     } else {
-      const inlineText = ['Direct', ...xLines].filter(Boolean).join(' · ');
+      // CARD BOX OFF: Just show the coefficient line, no "Direct" label duplication
+      const inlineText = xLines.join(' · ');
       directLabelHTML = `<text x="${labelX}" y="${labelY + 12}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(inlineText)}</text>`;
     }
   }
 
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
+  // Calculate bottom card position (below the Y node and path)
+  const lowestNodeY = Math.max(yB.y + bh, pathY + 20);
+  const bottomCardTop = lowestNodeY + 50;
+
+  // Three-way interaction card at the bottom
+  let threeWayHTML = '';
+  if (_diagShowCoefs && threeWayText) {
+    const cardWidth = 280;
+    const cardHeight = 48;
+    const cardX = W/2 - cardWidth/2;
+    const cardY = bottomCardTop;
+
+    if (_diagShowCardBox) {
+      // CARD BOX ON: Show full box with title and coefficient
+      threeWayHTML = `
+        <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="6" fill="${colors.boxFill}" fill-opacity=".97" stroke="${colors.boxStroke}" stroke-width="1.5"/>
+        <text x="${W/2}" y="${cardY + 18}" text-anchor="middle" font-size="9" font-weight="700" fill="${colors.boxText}" font-family="Sora,sans-serif">Three-way interaction (${xn}×${wn}×${zn})</text>
+        <text x="${W/2}" y="${cardY + 38}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.boxText}" font-family="Sora,sans-serif">${escapeXml(threeWayText)}</text>
+      `;
+    } else {
+      // CARD BOX OFF: Just show the interaction text (no duplicate, no box)
+      const inlineY = bottomCardTop + 22;
+      threeWayHTML = `
+        <text x="${W/2}" y="${inlineY}" text-anchor="middle" font-size="9" font-weight="600" fill="${colors.labelText}" font-family="Sora,sans-serif">${escapeXml(`${xn}×${wn}×${zn}: ${threeWayText}`)}</text>
+      `;
+    }
+  }
+
+  // Calculate final SVG height based on bottom card position
+  const finalHeight = H + (threeWayHTML ? (threeWayHTML.includes('rect') ? 70 : 40) : 0);
+
+  return `<svg viewBox="0 0 ${W} ${finalHeight}" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:${W}px;font-family:Sora,sans-serif">
     <defs>${markerDefs}</defs>
 
     <!-- X node -->
@@ -10298,8 +10340,10 @@ function buildModModSVG(d, mode, showP, W, H) {
     <line x1="${zArrowStartX}" y1="${wMidY}" x2="${zArrowEndX}" y2="${wMidY}"
           stroke="${colors.lineStroke}" stroke-width="2" marker-end="${markerUrl}"/>
 
+    ${threeWayHTML}
   </svg>`;
 }
+
 
 // ── MODERATED MEDIATION DIAGRAM with Stage Selection ──
 function buildModMedSVG(d, mode, showP, W, H){
