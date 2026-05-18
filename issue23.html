@@ -8046,7 +8046,6 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
         const wKey = wi === 0 ? 'low' : (wi === 1 ? 'mid' : 'high');
         
         if (stage === 'first') {
-            // First Stage: X×W affects a-path to M1 only
             const eff1 = (a1_m1 + a3_m1 * wCentered) * b1;
             const eff2 = a1_m2 * b2;
             const eff3 = (a1_m1 + a3_m1 * wCentered) * d21 * b2;
@@ -8055,20 +8054,10 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
             const boot2 = bootResults?.xm2y?.[wKey];
             const boot3 = bootResults?.serial?.[wKey];
             
-            conditional_xm1y.push({
-                w: wVal, label: wLabels[wi], effect: eff1,
-                boot: boot1, sig: boot1 ? (boot1.lo > 0 || boot1.hi < 0) : false
-            });
-            conditional_xm2y.push({
-                w: wVal, label: wLabels[wi], effect: eff2,
-                boot: boot2, sig: boot2 ? (boot2.lo > 0 || boot2.hi < 0) : false
-            });
-            conditional_serial.push({
-                w: wVal, label: wLabels[wi], effect: eff3,
-                boot: boot3, sig: boot3 ? (boot3.lo > 0 || boot3.hi < 0) : false
-            });
+            conditional_xm1y.push({ w: wVal, label: wLabels[wi], effect: eff1, boot: boot1, sig: boot1 ? (boot1.lo > 0 || boot1.hi < 0) : false });
+            conditional_xm2y.push({ w: wVal, label: wLabels[wi], effect: eff2, boot: boot2, sig: boot2 ? (boot2.lo > 0 || boot2.hi < 0) : false });
+            conditional_serial.push({ w: wVal, label: wLabels[wi], effect: eff3, boot: boot3, sig: boot3 ? (boot3.lo > 0 || boot3.hi < 0) : false });
         } else {
-            // Second Stage: M×W affects b-paths only
             const eff1 = a1_m1 * (b1 + b1_mod * wCentered);
             const eff2 = a1_m2 * (b2 + b2_mod * wCentered);
             const eff3 = a1_m1 * d21 * (b2 + b2_mod * wCentered);
@@ -8077,18 +8066,9 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
             const boot2 = bootResults?.xm2y?.[wKey];
             const boot3 = bootResults?.serial?.[wKey];
             
-            conditional_xm1y.push({
-                w: wVal, label: wLabels[wi], effect: eff1,
-                boot: boot1, sig: boot1 ? (boot1.lo > 0 || boot1.hi < 0) : false
-            });
-            conditional_xm2y.push({
-                w: wVal, label: wLabels[wi], effect: eff2,
-                boot: boot2, sig: boot2 ? (boot2.lo > 0 || boot2.hi < 0) : false
-            });
-            conditional_serial.push({
-                w: wVal, label: wLabels[wi], effect: eff3,
-                boot: boot3, sig: boot3 ? (boot3.lo > 0 || boot3.hi < 0) : false
-            });
+            conditional_xm1y.push({ w: wVal, label: wLabels[wi], effect: eff1, boot: boot1, sig: boot1 ? (boot1.lo > 0 || boot1.hi < 0) : false });
+            conditional_xm2y.push({ w: wVal, label: wLabels[wi], effect: eff2, boot: boot2, sig: boot2 ? (boot2.lo > 0 || boot2.hi < 0) : false });
+            conditional_serial.push({ w: wVal, label: wLabels[wi], effect: eff3, boot: boot3, sig: boot3 ? (boot3.lo > 0 || boot3.hi < 0) : false });
         }
     }
     
@@ -8130,7 +8110,6 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
             let pDisplay = '—';
             if (hasCI && pVal !== null) {
                 if (pVal < 0.001) pDisplay = '<.001';
-                else if (pVal < 0.01) pDisplay = pVal.toFixed(3);
                 else pDisplay = pVal.toFixed(3);
             }
             
@@ -8148,7 +8127,7 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
     }
     
     // ============================================
-    // Conditional Indirect Effect Tables (3 tables)
+    // CONDITIONAL TABLES (X→M1→Y, X→M2→Y, X→M1→M2→Y)
     // ============================================
     let conditionalHtml = '';
     
@@ -8156,69 +8135,46 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
     conditionalHtml += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditional Indirect Effect: ${xn} → ${m1n} → ${yn}</div>
     <div class="res-table-wrap"><table class="res-table">
       <thead>
-        <tr>
-          <th rowspan="2">Moderator ${wn} Level</th>
-          <th colspan="7" class="th-group">Conditional Indirect Effect</th>
-        </tr>
-        <tr>
-          <th>Effect</th><th>BootSE</th><th>z</th><th>p</th>
-          <th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th>
-        </tr>
+        <tr><th rowspan="2">Moderator ${wn} Level</th><th colspan="7" class="th-group">Conditional Indirect Effect</th></tr>
+        <tr><th>Effect</th><th>BootSE</th><th>z</th><th>p</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr>
       </thead>
-      <tbody>
-        ${generateCondRows(conditional_xm1y, nBoot > 0)}
-      </tbody>
+      <tbody>${generateCondRows(conditional_xm1y, nBoot > 0)}</tbody>
     </table></div>`;
     
     // Table 2: X → M₂ → Y
     conditionalHtml += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditional Indirect Effect: ${xn} → ${m2n} → ${yn}</div>
     <div class="res-table-wrap"><table class="res-table">
       <thead>
-        <tr>
-          <th rowspan="2">Moderator ${wn} Level</th>
-          <th colspan="7" class="th-group">Conditional Indirect Effect</th>
-        </tr>
-        <tr>
-          <th>Effect</th><th>BootSE</th><th>z</th><th>p</th>
-          <th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th>
-        </tr>
+        <tr><th rowspan="2">Moderator ${wn} Level</th><th colspan="7" class="th-group">Conditional Indirect Effect</th></tr>
+        <tr><th>Effect</th><th>BootSE</th><th>z</th><th>p</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr>
       </thead>
-      <tbody>
-        ${generateCondRows(conditional_xm2y, nBoot > 0)}
-      </tbody>
+      <tbody>${generateCondRows(conditional_xm2y, nBoot > 0)}</tbody>
     </table></div>`;
     
     // Table 3: X → M₁ → M₂ → Y (Serial)
     conditionalHtml += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditional Indirect Effect: ${xn} → ${m1n} → ${m2n} → ${yn}</div>
     <div class="res-table-wrap"><table class="res-table">
       <thead>
-        <tr>
-          <th rowspan="2">Moderator ${wn} Level</th>
-          <th colspan="7" class="th-group">Conditional Indirect Effect</th>
-        </tr>
-        <tr>
-          <th>Effect</th><th>BootSE</th><th>z</th><th>p</th>
-          <th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th>
-        </tr>
+        <tr><th rowspan="2">Moderator ${wn} Level</th><th colspan="7" class="th-group">Conditional Indirect Effect</th></tr>
+        <tr><th>Effect</th><th>BootSE</th><th>z</th><th>p</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr>
       </thead>
-      <tbody>
-        ${generateCondRows(conditional_serial, nBoot > 0)}
-      </tbody>
+      <tbody>${generateCondRows(conditional_serial, nBoot > 0)}</tbody>
     </table></div>`;
     
     // ============================================
-    // Index of Moderated Mediation Table
+    // INDEX OF MODERATED MEDIATION TABLE (Consistent with app style)
     // ============================================
     let immRows = `
     <tr>
       <td style="font-weight:600">${xn} → ${m1n} → ${yn}</span></td>
       <td style="text-align:right">${fmtv(index_xm1y, 4)}</span></td>
       <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.se, 4) : '—'}</span></td>
-      <td style="text-align:right">—</span></td>
+      <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.effect / bootResults.xm1y.index.se, 4) : '—'}</span></td>
       <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? (bootResults.xm1y.index.lo > 0 || bootResults.xm1y.index.hi < 0 ? '<.05' : '>.05') : '—'}</span></td>
       <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.lo, 4) : '—'}</span></td>
       <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.hi, 4) : '—'}</span></td>
-      <td style="text-align:right">${fmtv(index_xm1y_std, 4)}</span></td>
+      <td style="text-align:center">${(nBoot > 0 && bootResults?.xm1y?.index) ? (bootResults.xm1y.index.lo > 0 || bootResults.xm1y.index.hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓</span>' : '<span style="color:var(--text-4)">✗</span>') : '—'}</span></td>
+      <td class="col-divider td-std" style="text-align:right">${fmtv(index_xm1y_std, 4)}</span></td>
     </tr>`;
     
     if (hasM2 && index_serial !== null) {
@@ -8226,11 +8182,12 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
           <td style="font-weight:800">${xn} → ${m1n} → ${m2n} → ${yn}</span></td>
           <td style="text-align:right">${fmtv(index_serial, 4)}</span></td>
           <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.se, 4) : '—'}</span></td>
-          <td style="text-align:right">—</span></td>
+          <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.effect / bootResults.serial.index.se, 4) : '—'}</span></td>
           <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? (bootResults.serial.index.lo > 0 || bootResults.serial.index.hi < 0 ? '<.05' : '>.05') : '—'}</span></td>
           <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.lo, 4) : '—'}</span></td>
           <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.hi, 4) : '—'}</span></td>
-          <td style="text-align:right">${fmtv(index_serial_std, 4)}</span></td>
+          <td style="text-align:center">${(nBoot > 0 && bootResults?.serial?.index) ? (bootResults.serial.index.lo > 0 || bootResults.serial.index.hi < 0 ? '<span style="color:var(--emerald);font-weight:800">✓</span>' : '<span style="color:var(--text-4)">✗</span>') : '—'}</span></td>
+          <td class="col-divider td-std" style="text-align:right">${fmtv(index_serial_std, 4)}</span></td>
         </tr>`;
     }
     
@@ -8243,17 +8200,15 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
           <th rowspan="2" class="col-divider">β</th>
         </tr>
         <tr>
-          <th>b</th><th>BootSE</th><th>t</th><th>p</th>
+          <th>b</th><th>BootSE</th><th>z</th><th>p</th>
           <th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th>
         </tr>
       </thead>
-      <tbody>
-        ${immRows}
-      </tbody>
+      <tbody>${immRows}</tbody>
     </table></div>`;
     
     // ============================================
-    // Bootstrap HTML for IMM
+    // BOOTSTRAP HTML FOR IMM
     // ============================================
     let bootHtml = '';
     if (nBoot > 0 && bootResults) {
@@ -8291,14 +8246,7 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
                 <i class="fas fa-random"></i> Bootstrap ${bootMethod === 'bias-corrected' ? 'BC' : 'Percentile'} CI (${nBoot.toLocaleString()} samples)
               </div>
               <div class="res-table-wrap"><table class="res-table">
-                <thead><tr>
-                  <th>Index of Moderated Mediation</th>
-                  <th>Estimate</th>
-                  <th>BootSE</th>
-                  <th>BootLLCI (${confPct})</th>
-                  <th>BootULCI (${confPct})</th>
-                  <th>Sig?</th>
-                </tr></thead>
+                <thead><tr><th>Index of Moderated Mediation</th><th>Estimate</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr></thead>
                 <tbody>${bootRowsDetail}</tbody>
               </table></div>
               <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the IMM CI excludes zero.</div>
@@ -8307,7 +8255,7 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
     }
     
     // ============================================
-    // Effects Summary Table (BEFORE Summary)
+    // EFFECTS SUMMARY TABLE
     // ============================================
     const meanIdx = 1;
     const mean_xm1y = conditional_xm1y[meanIdx];
@@ -8366,11 +8314,11 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
       <div class="res-table-wrap"><table class="res-table">
         <thead><tr><th>Effect</th><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th></tr></thead>
         <tbody>${effectsRows}</tbody>
-      <tr></div>
+      </table></div>
     </div>`;
     
     // ============================================
-    // COMPREHENSIVE SUMMARY (with all significance interpretations)
+    // COMPREHENSIVE SUMMARY (LAST)
     // ============================================
     let summaryHtml = `<div class="interp-box" style="margin-top:16px">
       <div class="interp-title"><i class="fas fa-lightbulb"></i> Summary</div>
@@ -8380,50 +8328,50 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
         <p><strong>Moderation Stage:</strong> ${stageDisplay}</p>
         
         <p><strong>Path coefficients:</strong><br>
-        a₁-path (${xn} → ${m1n}): b = ${fmtv(a1_m1, 4)}, SE = ${fmtv(rM1.se[1], 4)}, p ${fmtp(rM1.p[1])} — <strong>${a1_m1_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>`;
+        a₁-path (${xn} → ${m1n}): b = ${fmtv(a1_m1, 4)}, SE = ${fmtv(rM1.se[1], 4)}, p ${fmtp(rM1.p[1])} — <strong>${a1_m1_sig ? 'significant' : 'non-significant'}</strong><br>`;
     
     if (stage === 'first') {
-        summaryHtml += `a₃-path (${xn}×${wn} → ${m1n}): b = ${fmtv(a3_m1, 4)}, SE = ${fmtv(rM1.se[3], 4)}, p ${fmtp(rM1.p[3] || 1)} — <strong>${a3_m1_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>`;
+        summaryHtml += `a₃-path (${xn}×${wn} → ${m1n}): b = ${fmtv(a3_m1, 4)}, SE = ${fmtv(rM1.se[3], 4)}, p ${fmtp(rM1.p[3] || 1)} — <strong>${a3_m1_sig ? 'significant' : 'non-significant'}</strong><br>`;
     }
     
-    summaryHtml += `d₂₁-path (${m1n} → ${m2n}): b = ${fmtv(d21, 4)}, SE = ${fmtv(rM2?.se[2] || 0, 4)}, p ${fmtp(rM2?.p[2] || 1)} — <strong>${d21_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>
-        b₂-path (${m2n} → ${yn}): b = ${fmtv(b2, 4)}, SE = ${fmtv(rY.se[3], 4)}, p ${fmtp(rY.p[3] || 1)} — <strong>${b2_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>`;
+    summaryHtml += `d₂₁-path (${m1n} → ${m2n}): b = ${fmtv(d21, 4)}, SE = ${fmtv(rM2?.se[2] || 0, 4)}, p ${fmtp(rM2?.p[2] || 1)} — <strong>${d21_sig ? 'significant' : 'non-significant'}</strong><br>
+        b₂-path (${m2n} → ${yn}): b = ${fmtv(b2, 4)}, SE = ${fmtv(rY.se[3], 4)}, p ${fmtp(rY.p[3] || 1)} — <strong>${b2_sig ? 'significant' : 'non-significant'}</strong><br>`;
     
     if (stage === 'second' && hasM2) {
-        summaryHtml += `b₃-path (${m2n}×${wn} → ${yn}): b = ${fmtv(b2_mod, 4)}, SE = ${fmtv(rY.se[6] || 0, 4)}, p ${fmtp(b2_mod !== 0 ? (rY.p[6] || 1) : 1)} — <strong>${b2_mod_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>`;
+        summaryHtml += `b₃-path (${m2n}×${wn} → ${yn}): b = ${fmtv(b2_mod, 4)}, SE = ${fmtv(rY.se[6] || 0, 4)}, p ${fmtp(b2_mod !== 0 ? (rY.p[6] || 1) : 1)} — <strong>${b2_mod_sig ? 'significant' : 'non-significant'}</strong><br>`;
     }
     
-    summaryHtml += `Total effect (c, ${xn} → ${yn}): b = ${fmtv(totalEffect, 4)}, SE = ${fmtv(totalEffect_se, 4)}, p ${fmtp(totalEffect_p)} — <strong>${total_sig ? 'significant ✓' : 'non-significant ✗'}</strong><br>
-        Direct effect (c', ${xn} → ${yn}|M₁,M₂): b = ${fmtv(directEffect, 4)}, SE = ${fmtv(directEffect_se, 4)}, p ${fmtp(directEffect_p)} — <strong>${direct_sig ? 'significant ✓' : 'non-significant ✗'}</strong></p>
+    summaryHtml += `Total effect (c, ${xn} → ${yn}): b = ${fmtv(totalEffect, 4)}, SE = ${fmtv(totalEffect_se, 4)}, p ${fmtp(totalEffect_p)} — <strong>${total_sig ? 'significant' : 'non-significant'}</strong><br>
+        Direct effect (c', ${xn} → ${yn}|M₁,M₂): b = ${fmtv(directEffect, 4)}, SE = ${fmtv(directEffect_se, 4)}, p ${fmtp(directEffect_p)} — <strong>${direct_sig ? 'significant' : 'non-significant'}</strong></p>
         
         <p><strong>Index of Moderated Mediation (IMM):</strong><br>
-        For ${xn} → ${m1n} → ${yn}: b = ${fmtv(index_xm1y, 4)}${(nBoot > 0 && bootResults?.xm1y?.index) ? `, 95% CI [${fmtv(bootResults.xm1y.index.lo, 4)}, ${fmtv(bootResults.xm1y.index.hi, 4)}]` : ''} — <strong>${imm_xm1y_sig ? 'excludes zero (significant moderation) ✓' : 'includes zero (non-significant moderation) ✗'}</strong><br>`;
+        For ${xn} → ${m1n} → ${yn}: b = ${fmtv(index_xm1y, 4)}${(nBoot > 0 && bootResults?.xm1y?.index) ? `, 95% CI [${fmtv(bootResults.xm1y.index.lo, 4)}, ${fmtv(bootResults.xm1y.index.hi, 4)}]` : ''} — <strong>${imm_xm1y_sig ? 'significant' : 'non-significant'}</strong><br>`;
     
     if (hasM2) {
-        summaryHtml += `<strong>For ${xn} → ${m1n} → ${m2n} → ${yn}: b = ${fmtv(index_serial, 4)}${(nBoot > 0 && bootResults?.serial?.index) ? `, 95% CI [${fmtv(bootResults.serial.index.lo, 4)}, ${fmtv(bootResults.serial.index.hi, 4)}]` : ''} — <strong>${imm_serial_sig ? 'excludes zero (significant moderation) ✓' : 'includes zero (non-significant moderation) ✗'}</strong></strong><br>`;
+        summaryHtml += `<strong>For ${xn} → ${m1n} → ${m2n} → ${yn}: b = ${fmtv(index_serial, 4)}${(nBoot > 0 && bootResults?.serial?.index) ? `, 95% CI [${fmtv(bootResults.serial.index.lo, 4)}, ${fmtv(bootResults.serial.index.hi, 4)}]` : ''} — <strong>${imm_serial_sig ? 'significant' : 'non-significant'}</strong></strong><br>`;
     }
     
     summaryHtml += `</p><p><strong>Overall interpretation:</strong> ${stage === 'first' ? 'First stage' : 'Second stage'} moderated serial mediation `;
     
     if (stage === 'first') {
         if (a3_m1_sig && imm_serial_sig) {
-            summaryHtml += `<strong>is supported ✓</strong> for the serial indirect path through ${m1n} and ${m2n}. The significant a₃-path (${xn}×${wn} → ${m1n}) and IMM indicate that the indirect effect varies significantly as a function of ${wn}.`;
+            summaryHtml += `is supported. The significant a₃-path (${xn}×${wn} → ${m1n}) and IMM indicate that the indirect effect varies significantly as a function of ${wn}.`;
         } else if (a3_m1_sig) {
-            summaryHtml += `<strong>is partially supported</strong> - the a₃-path is significant but the IMM for the serial path does not exclude zero.`;
+            summaryHtml += `is partially supported - the a₃-path is significant but the IMM for the serial path is not significant.`;
         } else if (imm_serial_sig) {
-            summaryHtml += `<strong>is partially supported</strong> - the IMM excludes zero but the a₃-path is not significant.`;
+            summaryHtml += `is partially supported - the IMM is significant but the a₃-path is not significant.`;
         } else {
-            summaryHtml += `<strong>is not supported ✗</strong> for the serial indirect path through ${m1n} and ${m2n}. The index of moderated mediation is not significantly different from zero, indicating that the indirect effect does not vary significantly as a function of ${wn}.`;
+            summaryHtml += `is not supported. The index of moderated mediation is not significant, indicating that the indirect effect does not vary significantly as a function of ${wn}.`;
         }
     } else {
         if (b2_mod_sig && imm_serial_sig) {
-            summaryHtml += `<strong>is supported ✓</strong> for the serial indirect path through ${m1n} and ${m2n}. The significant b₃-path (${m2n}×${wn} → ${yn}) and IMM indicate that the indirect effect varies significantly as a function of ${wn}.`;
+            summaryHtml += `is supported. The significant b₃-path (${m2n}×${wn} → ${yn}) and IMM indicate that the indirect effect varies significantly as a function of ${wn}.`;
         } else if (b2_mod_sig) {
-            summaryHtml += `<strong>is partially supported</strong> - the b₃-path is significant but the IMM for the serial path does not exclude zero.`;
+            summaryHtml += `is partially supported - the b₃-path is significant but the IMM for the serial path is not significant.`;
         } else if (imm_serial_sig) {
-            summaryHtml += `<strong>is partially supported</strong> - the IMM excludes zero but the b₃-path is not significant.`;
+            summaryHtml += `is partially supported - the IMM is significant but the b₃-path is not significant.`;
         } else {
-            summaryHtml += `<strong>is not supported ✗</strong> for the serial indirect path through ${m1n} and ${m2n}. The index of moderated mediation is not significantly different from zero, indicating that the indirect effect does not vary significantly as a function of ${wn}.`;
+            summaryHtml += `is not supported. The index of moderated mediation is not significant, indicating that the indirect effect does not vary significantly as a function of ${wn}.`;
         }
     }
     
@@ -8432,14 +8380,14 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
     // ============================================
     // DESCRIPTIVE STATISTICS
     // ============================================
-    let descRows = `<tr><td style="font-weight:700;">${xn}</span></td><td style="text-align:right">${xRaw.length}</span></td><td style="text-align:right">${fmtv(mean(xRaw))}</span></td><td style="text-align:right">${fmtv(sd(xRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...xRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...xRaw))}</span></td>
+    let descRows = `<tr><td style="font-weight:700;">${xn}</span></td><td style="text-align:right">${xRaw.length}</span></td><td style="text-align:right">${fmtv(mean(xRaw))}</span></td><td style="text-align:right">${fmtv(sd(xRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...xRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...xRaw))}</span></tr>
     <tr><td style="font-weight:700;">${m1n}</span></td><td style="text-align:right">${m1Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m1Raw))}</span></td><td style="text-align:right">${fmtv(sd(m1Raw))}</span></td><td style="text-align:right">${fmtv(Math.min(...m1Raw))}</span></td><td style="text-align:right">${fmtv(Math.max(...m1Raw))}</span></tr>`;
     
     if (hasM2) {
-        descRows += `<tr><td style="font-weight:700;">${m2n}</span></td><td style="text-align:right">${m2Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m2Raw))}</span></td><td style="text-align:right">${fmtv(sd(m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.min(...m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.max(...m2Raw))}</span><tr>`;
+        descRows += `<tr><td style="font-weight:700;">${m2n}</span></td><td style="text-align:right">${m2Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m2Raw))}</span></td><td style="text-align:right">${fmtv(sd(m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.min(...m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.max(...m2Raw))}</span></tr>`;
     }
     
-    descRows += `<tr><td style="font-weight:700;">${wn}</span></td><td style="text-align:right">${wRaw.length}</span></td><td style="text-align:right">${fmtv(mean(wRaw))}</span></td><td style="text-align:right">${fmtv(sd(wRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...wRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...wRaw))}</span></td>
+    descRows += `<tr><td style="font-weight:700;">${wn}</span></td><td style="text-align:right">${wRaw.length}</span></td><td style="text-align:right">${fmtv(mean(wRaw))}</span></td><td style="text-align:right">${fmtv(sd(wRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...wRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...wRaw))}</span></tr>
     <tr><td style="font-weight:700;">${yn}</span></td><td style="text-align:right">${yRaw.length}</span></td><td style="text-align:right">${fmtv(mean(yRaw))}</span></td><td style="text-align:right">${fmtv(sd(yRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...yRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...yRaw))}</span></tr>`;
     
     const descHtml = `<div class="panel" style="margin-bottom:18px">
@@ -8450,19 +8398,13 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
       </table></div></div></div>`;
     
     // ============================================
-    // FINAL OUTPUT (Effects Summary BEFORE Summary)
+    // FINAL OUTPUT
+    // Order: Conditional Tables → IMM Table → Bootstrap → Effects Summary → Summary
     // ============================================
     return `${descHtml}
     <div class="panel" style="margin-bottom:18px">
       <div class="panel-header"><div class="panel-title"><i class="fas fa-project-diagram"></i> Moderated Serial Mediation Results</div></div>
       <div class="panel-body">
-        <div class="alert alert-info" style="margin-bottom:16px">
-          <i class="fas fa-info-circle"></i> 
-          <strong>Model:</strong> ${xn} → ${m1n} → ${m2n} → ${yn} &nbsp;|&nbsp;
-          <strong>Moderator:</strong> ${wn} &nbsp;|&nbsp;
-          <strong>Stage:</strong> ${stageDisplay} &nbsp;|&nbsp;
-          <strong>Bootstrap samples:</strong> ${nBoot > 0 ? nBoot.toLocaleString() : 'None'} (${bootMethod === 'bias-corrected' ? 'Bias-Corrected' : 'Percentile'} method)
-        </div>
         
         <div class="res-sub-label"><i class="fas fa-1"></i> a-Path: ${xn} → ${m1n} ${stage === 'first' ? ` (moderated by ${wn})` : ''}</div>
         ${renderReg(rM1, rM1z, m1n, confPct, stage === 'first' ? buildMat([xC, wC, xwC, ...covArrays]) : buildMat([xC, ...covArrays]), stage === 'first' ? [xn, wn, `${xn}×${wn}`, ...covNames] : [xn, ...covNames])}
@@ -8475,10 +8417,10 @@ function runModeratedSerialMediation(vars, covArrays, covNames, cl, nBoot, cente
           stage === 'second' ? (hasM2 ? buildMat([xC, m1C, m2C, wC, m1wC, m2wC, ...covArrays]) : buildMat([xC, m1C, wC, m1wC, ...covArrays])) : (hasM2 ? buildMat([xC, m1C, m2C, ...covArrays]) : buildMat([xC, m1C, ...covArrays])),
           stage === 'second' ? (hasM2 ? [xn, m1n, m2n, wn, `${m1n}×${wn}`, `${m2n}×${wn}`, ...covNames] : [xn, m1n, wn, `${m1n}×${wn}`, ...covNames]) : (hasM2 ? [xn, m1n, m2n, ...covNames] : [xn, m1n, ...covNames]))}
         
-        ${effectsSummaryHtml}
         ${conditionalHtml}
         ${indexHtml}
         ${bootHtml}
+        ${effectsSummaryHtml}
         ${summaryHtml}
       </div>
     </div>`;
