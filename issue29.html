@@ -1019,6 +1019,28 @@ body{font-family:var(--font);font-size:1rem;background:var(--bg);color:var(--tex
   box-shadow: 0 4px 12px rgba(190, 18, 60, 0.3);
 }
 
+/* Alternative fix - use fixed positioning */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 268px; /* Width of sidebar */
+  right: 0;
+  z-index: 1000;
+  background: var(--surface);
+}
+
+/* Add padding to main content to account for fixed topbar */
+.main {
+  padding-top: 62px; /* Height of topbar */
+}
+
+/* On mobile, adjust left position */
+@media (max-width: 768px) {
+  .topbar {
+    left: 0;
+  }
+}
+
 /* ============================================
    MODERATED MEDIATION ONLY 
    ============================================ */
@@ -6672,6 +6694,7 @@ if (selectedMVars.length === 0 || selectedM2Vars.length === 0) { showAlertDialog
       }
       
       displayResultsWithNavigation();
+      scrollToResults();
       
     } catch(e) {
       container.innerHTML = `<div class="alert alert-err">Error: ${e.message}</div>`;
@@ -11782,6 +11805,58 @@ function downloadDiagramPNG(){
   const blob=new Blob([svgData],{type:'image/svg+xml;charset=utf-8'}),url=URL.createObjectURL(blob);
   img.onload=()=>{const cv=document.createElement('canvas');cv.width=w;cv.height=h;const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);const a=document.createElement('a');a.href=cv.toDataURL('image/png',1);a.download=`MedModr-PathDiagram-${new Date().toISOString().slice(0,10)}.png`;a.click();URL.revokeObjectURL(url);};
   img.src=url;
+}
+
+// Auto-scroll to results after analysis completes
+function scrollToResults() {
+  // Wait for results to render
+  setTimeout(function() {
+    // Try to find the results panel or descriptive statistics section
+    const resultsPanel = document.getElementById('analysisResultsContainer');
+    const resultsNav = document.getElementById('resultsNavigation');
+    const firstResult = document.querySelector('.result-block, .panel:has(.res-sub-label:first-child)');
+    const descSection = document.querySelector('.res-sub-label:first-child, .panel:has(.res-sub-label)');
+    
+    // Find the best element to scroll to
+    let scrollTarget = null;
+    
+    if (resultsPanel && resultsPanel.children.length > 0) {
+      // Look for descriptive statistics panel first
+      const descPanel = Array.from(document.querySelectorAll('.panel')).find(panel => 
+        panel.querySelector('.panel-title') && 
+        panel.querySelector('.panel-title').textContent.includes('Descriptive Statistics')
+      );
+      
+      if (descPanel) {
+        scrollTarget = descPanel;
+      } else {
+        // Fallback to first result block or results panel
+        scrollTarget = resultsPanel;
+      }
+    }
+    
+    if (scrollTarget) {
+      // Get element position
+      const elementPosition = scrollTarget.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - 80; // 80px offset for fixed header
+      
+      // Smooth scroll to the element
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      
+      // Optional: Add a subtle highlight effect
+      scrollTarget.style.transition = 'background 0.5s ease';
+      scrollTarget.style.background = 'var(--brand-bg)';
+      setTimeout(function() {
+        scrollTarget.style.background = '';
+      }, 1000);
+    } else if (resultsPanel) {
+      // Last resort - scroll to results container
+      resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 300); // Wait 300ms for results to render
 }
 
 // ══════════════════════════════════════════════════════
