@@ -9552,6 +9552,10 @@ function bootBlock(paths, nBoot, methodLabel = 'Percentile') {
     </div>`;
 }
  
+ function closeSlopesModal() {
+    document.getElementById('slopesModal').classList.remove('open');
+}
+ 
 // buildSlopesHTML - FIXED to properly store and retrieve plot data per result
 function buildSlopesHTML(data, xn, wn, yn) {
     // Store the plot data with a unique ID for this specific result
