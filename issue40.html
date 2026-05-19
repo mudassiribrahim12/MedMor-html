@@ -8297,7 +8297,7 @@ function bootCI_serial_modmed_FirstStage(xRaw, m1Raw, m2Raw, yRaw, wRaw, nB, cl,
 }
 
 // ══════════════════════════════════════════════════════
-//  SECOND STAGE MODERATED SERIAL MEDIATION
+//  SECOND STAGE MODERATED SERIAL MEDIATION (FINAL CORRECTED)
 // ══════════════════════════════════════════════════════
 function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, nBoot, centerOption) {
     const xRaw = vars.x;
@@ -8367,7 +8367,15 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
     const m2wz = hasM2 ? centre(m2z).map((v, i) => v * centre(wz)[i]) : [];
     
     // ============================================
-    // TABLE 1: X, W, and X×W predicting M1
+    // TABLE 1: Baseline X and W with no interaction predicting M1
+    // ============================================
+    const Xmat1_base = buildMat([xC, wC, ...covArrays]);
+    const names1_base = [xn, wn, ...covNames];
+    const rM1_base = ols(m1Raw, Xmat1_base, names1_base, cl);
+    const rM1z_base = ols(m1z, buildMat([xz, wz, ...cvz]), names1_base, cl);
+    
+    // ============================================
+    // TABLE 2: X, W, and X×W predicting M1
     // ============================================
     const Xmat1 = buildMat([xC, wC, xwC, ...covArrays]);
     const names1 = [xn, wn, `${xn}×${wn}`, ...covNames];
@@ -8375,7 +8383,18 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
     const rM1z = ols(m1z, buildMat([xz, wz, xwz, ...cvz]), names1, cl);
     
     // ============================================
-    // TABLE 2: X, M1, W, and X×W predicting M2 (only X×W interaction, NOT M1×W)
+    // TABLE 3: Baseline X, M1, W with no interaction predicting M2
+    // ============================================
+    let rM2_base = null, rM2z_base = null;
+    if (hasM2) {
+        const Xmat2_base = buildMat([xC, m1C, wC, ...covArrays]);
+        const names2_base = [xn, m1n, wn, ...covNames];
+        rM2_base = ols(m2Raw, Xmat2_base, names2_base, cl);
+        rM2z_base = ols(m2z, buildMat([xz, m1z, wz, ...cvz]), names2_base, cl);
+    }
+    
+    // ============================================
+    // TABLE 4: X, M1, W, and X×W predicting M2
     // ============================================
     let rM2 = null, rM2z = null;
     if (hasM2) {
@@ -8386,7 +8405,23 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
     }
     
     // ============================================
-    // TABLE 3: X, M1, M2, W, and X×W predicting Y (only X×W interaction)
+    // TABLE 5: Baseline X, M1, M2, W with no interaction predicting Y
+    // ============================================
+    let rY_base, rYz_base;
+    if (hasM2 && rM2) {
+        const Xmat3_base = buildMat([xC, m1C, m2C, wC, ...covArrays]);
+        const names3_base = [xn, m1n, m2n, wn, ...covNames];
+        rY_base = ols(yRaw, Xmat3_base, names3_base, cl);
+        rYz_base = ols(yz, buildMat([xz, m1z, m2z, wz, ...cvz]), names3_base, cl);
+    } else {
+        const Xmat3_base = buildMat([xC, m1C, wC, ...covArrays]);
+        const names3_base = [xn, m1n, wn, ...covNames];
+        rY_base = ols(yRaw, Xmat3_base, names3_base, cl);
+        rYz_base = ols(yz, buildMat([xz, m1z, wz, ...cvz]), names3_base, cl);
+    }
+    
+    // ============================================
+    // TABLE 6: X, M1, M2, W, and X×W predicting Y
     // ============================================
     let rY, rYz;
     if (hasM2 && rM2) {
@@ -8448,28 +8483,27 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
     const totalEffect_t = rTot.t[1];
     const totalEffect_p = rTot.p[1];
     
-    // Calculate conditional indirect effects at three levels of W
-    const meanW = mean(wRaw);
-    const sdW = sd(wRaw);
-    const wLevels = [meanW - sdW, meanW, meanW + sdW];
+    // Calculate conditional indirect effects using CENTERED values ONLY
+    const meanW_centered = 0; // Always 0 after centering
+    const sdW_centered = sd(wC); // SD of centered values
+    
+    // Use centered W levels for conditional effects
+    const wLevels_centered = [meanW_centered - sdW_centered, meanW_centered, meanW_centered + sdW_centered];
     const wLabels = ['Low (−1SD)', 'Mean', 'High (+1SD)'];
     
     let bootResults = null;
-    let bootMethod = 'percentile';
     
     if (nBoot > 0) {
-        bootMethod = document.getElementById('bootMethod')?.value || 'percentile';
         bootResults = bootCI_serial_modmed_secondStage(xRaw, m1Raw, m2Raw, yRaw, wRaw, nBoot, cl, covArrays);
     }
     
-    // Calculate conditional indirect effects
+    // Calculate conditional indirect effects using CENTERED values
     let conditional_xm1y = [];
     let conditional_xm2y = [];
     let conditional_serial = [];
     
-    for (let wi = 0; wi < wLevels.length; wi++) {
-        const wVal = wLevels[wi];
-        const wCentered = wVal - meanW;
+    for (let wi = 0; wi < wLevels_centered.length; wi++) {
+        const wCentered = wLevels_centered[wi];
         const wKey = wi === 0 ? 'low' : (wi === 1 ? 'mid' : 'high');
         
         const eff1 = (a1 + a3 * wCentered) * b1;
@@ -8480,12 +8514,12 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
         const boot2 = bootResults?.xm2y?.[wKey];
         const boot3 = bootResults?.serial?.[wKey];
         
-        conditional_xm1y.push({ w: wVal, label: wLabels[wi], effect: eff1, boot: boot1 });
-        conditional_xm2y.push({ w: wVal, label: wLabels[wi], effect: eff2, boot: boot2 });
-        conditional_serial.push({ w: wVal, label: wLabels[wi], effect: eff3, boot: boot3 });
+        conditional_xm1y.push({ w: wCentered + mean(wRaw), label: wLabels[wi], effect: eff1, boot: boot1 });
+        conditional_xm2y.push({ w: wCentered + mean(wRaw), label: wLabels[wi], effect: eff2, boot: boot2 });
+        conditional_serial.push({ w: wCentered + mean(wRaw), label: wLabels[wi], effect: eff3, boot: boot3 });
     }
     
-// Index of Moderated Mediation
+    // Index of Moderated Mediation
     const index_xm1y = a3 * b1;
     const index_xm1y_std = a3_std * b1_std;
     const index_xm2y = a3 * b2;
@@ -8496,38 +8530,36 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
         index_serial_std = a3_std * d21_std * b2_std;
     }
     
-    // ============================================
-    // Helper function to generate conditional table rows
-    // ============================================
-   function generateCondRows(data, hasBoot) {
-    return data.map(i => {
-        const boot = i.boot;
-        const hasCI = hasBoot && boot && boot.lo !== undefined && boot.hi !== undefined;
-        const sig = hasCI && (boot.lo > 0 || boot.hi < 0);
-        
-        return `<tr>
-            <td style="font-weight:600">${i.label} (${fmtv(i.w, 4)})</td>
-            <td style="text-align:right">${fmtv(i.effect, 4)}</td>
-            <td style="text-align:right">${hasCI ? fmtv(boot.se, 4) : '—'}</td>
-            <td style="text-align:right">${hasCI ? fmtv(boot.lo, 4) : '—'}</td>
-            <td style="text-align:right">${hasCI ? fmtv(boot.hi, 4) : '—'}</td>
-            <td style="text-align:center">${hasCI ? (sig ? '<span style="color:var(--emerald);font-weight:800">✓</span>' : '<span style="color:var(--text-4)">✗</span>') : '—'}</td>
-        </tr>`;
-    }).join('');
-}
-    
-    // ============================================
-    // DESCRIPTIVE STATISTICS
-    // ============================================
-    let descRows = `<tr><td style="font-weight:700;">${xn}</span></td><td style="text-align:right">${xRaw.length}</span></td><td style="text-align:right">${fmtv(mean(xRaw))}</span></td><td style="text-align:right">${fmtv(sd(xRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...xRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...xRaw))}</span></tr>
-    <tr><td style="font-weight:700;">${m1n}</span></td><td style="text-align:right">${m1Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m1Raw))}</span></td><td style="text-align:right">${fmtv(sd(m1Raw))}</span></td><td style="text-align:right">${fmtv(Math.min(...m1Raw))}</span></td><td style="text-align:right">${fmtv(Math.max(...m1Raw))}</span></tr>`;
-    
-    if (hasM2) {
-        descRows += `<tr><td style="font-weight:700;">${m2n}</span></td><td style="text-align:right">${m2Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m2Raw))}</span></td><td style="text-align:right">${fmtv(sd(m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.min(...m2Raw))}</span></td><td style="text-align:right">${fmtv(Math.max(...m2Raw))}</span></tr>`;
+    // Helper function to generate conditional table rows (3dp for values)
+    function generateCondRows(data, hasBoot) {
+        return data.map(i => {
+            const boot = i.boot;
+            const hasCI = hasBoot && boot && boot.lo !== undefined && boot.hi !== undefined;
+            const sig = hasCI && (boot.lo > 0 || boot.hi < 0);
+            
+            return `<tr>
+                <td style="font-weight:600">${i.label} (${fmtv(i.w, 3)})</td>
+                <td style="text-align:right">${fmtv(i.effect, 3)}</td>
+                <td style="text-align:right">${hasCI ? fmtv(boot.se, 3) : '—'}</td>
+                <td style="text-align:right">${hasCI ? fmtv(boot.lo, 3) : '—'}</td>
+                <td style="text-align:right">${hasCI ? fmtv(boot.hi, 3) : '—'}</td>
+                <td style="text-align:center">${hasCI ? (sig ? '<span style="color:var(--emerald);font-weight:800">✓</span>' : '<span style="color:var(--text-4)">✗</span>') : '—'}</td>
+            </tr>`;
+        }).join('');
     }
     
-    descRows += `<tr><td style="font-weight:700;">${wn}</span></td><td style="text-align:right">${wRaw.length}</span></td><td style="text-align:right">${fmtv(mean(wRaw))}</span></td><td style="text-align:right">${fmtv(sd(wRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...wRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...wRaw))}</span></tr>
-    <tr><td style="font-weight:700;">${yn}</span></td><td style="text-align:right">${yRaw.length}</span></td><td style="text-align:right">${fmtv(mean(yRaw))}</span></td><td style="text-align:right">${fmtv(sd(yRaw))}</span></td><td style="text-align:right">${fmtv(Math.min(...yRaw))}</span></td><td style="text-align:right">${fmtv(Math.max(...yRaw))}</span></tr>`;
+    // ============================================
+    // DESCRIPTIVE STATISTICS (3dp)
+    // ============================================
+    let descRows = `<tr><td style="font-weight:700;">${xn}</span></td><td style="text-align:right">${xRaw.length}</span></td><td style="text-align:right">${fmtv(mean(xRaw), 3)}</span></td><td style="text-align:right">${fmtv(sd(xRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.min(...xRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.max(...xRaw), 3)}</span></td></tr>
+    <tr><td style="font-weight:700;">${m1n}</span></td><td style="text-align:right">${m1Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m1Raw), 3)}</span></td><td style="text-align:right">${fmtv(sd(m1Raw), 3)}</span></td><td style="text-align:right">${fmtv(Math.min(...m1Raw), 3)}</span></td><td style="text-align:right">${fmtv(Math.max(...m1Raw), 3)}</span></td></tr>`;
+    
+    if (hasM2) {
+        descRows += `<tr><td style="font-weight:700;">${m2n}</span></td><td style="text-align:right">${m2Raw.length}</span></td><td style="text-align:right">${fmtv(mean(m2Raw), 3)}</span></td><td style="text-align:right">${fmtv(sd(m2Raw), 3)}</span></td><td style="text-align:right">${fmtv(Math.min(...m2Raw), 3)}</span></td><td style="text-align:right">${fmtv(Math.max(...m2Raw), 3)}</span></td></tr>`;
+    }
+    
+    descRows += `<tr><td style="font-weight:700;">${wn}</span></td><td style="text-align:right">${wRaw.length}</span></td><td style="text-align:right">${fmtv(mean(wRaw), 3)}</span></td><td style="text-align:right">${fmtv(sd(wRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.min(...wRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.max(...wRaw), 3)}</span></td></tr>
+    <tr><td style="font-weight:700;">${yn}</span></td><td style="text-align:right">${yRaw.length}</span></td><td style="text-align:right">${fmtv(mean(yRaw), 3)}</span></td><td style="text-align:right">${fmtv(sd(yRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.min(...yRaw), 3)}</span></td><td style="text-align:right">${fmtv(Math.max(...yRaw), 3)}</span></td></tr>`;
     
     const descHtml = `<div class="panel" style="margin-bottom:18px">
         <div class="panel-header"><div class="panel-title"><i class="fas fa-table"></i> Descriptive Statistics</div></div>
@@ -8545,28 +8577,46 @@ function runModeratedSerialMediation_SecondStage(vars, covArrays, covNames, cl, 
         <div class="panel-header"><div class="panel-title"><i class="fas fa-project-diagram"></i> Moderated Serial Mediation Results (Second Stage: X×W → Y)</div></div>
         <div class="panel-body">`;
     
-    // (1) TABLE 1: X, W, X×W → M1
-    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 1: ${m1n} predicted by ${xn}, ${wn}, and ${xn}×${wn}</div>`;
+    // TABLE 1: Baseline X and W predicting M1 (no interaction)
+    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 1: ${m1n} predicted by ${xn} and ${wn} (No Interaction)</div>`;
+    output += renderReg(rM1_base, rM1z_base, m1n, confPct, Xmat1_base, names1_base);
+    
+    // TABLE 2: X, W, X×W → M1
+    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 2: ${m1n} predicted by ${xn}, ${wn}, and ${xn}×${wn}</div>`;
     output += renderReg(rM1, rM1z, m1n, confPct, Xmat1, names1);
     
-    // (2) TABLE 2: X, M1, W, X×W → M2
-    if (hasM2 && rM2) {
-        output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 2: ${m2n} predicted by ${xn}, ${m1n}, ${wn}, and ${xn}×${wn}</div>`;
-        output += renderReg(rM2, rM2z, m2n, confPct, buildMat([xC, m1C, wC, xwC, ...covArrays]), [xn, m1n, wn, `${xn}×${wn}`, ...covNames]);
-    } else {
-        output += `<div class="alert alert-warn">No second mediator (M₂) selected. Table 2 skipped.</div>`;
+    // TABLE 3: Baseline X, M1, W predicting M2 (no interaction)
+    if (hasM2 && rM2_base) {
+        output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 3: ${m2n} predicted by ${xn}, ${m1n}, and ${wn} (No Interaction)</div>`;
+        output += renderReg(rM2_base, rM2z_base, m2n, confPct, buildMat([xC, m1C, wC, ...covArrays]), [xn, m1n, wn, ...covNames]);
+    } else if (hasM2) {
+        output += `<div class="alert alert-warn">No second mediator (M₂) selected. Table 3 skipped.</div>`;
     }
     
-    // (3) TABLE 3: X, M1, M2, W, X×W → Y
-    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 3: ${yn} predicted by ${xn}, ${m1n}, ${hasM2 ? m2n + ', ' : ''}${wn}, and ${xn}×${wn}</div>`;
+    // TABLE 4: X, M1, W, X×W → M2
+    if (hasM2 && rM2) {
+        output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 4: ${m2n} predicted by ${xn}, ${m1n}, ${wn}, and ${xn}×${wn}</div>`;
+        output += renderReg(rM2, rM2z, m2n, confPct, buildMat([xC, m1C, wC, xwC, ...covArrays]), [xn, m1n, wn, `${xn}×${wn}`, ...covNames]);
+    }
+    
+    // TABLE 5: Baseline X, M1, M2, W predicting Y (no interaction)
+    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 5: ${yn} predicted by ${xn}, ${m1n}, ${hasM2 ? m2n + ', ' : ''}and ${wn} (No Interaction)</div>`;
+    if (hasM2 && rM2) {
+        output += renderReg(rY_base, rYz_base, yn, confPct, buildMat([xC, m1C, m2C, wC, ...covArrays]), [xn, m1n, m2n, wn, ...covNames]);
+    } else {
+        output += renderReg(rY_base, rYz_base, yn, confPct, buildMat([xC, m1C, wC, ...covArrays]), [xn, m1n, wn, ...covNames]);
+    }
+    
+    // TABLE 6: X, M1, M2, W, X×W → Y
+    output += `<div class="res-sub-label"><i class="fas fa-table"></i> Table 6: ${yn} predicted by ${xn}, ${m1n}, ${hasM2 ? m2n + ', ' : ''}${wn}, and ${xn}×${wn}</div>`;
     if (hasM2 && rM2) {
         output += renderReg(rY, rYz, yn, confPct, buildMat([xC, m1C, m2C, wC, xwC, ...covArrays]), [xn, m1n, m2n, wn, `${xn}×${wn}`, ...covNames]);
     } else {
         output += renderReg(rY, rYz, yn, confPct, buildMat([xC, m1C, wC, xwC, ...covArrays]), [xn, m1n, wn, `${xn}×${wn}`, ...covNames]);
     }
     
-    // (4) CONDITIONAL INDIRECT EFFECTS
-output += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditional Indirect Effect: ${xn} → ${m1n} → ${yn}</div>`;
+    // CONDITIONAL INDIRECT EFFECTS (using centered values)
+    output += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditional Indirect Effect: ${xn} → ${m1n} → ${yn}</div>`;
     output += `<div class="res-table-wrap"><table class="res-table"><thead>`
         + `<tr><th>Moderator ${wn} Level</th><th>Effect</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig</th></tr>`
         + `</thead><tbody>${generateCondRows(conditional_xm1y, nBoot > 0)}</tbody></table></div>`;
@@ -8581,37 +8631,37 @@ output += `<div class="res-sub-label"><i class="fas fa-chart-line"></i> Conditio
         + `<tr><th>Moderator ${wn} Level</th><th>Effect</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig</th></tr>`
         + `</thead><tbody>${generateCondRows(conditional_serial, nBoot > 0)}</tbody></table></div>`;
     
-    // (5) INDEX OF MODERATED MEDIATION (IMM)
-let immRows = `<tr>
+    // INDEX OF MODERATED MEDIATION (IMM) - ONLY THIS TABLE, NO BOOTSTRAP PERCENTILE CI TABLE
+    let immRows = `<tr>
         <td style="font-weight:600">${xn} → ${m1n} → ${yn}</td>
-        <td style="text-align:right">${fmtv(index_xm1y, 4)}</td>
-        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.se, 4) : '—'}</td>
-        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.lo, 4) : '—'}</td>
-        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.hi, 4) : '—'}</td>
+        <td style="text-align:right">${fmtv(index_xm1y, 3)}</td>
+        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.se, 3) : '—'}</td>
+        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.lo, 3) : '—'}</td>
+        <td style="text-align:right">${(nBoot > 0 && bootResults?.xm1y?.index) ? fmtv(bootResults.xm1y.index.hi, 3) : '—'}</td>
         <td style="text-align:center">${(nBoot > 0 && bootResults?.xm1y?.index) ? (bootResults.xm1y.index.lo > 0 || bootResults.xm1y.index.hi < 0 ? '✓' : '✗') : '—'}</td>
-        <td class="col-divider td-std" style="text-align:right">${fmtv(index_xm1y_std, 4)}</td>
+        <td class="col-divider td-std" style="text-align:right">${fmtv(index_xm1y_std, 3)}</td>
     </tr>`;
 
     if (hasM2) {
         immRows += `<tr>
             <td style="font-weight:600">${xn} → ${m2n} → ${yn}</td>
-            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.effect, 4) : '—'}</td>
-            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.se, 4) : '—'}</td>
-            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.lo, 4) : '—'}</td>
-            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.hi, 4) : '—'}</td>
+            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.effect, 3) : fmtv(index_xm2y, 3)}</td>
+            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.se, 3) : '—'}</td>
+            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.lo, 3) : '—'}</td>
+            <td style="text-align:right">${(nBoot > 0 && bootResults?.xm2y?.index) ? fmtv(bootResults.xm2y.index.hi, 3) : '—'}</td>
             <td style="text-align:center">${(nBoot > 0 && bootResults?.xm2y?.index) ? (bootResults.xm2y.index.lo > 0 || bootResults.xm2y.index.hi < 0 ? '✓' : '✗') : '—'}</td>
-            <td class="col-divider td-std" style="text-align:right">${fmtv(index_xm2y_std, 4)}</td>
+            <td class="col-divider td-std" style="text-align:right">${fmtv(index_xm2y_std, 3)}</td>
         </tr>`;
 
         if (index_serial !== null) {
             immRows += `<tr class="row-bold">
                 <td style="font-weight:800">${xn} → ${m1n} → ${m2n} → ${yn}</td>
-                <td style="text-align:right">${fmtv(index_serial, 4)}</td>
-                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.se, 4) : '—'}</td>
-                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.lo, 4) : '—'}</td>
-                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.hi, 4) : '—'}</td>
+                <td style="text-align:right">${fmtv(index_serial, 3)}</td>
+                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.se, 3) : '—'}</td>
+                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.lo, 3) : '—'}</td>
+                <td style="text-align:right">${(nBoot > 0 && bootResults?.serial?.index) ? fmtv(bootResults.serial.index.hi, 3) : '—'}</td>
                 <td style="text-align:center">${(nBoot > 0 && bootResults?.serial?.index) ? (bootResults.serial.index.lo > 0 || bootResults.serial.index.hi < 0 ? '✓' : '✗') : '—'}</td>
-                <td class="col-divider td-std" style="text-align:right">${fmtv(index_serial_std, 4)}</td>
+                <td class="col-divider td-std" style="text-align:right">${fmtv(index_serial_std, 3)}</td>
             </tr>`;
         }
     }
@@ -8620,59 +8670,8 @@ let immRows = `<tr>
     output += `<div class="res-table-wrap"><table class="res-table"><thead>`
         + `<tr><th>Path</th><th>Effect</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig</th><th class="col-divider">β</th></tr>`
         + `</thead><tbody>${immRows}</tbody></table></div>`;
-        
-    // (6) BOOTSTRAP PERCENTILE CI SECTION
- if (nBoot > 0 && bootResults) {
-        let bootRows = '';
-        if (bootResults.xm1y?.index) {
-            const idx = bootResults.xm1y.index;
-            bootRows += `<tr>
-                <td style="text-align:left">${xn} → ${m1n} → ${yn} (IMM)</td>
-                <td style="text-align:right">${fmtv(idx.effect, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.se, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.lo, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.hi, 4)}</td>
-                <td style="text-align:center">${idx.lo > 0 || idx.hi < 0 ? '✓ Yes' : '✗ No'}</td>
-            </tr>`;
-        }
-        if (hasM2 && bootResults.xm2y?.index) {
-            const idx = bootResults.xm2y.index;
-            bootRows += `<tr>
-                <td style="text-align:left">${xn} → ${m2n} → ${yn} (IMM)</td>
-                <td style="text-align:right">${fmtv(idx.effect, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.se, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.lo, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.hi, 4)}</td>
-                <td style="text-align:center">${idx.lo > 0 || idx.hi < 0 ? '✓ Yes' : '✗ No'}</td>
-            </tr>`;
-        }
-        if (hasM2 && bootResults.serial?.index) {
-            const idx = bootResults.serial.index;
-            bootRows += `<tr class="row-bold">
-                <td style="text-align:left">${xn} → ${m1n} → ${m2n} → ${yn} (IMM)</td>
-                <td style="text-align:right">${fmtv(idx.effect, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.se, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.lo, 4)}</td>
-                <td style="text-align:right">${fmtv(idx.hi, 4)}</td>
-                <td style="text-align:center">${idx.lo > 0 || idx.hi < 0 ? '✓ Yes' : '✗ No'}</td>
-            </tr>`;
-        }
-
-        if (bootRows) {
-            output += `<div style="margin-top:12px;padding:14px 18px;background:var(--emerald-bg);border:1.5px solid var(--emerald-border);border-radius:var(--r-md)">
-                <div style="font-size:.72rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--emerald);margin-bottom:10px">
-                    <i class="fas fa-random"></i> Bootstrap ${bootMethod === 'bias-corrected' ? 'BC' : 'Percentile'} CI (${nBoot.toLocaleString()} samples)
-                </div>
-                <div class="res-table-wrap"><table class="res-table">
-                    <thead><tr><th>Index of Moderated Mediation</th><th>Estimate</th><th>BootSE</th><th>BootLLCI (${confPct})</th><th>BootULCI (${confPct})</th><th>Sig?</th></tr></thead>
-                    <tbody>${bootRows}</tbody>
-                </table></div>
-                <div style="font-size:.74rem;color:var(--text-4);margin-top:8px">Moderated mediation is supported when the IMM CI excludes zero.</div>
-            </div>`;
-        }
-    }
     
-    // (7) EFFECTS SUMMARY
+    // EFFECTS SUMMARY (3dp)
     const sigStarFn = (p) => p < 0.001 ? '***' : (p < 0.01 ? '**' : (p < 0.05 ? '*' : ''));
     const total_sig = totalEffect_p < (1 - cl);
     const direct_sig = rY.p[1] < (1 - cl);
@@ -8686,53 +8685,53 @@ let immRows = `<tr>
             <thead><tr><th>Effect</th><th>b</th><th>SE</th><th>t</th><th>p</th><th>LLCI (${confPct})</th><th>ULCI (${confPct})</th></tr></thead>
             <tbody>
                 <tr><td style="font-weight:600">Total effect (c, ${xn} → ${yn})</span></td>
-                    <td style="text-align:right">${fmtv(totalEffect, 4)}</span></td>
-                    <td style="text-align:right">${fmtv(totalEffect_se, 4)}</span></td>
-                    <td style="text-align:right">${fmtv(totalEffect_t, 4)}</span></td>
+                    <td style="text-align:right">${fmtv(totalEffect, 3)}</span></td>
+                    <td style="text-align:right">${fmtv(totalEffect_se, 3)}</span></td>
+                    <td style="text-align:right">${fmtv(totalEffect_t, 3)}</span></td>
                     <td style="text-align:right">${fmtp(totalEffect_p)}${sigStarFn(totalEffect_p)}</span> <span style="color:var(--emerald);font-weight:800">${total_sig ? '✓' : ''}</span></span></td>
-                    <td style="text-align:right">${fmtv(rTot.cilo[1], 4)}</span></td>
-                    <td style="text-align:right">${fmtv(rTot.cihi[1], 4)}</span></td>
+                    <td style="text-align:right">${fmtv(rTot.cilo[1], 3)}</span></td>
+                    <td style="text-align:right">${fmtv(rTot.cihi[1], 3)}</span></td>
                 </tr>
                 <tr><td style="font-weight:600">Direct effect (c', ${xn} → ${yn}|M₁,M₂)</span></td>
-                    <td style="text-align:right">${fmtv(cp, 4)}</span></td>
-                    <td style="text-align:right">${fmtv(rY.se[1], 4)}</span></td>
-                    <td style="text-align:right">${fmtv(rY.t[1], 4)}</span></td>
+                    <td style="text-align:right">${fmtv(cp, 3)}</span></td>
+                    <td style="text-align:right">${fmtv(rY.se[1], 3)}</span></td>
+                    <td style="text-align:right">${fmtv(rY.t[1], 3)}</span></td>
                     <td style="text-align:right">${fmtp(rY.p[1])}${sigStarFn(rY.p[1])}</span> <span style="color:var(--emerald);font-weight:800">${direct_sig ? '✓' : ''}</span></span></td>
-                    <td style="text-align:right">${fmtv(rY.cilo[1], 4)}</span></td>
-                    <td style="text-align:right">${fmtv(rY.cihi[1], 4)}</span></td>
+                    <td style="text-align:right">${fmtv(rY.cilo[1], 3)}</span></td>
+                    <td style="text-align:right">${fmtv(rY.cihi[1], 3)}</span></td>
                 </tr>
                 <tr class="row-bold">
                     <td style="font-weight:700">Indirect ${xn} → ${m1n} → ${yn} (at Mean W)</span></td>
-                    <td style="text-align:right">${fmtv(mean_xm1y?.effect, 4)}</span></td>
-                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.se, 4) : '—'}</span></td>
+                    <td style="text-align:right">${fmtv(mean_xm1y?.effect, 3)}</span></td>
+                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.se, 3) : '—'}</span></td>
                     <td style="text-align:right">—</span></td>
                     <td style="text-align:right">${mean_xm1y?.boot ? (mean_xm1y.boot.lo > 0 || mean_xm1y.boot.hi < 0 ? '<.05' : '>.05') : '—'}</span> <span style="color:var(--emerald);font-weight:800">${(mean_xm1y?.boot && (mean_xm1y.boot.lo > 0 || mean_xm1y.boot.hi < 0)) ? '✓' : ''}</span></span></td>
-                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.lo, 4) : '—'}</span></td>
-                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.hi, 4) : '—'}</span></td>
+                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.lo, 3) : '—'}</span></td>
+                    <td style="text-align:right">${mean_xm1y?.boot ? fmtv(mean_xm1y.boot.hi, 3) : '—'}</span></td>
                 </tr>
                 <tr class="row-bold">
                     <td style="font-weight:700">Indirect ${xn} → ${m2n} → ${yn} (at Mean W)</span></td>
-                    <td style="text-align:right">${fmtv(mean_xm2y?.effect, 4)}</span></td>
-                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.se, 4) : '—'}</span></td>
+                    <td style="text-align:right">${fmtv(mean_xm2y?.effect, 3)}</span></td>
+                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.se, 3) : '—'}</span></td>
                     <td style="text-align:right">—</span></td>
                     <td style="text-align:right">${mean_xm2y?.boot ? (mean_xm2y.boot.lo > 0 || mean_xm2y.boot.hi < 0 ? '<.05' : '>.05') : '—'}</span> <span style="color:var(--emerald);font-weight:800">${(mean_xm2y?.boot && (mean_xm2y.boot.lo > 0 || mean_xm2y.boot.hi < 0)) ? '✓' : ''}</span></span></td>
-                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.lo, 4) : '—'}</span></td>
-                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.hi, 4) : '—'}</span></td>
+                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.lo, 3) : '—'}</span></td>
+                    <td style="text-align:right">${mean_xm2y?.boot ? fmtv(mean_xm2y.boot.hi, 3) : '—'}</span></td>
                 </tr>
                 <tr class="row-bold">
                     <td style="font-weight:700">Indirect ${xn} → ${m1n} → ${m2n} → ${yn} (at Mean W)</span></td>
-                    <td style="text-align:right">${fmtv(mean_serial?.effect, 4)}</span></td>
-                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.se, 4) : '—'}</span></td>
+                    <td style="text-align:right">${fmtv(mean_serial?.effect, 3)}</span></td>
+                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.se, 3) : '—'}</span></td>
                     <td style="text-align:right">—</span></td>
                     <td style="text-align:right">${mean_serial?.boot ? (mean_serial.boot.lo > 0 || mean_serial.boot.hi < 0 ? '<.05' : '>.05') : '—'}</span> <span style="color:var(--emerald);font-weight:800">${(mean_serial?.boot && (mean_serial.boot.lo > 0 || mean_serial.boot.hi < 0)) ? '✓' : ''}</span></span></td>
-                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.lo, 4) : '—'}</span></td>
-                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.hi, 4) : '—'}</span></td>
+                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.lo, 3) : '—'}</span></td>
+                    <td style="text-align:right">${mean_serial?.boot ? fmtv(mean_serial.boot.hi, 3) : '—'}</span></td>
                 </tr>
             </tbody>
         </table></div>
     </div>`;
     
-    // (8) SUMMARY
+    // SUMMARY (3dp)
     const imm_xm1y_sig = (nBoot > 0 && bootResults?.xm1y?.index) ? (bootResults.xm1y.index.lo > 0 || bootResults.xm1y.index.hi < 0) : (Math.abs(index_xm1y) > 0.001);
     const imm_serial_sig = hasM2 && ((nBoot > 0 && bootResults?.serial?.index) ? (bootResults.serial.index.lo > 0 || bootResults.serial.index.hi < 0) : (Math.abs(index_serial) > 0.001));
     const a3_sig = a3_p < (1 - cl);
@@ -8745,18 +8744,18 @@ let immRows = `<tr>
             <p><strong>Moderation Stage:</strong> Second Stage (X×W → Y only)</p>
             
             <p><strong>Path coefficients:</strong><br>
-            a₁-path (${xn} → ${m1n}): b = ${fmtv(a1, 4)}, SE = ${fmtv(a1_se, 4)}, p ${fmtp(a1_p)} — <strong>${a1_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
-            a₃-path (${xn}×${wn} → ${m1n}): b = ${fmtv(a3, 4)}, SE = ${fmtv(a3_se, 4)}, p ${fmtp(a3_p)} — <strong>${a3_sig ? 'significant' : 'non-significant'}</strong><br>
-            d₂₁-path (${m1n} → ${m2n}): b = ${fmtv(d21, 4)}, SE = ${fmtv(d21_se, 4)}, p ${fmtp(d21_p)} — <strong>${d21_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
-            b₂-path (${m2n} → ${yn}): b = ${fmtv(b2, 4)}, SE = ${fmtv(b2_se, 4)}, p ${fmtp(b2_p)} — <strong>${b2_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
-            Total effect (c, ${xn} → ${yn}): b = ${fmtv(totalEffect, 4)}, SE = ${fmtv(totalEffect_se, 4)}, p ${fmtp(totalEffect_p)} — <strong>${total_sig ? 'significant' : 'non-significant'}</strong><br>
-            Direct effect (c', ${xn} → ${yn}|M₁,M₂): b = ${fmtv(cp, 4)}, SE = ${fmtv(rY.se[1], 4)}, p ${fmtp(rY.p[1])} — <strong>${direct_sig ? 'significant' : 'non-significant'}</strong></p>
+            a₁-path (${xn} → ${m1n}): b = ${fmtv(a1, 3)}, SE = ${fmtv(a1_se, 3)}, p ${fmtp(a1_p)} — <strong>${a1_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
+            a₃-path (${xn}×${wn} → ${m1n}): b = ${fmtv(a3, 3)}, SE = ${fmtv(a3_se, 3)}, p ${fmtp(a3_p)} — <strong>${a3_sig ? 'significant' : 'non-significant'}</strong><br>
+            d₂₁-path (${m1n} → ${m2n}): b = ${fmtv(d21, 3)}, SE = ${fmtv(d21_se, 3)}, p ${fmtp(d21_p)} — <strong>${d21_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
+            b₂-path (${m2n} → ${yn}): b = ${fmtv(b2, 3)}, SE = ${fmtv(b2_se, 3)}, p ${fmtp(b2_p)} — <strong>${b2_p < (1 - cl) ? 'significant' : 'non-significant'}</strong><br>
+            Total effect (c, ${xn} → ${yn}): b = ${fmtv(totalEffect, 3)}, SE = ${fmtv(totalEffect_se, 3)}, p ${fmtp(totalEffect_p)} — <strong>${total_sig ? 'significant' : 'non-significant'}</strong><br>
+            Direct effect (c', ${xn} → ${yn}|M₁,M₂): b = ${fmtv(cp, 3)}, SE = ${fmtv(rY.se[1], 3)}, p ${fmtp(rY.p[1])} — <strong>${direct_sig ? 'significant' : 'non-significant'}</strong></p>
             
             <p><strong>Index of Moderated Mediation (IMM):</strong><br>
-            For ${xn} → ${m1n} → ${yn}: b = ${fmtv(index_xm1y, 4)}${(nBoot > 0 && bootResults?.xm1y?.index) ? `, 95% CI [${fmtv(bootResults.xm1y.index.lo, 4)}, ${fmtv(bootResults.xm1y.index.hi, 4)}]` : ''} — <strong>${imm_xm1y_sig ? 'significant' : 'non-significant'}</strong><br>`;
+            For ${xn} → ${m1n} → ${yn}: b = ${fmtv(index_xm1y, 3)}${(nBoot > 0 && bootResults?.xm1y?.index) ? `, 95% CI [${fmtv(bootResults.xm1y.index.lo, 3)}, ${fmtv(bootResults.xm1y.index.hi, 3)}]` : ''} — <strong>${imm_xm1y_sig ? 'significant' : 'non-significant'}</strong><br>`;
     
     if (hasM2) {
-        output += `<strong>For ${xn} → ${m1n} → ${m2n} → ${yn}: b = ${fmtv(index_serial, 4)}${(nBoot > 0 && bootResults?.serial?.index) ? `, 95% CI [${fmtv(bootResults.serial.index.lo, 4)}, ${fmtv(bootResults.serial.index.hi, 4)}]` : ''} — <strong>${imm_serial_sig ? 'significant' : 'non-significant'}</strong></strong><br>`;
+        output += `<strong>For ${xn} → ${m1n} → ${m2n} → ${yn}: b = ${fmtv(index_serial, 3)}${(nBoot > 0 && bootResults?.serial?.index) ? `, 95% CI [${fmtv(bootResults.serial.index.lo, 3)}, ${fmtv(bootResults.serial.index.hi, 3)}]` : ''} — <strong>${imm_serial_sig ? 'significant' : 'non-significant'}</strong></strong><br>`;
     }
     
     output += `</p><p><strong>Overall interpretation:</strong> Second stage moderated serial mediation `;
